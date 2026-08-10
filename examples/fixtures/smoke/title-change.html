@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Smoke - Title Pending</title>
+    <link rel="stylesheet" href="assets/smoke.css" />
+    <script>
+      (function () {
+        function markTitleChanged() {
+          var changedTitle = "Servokit Smoke - Title Changed";
+          document.title = changedTitle;
+          var status = document.getElementById("title-state");
+          if (status) {
+            status.textContent = "Title changed to: " + changedTitle;
+          }
+        }
+
+        function scheduleTitleChange() {
+          window.setTimeout(markTitleChanged, 250);
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", scheduleTitleChange, { once: true });
+        } else {
+          scheduleTitleChange();
+        }
+      })();
+    </script>
+  </head>
+  <body data-fixture="servokit-smoke-title-change">
+    <main>
+      <header>
+        <p class="eyebrow">Title change smoke fixture</p>
+        <h1>Title change</h1>
+        <p>
+          The initial document title is <code>Servokit Smoke - Title Pending</code>.
+          It changes shortly after load so hosts can verify title events without
+          relying on framework-specific APIs.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>Expected result</h2>
+        <p id="title-state" class="status" aria-live="polite">Waiting for title change…</p>
+        <p>
+          Host examples should observe the title update to
+          <code>Servokit Smoke - Title Changed</code> and keep the page visible.
+        </p>
+      </section>
+
+      <nav class="fixture-nav" aria-label="Fixture navigation">
+        <a class="fixture-link" href="index.html">Back to index</a>
+        <a class="fixture-link" href="history-start.html">Next: links/history</a>
+      </nav>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Control Fixture - Dialogs</title>
+    <link rel="stylesheet" href="../smoke/assets/smoke.css" />
+    <style>
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .result {
+        margin-top: 18px;
+        border-left: 4px solid #38bdf8;
+        border-radius: 10px;
+        padding: 12px 14px;
+        background: rgba(14, 165, 233, 0.16);
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body data-fixture="servokit-control-dialogs">
+    <main>
+      <header>
+        <p class="eyebrow">Embedder-control fixture</p>
+        <h1>JavaScript dialogs</h1>
+        <p>
+          Use these buttons to trigger <code>alert()</code>, <code>confirm()</code>,
+          and <code>prompt()</code>. A host with dialog support should present a
+          native or host-owned dialog and resolve the JavaScript call.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="dialog-actions-heading">
+        <h2 id="dialog-actions-heading">Dialog triggers</h2>
+        <div class="actions">
+          <button id="alert-button" type="button">Trigger alert</button>
+          <button id="confirm-button" type="button">Trigger confirm</button>
+          <button id="prompt-button" type="button">Trigger prompt</button>
+        </div>
+        <pre id="output" class="result">Dialog result will appear here.</pre>
+      </section>
+
+      <footer>
+        Expected host result: the host receives and resolves the dialog request;
+        this page updates the result text and title after the dialog returns.
+      </footer>
+    </main>
+
+    <script>
+      const output = document.getElementById("output");
+
+      function updateOutput(message) {
+        output.textContent = message;
+        document.title = `Dialog fixture: ${message}`;
+      }
+
+      document.getElementById("alert-button").addEventListener("click", () => {
+        window.alert("Servokit dialog fixture alert.");
+        updateOutput("Alert completed");
+      });
+
+      document.getElementById("confirm-button").addEventListener("click", () => {
+        const confirmed = window.confirm("Confirm this Servokit fixture request?");
+        updateOutput(confirmed ? "Confirm accepted" : "Confirm cancelled");
+      });
+
+      document.getElementById("prompt-button").addEventListener("click", () => {
+        const response = window.prompt("Enter a fixture response", "Servo");
+        updateOutput(response === null ? "Prompt cancelled" : `Prompt returned: ${response}`);
+      });
+    </script>
+  </body>
+</html>

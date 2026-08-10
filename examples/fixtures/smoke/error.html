@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Smoke - Expected Errors</title>
+    <link rel="stylesheet" href="assets/smoke.css" />
+  </head>
+  <body data-fixture="servokit-smoke-errors">
+    <main>
+      <header>
+        <p class="eyebrow">Error smoke fixture</p>
+        <h1>Expected errors</h1>
+        <p>
+          These links intentionally target resources that should not load
+          successfully. Use them to verify host error or failed-load reporting
+          without crashing the webview.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>Error targets</h2>
+        <p class="status warning">
+          Expected host signal: the host reports a navigation/load error or a
+          non-success load status, and the app remains responsive.
+        </p>
+        <nav class="fixture-nav" aria-label="Expected error targets">
+          <a id="expected-network-error-link" class="fixture-link danger" href="http://127.0.0.1:9/servokit-smoke-expected-error">Unreachable loopback port</a>
+          <a id="expected-404-link" class="fixture-link danger" href="missing-expected-error.html">Missing fixture page</a>
+        </nav>
+        <p>
+          The loopback-port link is meant for HTTP-capable hosts. The missing-page
+          link should produce a 404 response when served by the shared fixture
+          server; file-based hosts may surface it as a missing file navigation.
+        </p>
+      </section>
+
+      <nav class="fixture-nav" aria-label="Fixture navigation">
+        <a class="fixture-link" href="policy.html">Next: navigation policy</a>
+        <a class="fixture-link" href="index.html">Back to index</a>
+      </nav>
+    </main>
+  </body>
+</html>

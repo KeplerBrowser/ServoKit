@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Smoke - Navigation Policy</title>
+    <link rel="stylesheet" href="assets/smoke.css" />
+  </head>
+  <body data-fixture="servokit-smoke-policy">
+    <main>
+      <header>
+        <p class="eyebrow">Navigation policy smoke fixture</p>
+        <h1>Navigation policy</h1>
+        <p>
+          Hosts can use these links to check that navigation-decision callbacks
+          receive ordinary allowed requests and deliberately denied requests.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>Policy targets</h2>
+        <p class="status">
+          Expected policy for this fixture set: allow same-origin HTTP(S) smoke
+          links, deny URLs containing <code>blocked-by-policy</code>, and deny
+          unsupported custom schemes.
+        </p>
+        <nav class="fixture-nav" aria-label="Navigation policy targets">
+          <a id="policy-allowed-link" class="fixture-link success" href="history-start.html?from=policy-allowed">Allowed same-origin link</a>
+          <a id="policy-denied-http-link" class="fixture-link danger" href="https://example.com/blocked-by-policy">Denied HTTP(S) link</a>
+          <a id="policy-denied-scheme-link" class="fixture-link danger" href="servokit-smoke://blocked-by-policy">Denied custom scheme</a>
+        </nav>
+        <p>
+          Expected host signal: the allowed link navigates and updates history;
+          denied links emit a policy decision and leave the current page visible.
+        </p>
+      </section>
+
+      <nav class="fixture-nav" aria-label="Fixture navigation">
+        <a class="fixture-link" href="index.html">Back to index</a>
+      </nav>
+    </main>
+  </body>
+</html>

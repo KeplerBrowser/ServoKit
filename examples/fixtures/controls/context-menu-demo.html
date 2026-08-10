@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Control Fixture - Context Menu</title>
+    <link rel="stylesheet" href="../smoke/assets/smoke.css" />
+    <style>
+      .target-grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .target-card {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 14px;
+        padding: 14px;
+        background: rgba(15, 23, 42, 0.45);
+      }
+
+      .selectable,
+      .generic-target {
+        user-select: text;
+        border-radius: 12px;
+        padding: 14px;
+        background: rgba(30, 41, 59, 0.85);
+      }
+
+      .generic-target {
+        user-select: none;
+        min-height: 72px;
+        display: grid;
+        place-items: center;
+        border: 1px dashed rgba(147, 197, 253, 0.45);
+      }
+
+      img {
+        max-width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+      }
+
+      a {
+        color: #7dd3fc;
+      }
+    </style>
+  </head>
+  <body data-fixture="servokit-control-context-menu">
+    <main>
+      <header>
+        <p class="eyebrow">Embedder-control fixture</p>
+        <h1>Context-menu targets</h1>
+        <p>
+          Long-press, right-click, or use the host equivalent on each target.
+          A host with context-menu support should receive information about the
+          link, text, image, editable, or generic target and resolve the selected
+          action when applicable.
+        </p>
+      </header>
+
+      <section class="card target-grid" aria-labelledby="target-heading">
+        <h2 id="target-heading">Targets</h2>
+
+        <div class="target-card">
+          <h3>Links</h3>
+          <p>
+            Visit <a id="servo-link" href="https://servo.org/">Servo</a> or
+            read the <a id="repo-link" href="https://github.com/servo/servo">Servo repository</a>.
+          </p>
+        </div>
+
+        <div class="target-card">
+          <h3>Selectable text</h3>
+          <p class="selectable" id="selectable-text">
+            Select part of this paragraph before opening the context menu. The
+            host should expose text-selection context and default text actions
+            when supported.
+          </p>
+        </div>
+
+        <div class="target-card">
+          <h3>Image</h3>
+          <img
+            id="image-target"
+            alt="Servo gradient target"
+            src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 240'><defs><linearGradient id='g' x1='0' x2='1'><stop stop-color='%2338bdf8'/><stop offset='1' stop-color='%23f472b6'/></linearGradient></defs><rect width='480' height='240' rx='24' fill='%230f172a'/><rect x='18' y='18' width='444' height='204' rx='18' fill='url(%23g)'/><text x='40' y='126' font-size='46' fill='white' font-family='Arial, sans-serif'>Servo image target</text></svg>"
+          />
+          <p>Open the context menu on the image to exercise image target metadata.</p>
+        </div>
+
+        <div class="target-card">
+          <h3>Editable text</h3>
+          <label for="editable-input">
+            Input
+            <input id="editable-input" value="Edit me and open the context menu." />
+          </label>
+          <label for="editable-textarea">
+            Textarea
+            <textarea id="editable-textarea" rows="4">Editable content for cut, copy, paste, and select-all checks.</textarea>
+          </label>
+        </div>
+
+        <div class="target-card">
+          <h3>Generic target</h3>
+          <div id="generic-target" class="generic-target" tabindex="0">
+            Open the context menu on this generic focusable block.
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        Expected host result: each target yields context metadata and default
+        actions appropriate to its type; unsupported context menus should fail
+        gracefully without affecting page rendering.
+      </footer>
+    </main>
+  </body>
+</html>

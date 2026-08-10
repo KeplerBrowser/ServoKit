@@ -1,0 +1,3 @@
+[submodule "upstream/servo"]
+	path = upstream/servo
+	url = https://github.com/servo/servo

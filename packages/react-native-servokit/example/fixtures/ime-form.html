@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servo input demo</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f3f4f6;
+        color: #111827;
+      }
+
+      h1 {
+        margin-top: 0;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      label {
+        display: block;
+        font-weight: 600;
+        margin-top: 16px;
+        margin-bottom: 8px;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 12px;
+        font-size: 16px;
+        background: #fff;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      p {
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Servo input demo</h1>
+      <p>Tap the fields below to test Android keyboard and IME support.</p>
+      <p>Scroll toward the lower fields and make sure the focused input stays visible above the keyboard.</p>
+
+      <label for="name">Name</label>
+      <input id="name" type="text" placeholder="Type here" />
+
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="servo@example.com" />
+
+      <label for="notes">Notes</label>
+      <textarea id="notes" placeholder="Multiline text works here too"></textarea>
+
+      <label for="address">Street address</label>
+      <input id="address" type="text" placeholder="123 Servo Street" />
+
+      <label for="city">City</label>
+      <input id="city" type="text" placeholder="San Francisco" />
+
+      <label for="state">State</label>
+      <input id="state" type="text" placeholder="CA" />
+
+      <label for="postal-code">Postal code</label>
+      <input id="postal-code" type="text" placeholder="94107" />
+
+      <label for="company">Company</label>
+      <input id="company" type="text" placeholder="Servo Labs" />
+
+      <label for="title">Job title</label>
+      <input id="title" type="text" placeholder="Browser Engineer" />
+
+      <label for="website">Website</label>
+      <input id="website" type="url" placeholder="https://servo.org" />
+
+      <label for="favorite-browser">Favorite browser engine</label>
+      <input id="favorite-browser" type="text" placeholder="Servo" />
+
+      <label for="comments">Additional comments</label>
+      <textarea id="comments" placeholder="This field should still stay visible near the bottom."></textarea>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+[workspace]
+members = [
+    "servokit",
+    "servokit-controller-ffi",
+    "servokit-embedder",
+    "servokit-host",
+    "servokit-host-android",
+    "servokit-host-desktop",
+]
+resolver = "2"
+
+[workspace.dependencies]
+cocoa = "0.26"
+dpi = "0.1.2"
+euclid = "0.22"
+jni = "0.21"
+raw-window-handle = "0.6.2"
+rustls = { version = "0.23.40", default-features = false, features = ["aws_lc_rs"] }
+servo = { version = "=0.3.0" }
+servo-default-resources = { version = "=0.3.0" }
+webrender_api = "0.68.0"
+
+[patch.crates-io]
+tikv-jemalloc-sys = { path = "vendor/tikv-jemalloc-sys" }

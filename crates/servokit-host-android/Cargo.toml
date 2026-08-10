@@ -1,0 +1,20 @@
+[lib]
+name = "servokit_host_android"
+crate-type = ["cdylib", "rlib"]
+
+[package]
+name = "servokit-host-android"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+serde_json = "1"
+servokit-embedder = { path = "../servokit-embedder", features = ["servo"] }
+servokit-host = { path = "../servokit-host" }
+
+[target.'cfg(target_os = "android")'.dependencies]
+dpi = { workspace = true }
+jni = { workspace = true }
+raw-window-handle = { workspace = true }
+servo = { workspace = true }

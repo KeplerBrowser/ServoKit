@@ -1,0 +1,14 @@
+Pod::Spec.new do |s|
+  s.name = "ServoKitMacOSBinary"
+  s.version = "__VERSION__"
+  s.summary = "Private ServoKit macOS runtime for react-native-servokit."
+  s.homepage = "https://github.com/KeplerBrowser/ServoKit"
+  s.license = { :type => "MIT", :file => "LICENSES/ServoKit.txt" }
+  s.author = "ServoKit contributors"
+  s.platform = :osx, "14.0"
+  s.source = {
+    :http => "__SOURCE_URL__",
+    :sha256 => "__SHA256__"
+  }
+  s.vendored_frameworks = "ServoKit.xcframework"
+end

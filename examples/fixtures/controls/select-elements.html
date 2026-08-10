@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Control Fixture - Select Elements</title>
+    <link rel="stylesheet" href="../smoke/assets/smoke.css" />
+    <style>
+      .select-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+
+      .select-case {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 14px;
+        padding: 14px;
+        background: rgba(15, 23, 42, 0.45);
+      }
+
+      .value {
+        margin-top: 10px;
+        color: #bfdbfe;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+    </style>
+  </head>
+  <body data-fixture="servokit-control-select-elements">
+    <main>
+      <header>
+        <p class="eyebrow">Embedder-control fixture</p>
+        <h1>Select element basics</h1>
+        <p>
+          These controls exercise single-select, grouped options, disabled
+          options, preselected values, and multiple selection. A host with
+          select support should present the available options and resolve the
+          selected value or values.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="select-heading">
+        <h2 id="select-heading">Select cases</h2>
+        <div class="select-grid">
+          <div class="select-case">
+            <label for="basic-select">
+              Basic single select
+              <select id="basic-select">
+                <option value="apple">Apple</option>
+                <option value="banana">Banana</option>
+                <option value="cherry">Cherry</option>
+                <option value="date">Date</option>
+                <option value="elderberry">Elderberry</option>
+              </select>
+            </label>
+            <div class="value" id="basic-select-value">Selected: (none)</div>
+          </div>
+
+          <div class="select-case">
+            <label for="grouped-select">
+              Select with optgroups
+              <select id="grouped-select">
+                <optgroup label="Fruits">
+                  <option value="apple">Apple</option>
+                  <option value="banana">Banana</option>
+                  <option value="orange">Orange</option>
+                </optgroup>
+                <optgroup label="Vegetables">
+                  <option value="carrot">Carrot</option>
+                  <option value="broccoli">Broccoli</option>
+                  <option value="spinach">Spinach</option>
+                </optgroup>
+                <optgroup label="Grains">
+                  <option value="rice">Rice</option>
+                  <option value="wheat">Wheat</option>
+                  <option value="oats">Oats</option>
+                </optgroup>
+              </select>
+            </label>
+            <div class="value" id="grouped-select-value">Selected: (none)</div>
+          </div>
+
+          <div class="select-case">
+            <label for="disabled-select">
+              Disabled option handling
+              <select id="disabled-select">
+                <option value="enabled-1">Enabled option 1</option>
+                <option value="disabled-1" disabled>Disabled option 1</option>
+                <option value="enabled-2">Enabled option 2</option>
+                <option value="disabled-2" disabled>Disabled option 2</option>
+                <option value="enabled-3">Enabled option 3</option>
+              </select>
+            </label>
+            <div class="value" id="disabled-select-value">Selected: (none)</div>
+          </div>
+
+          <div class="select-case">
+            <label for="preselected-select">
+              Preselected value
+              <select id="preselected-select">
+                <option value="red">Red</option>
+                <option value="green" selected>Green (preselected)</option>
+                <option value="blue">Blue</option>
+                <option value="yellow">Yellow</option>
+              </select>
+            </label>
+            <div class="value" id="preselected-select-value">Selected: (none)</div>
+          </div>
+
+          <div class="select-case">
+            <label for="multiple-select">
+              Multiple select
+              <select id="multiple-select" multiple size="5">
+                <option value="copy">Copy</option>
+                <option value="paste">Paste</option>
+                <option value="share">Share</option>
+                <option value="translate">Translate</option>
+                <option value="bookmark">Bookmark</option>
+              </select>
+            </label>
+            <div class="value" id="multiple-select-value">Selected: (none)</div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        Expected host result: opening each select presents enabled options,
+        preserves labels/groups where supported, and updates the visible value
+        when a selection is committed.
+      </footer>
+    </main>
+
+    <script>
+      function selectedValues(select) {
+        return Array.from(select.selectedOptions, (option) => `${option.value} (${option.text})`);
+      }
+
+      function setupSelect(id) {
+        const select = document.getElementById(id);
+        const output = document.getElementById(`${id}-value`);
+        const sync = () => {
+          const values = selectedValues(select);
+          output.textContent = `Selected: ${values.length > 0 ? values.join(", ") : "(none)"}`;
+          document.title = `Select fixture: ${id}=${values.join("|") || "none"}`;
+        };
+        select.addEventListener("input", sync);
+        select.addEventListener("change", sync);
+        sync();
+      }
+
+      for (const id of [
+        "basic-select",
+        "grouped-select",
+        "disabled-select",
+        "preselected-select",
+        "multiple-select",
+      ]) {
+        setupSelect(id);
+      }
+    </script>
+  </body>
+</html>

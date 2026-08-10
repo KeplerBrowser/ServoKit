@@ -1,0 +1,63 @@
+name: macOS XCFramework
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+      - name: Select Xcode 16.4
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_16.4.app"
+          test "$(xcode-select --print-path)" = "/Applications/Xcode_16.4.app/Contents/Developer"
+          test "$(xcodebuild -version | sed -n '1p')" = "Xcode 16.4"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.13
+      - name: Verify tag and package versions match
+        if: startsWith(github.ref, 'refs/tags/')
+        run: test "${GITHUB_REF_NAME}" = "v$(bun -e 'console.log(require(process.argv[1]).version)' packages/react-native-servokit/package.json)"
+      - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd packages/react-native-servokit typecheck
+      - run: bun run --cwd packages/react-native-servokit prepare
+      - run: bun test packages/react-native-servokit/src/__tests__ distribution/macos/create-sbom.test.mjs
+      - run: bash -n distribution/macos/build-xcframework.sh
+      - run: ruby -c packages/react-native-servokit/Servokit.podspec
+      - run: ruby -c distribution/macos/ServoKitMacOSBinary.podspec.template
+      - run: cargo fmt --manifest-path crates/Cargo.toml --all --check
+      - run: cargo clippy --manifest-path crates/Cargo.toml -p servokit-host-desktop --all-targets --locked -- -D warnings
+      - run: RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path crates/Cargo.toml -p servokit-host-desktop --no-deps --locked
+      - run: cargo test --manifest-path crates/Cargo.toml -p servokit-host-desktop --test c_boundary --release --locked
+      - run: distribution/macos/build-xcframework.sh
+        env:
+          SERVOKIT_ARTIFACT_DIR: ${{ runner.temp }}/servokit-macos
+      - uses: actions/attest@36051bcae73b7c2a8a6945a48cbf80953c6baa35 # v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/servokit-macos/ServoKit-macos-*.zip
+            ${{ runner.temp }}/servokit-macos/ServoKit.spdx.json
+            ${{ runner.temp }}/servokit-macos/ServoKitMacOSBinary.podspec
+            ${{ runner.temp }}/servokit-macos/SHA256SUMS
+            ${{ runner.temp }}/servokit-macos/manifest.json
+            ${{ runner.temp }}/servokit-macos/evidence/*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ServoKit-macOS
+          path: |
+            ${{ runner.temp }}/servokit-macos/ServoKit-macos-*.zip
+            ${{ runner.temp }}/servokit-macos/ServoKit.spdx.json
+            ${{ runner.temp }}/servokit-macos/ServoKitMacOSBinary.podspec
+            ${{ runner.temp }}/servokit-macos/SHA256SUMS
+            ${{ runner.temp }}/servokit-macos/manifest.json
+            ${{ runner.temp }}/servokit-macos/evidence/*

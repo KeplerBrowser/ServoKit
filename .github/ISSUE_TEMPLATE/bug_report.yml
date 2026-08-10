@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a reproducible bug or regression in this library.
+body:
+  - type: input
+    id: version-or-commit
+    attributes:
+      label: ServoKit version or commit
+      description: Provide the release version or commit that exhibits the problem.
+      placeholder: "0.1.0 or abc1234"
+    validations:
+      required: true
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: Affected area
+      multiple: true
+      options:
+        - Android
+        - iOS
+        - macOS
+        - Windows
+        - Rust API
+        - React Native API
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the smallest reliable sequence, code sample, or repository needed to reproduce the problem.
+      value: |
+        1.
+        2.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include relevant OS, architecture, React Native, toolchain, and device or simulator details.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Add focused logs or stack traces, removing credentials and private data.
+      render: shell

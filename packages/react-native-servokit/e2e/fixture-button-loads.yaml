@@ -1,0 +1,84 @@
+appId: org.servo.servokit.reactnative.example
+---
+- launchApp
+- waitForAnimationToEnd
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- tapOn:
+    id: fixture.smoke-index
+- waitForAnimationToEnd
+- assertVisible: "Smoke fixtures ready"
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: fixture.title-event
+- waitForAnimationToEnd
+- assertVisible: "Title change"
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: fixture.history-flow
+- waitForAnimationToEnd
+- assertVisible: "History start"
+- tapOn: "Go to history next"
+- waitForAnimationToEnd
+- assertVisible: "History next"
+- tapOn:
+    id: browser.back
+- assertVisible: "History start"
+- tapOn:
+    id: browser.forward
+- assertVisible: "History next"
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: fixture.reload
+- waitForAnimationToEnd
+- assertVisible: "Reload visibility"
+- tapOn:
+    id: browser.reload
+- waitForAnimationToEnd
+- assertVisible: "Reload visibility"
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: fixture.shared-form
+- waitForAnimationToEnd
+- assertVisible: "Focusable fields"
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: fixture.error
+- waitForAnimationToEnd
+- assertVisible: "Expected errors"
+
+- tapOn:
+    id: browser.address
+- eraseText: 100
+- inputText: "http://127.0.0.1:8481/smoke/title-change.html"
+- tapOn:
+    id: browser.go
+- waitForAnimationToEnd
+- assertVisible: "Title change"
+
+- tapOn:
+    id: browser.home
+- assertVisible:
+    id: browser.address
+    text: "https://servo.org/?"
+- tapOn:
+    id: browser.tools
+- assertVisible:
+    id: tools.close
+- tapOn:
+    id: tools.close
+- assertNotVisible:
+    id: tools.close

@@ -1,0 +1,20 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "ServokitAndroidKotlinBrowser"
+include ":app"
+include ":servokit-android-host"
+project(":servokit-android-host").projectDir = new File(rootDir, "../../crates/servokit-host-android/android")

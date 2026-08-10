@@ -1,0 +1,34 @@
+appId: org.servo.servokit.reactnative.example
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- tapOn:
+    id: fixture.policy
+- waitForAnimationToEnd
+- assertVisible: "Navigation policy"
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- scrollUntilVisible:
+    element:
+      id: fixture.deny-policy
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: fixture.deny-policy
+- waitForAnimationToEnd
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.status
+- assertVisible:
+    id: status.navigation-policy
+    text: "Navigation policy: deny https://example.com/blocked-by-policy"
+- assertVisible:
+    id: status.title
+    text: "Title: Servokit Smoke - Navigation Policy"

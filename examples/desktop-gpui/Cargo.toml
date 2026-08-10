@@ -1,0 +1,17 @@
+[package]
+name = "servokit-example-desktop-gpui"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+zed_gpui = { package = "gpui", version = "0.2.2", features = ["runtime_shaders"] }
+raw-window-handle = "0.6.2"
+servokit = { path = "../../crates/servokit", features = ["servo"] }
+# GPUI enables codespan-reporting's termcolor support through its shader stack. Servo's
+# wgpu path also builds naga 26, so enable naga's matching feature to keep cfgs aligned.
+naga = { version = "26.0.0", features = ["termcolor"] }
+
+[patch.crates-io]
+tikv-jemalloc-sys = { path = "../../crates/vendor/tikv-jemalloc-sys" }
+stylo_derive = { path = "../../patches/stylo_derive-0.18.0" }

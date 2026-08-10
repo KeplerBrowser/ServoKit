@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Control Fixture - Text Input</title>
+    <link rel="stylesheet" href="../smoke/assets/smoke.css" />
+    <style>
+      .input-stack {
+        display: grid;
+        gap: 16px;
+      }
+
+      .spacer {
+        min-height: 34vh;
+        border: 1px dashed rgba(147, 197, 253, 0.45);
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        color: #cbd5e1;
+      }
+
+      [contenteditable] {
+        min-height: 88px;
+        border: 1px solid #94a3b8;
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+
+      .result {
+        margin-top: 12px;
+        color: #bfdbfe;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body data-fixture="servokit-control-text-input">
+    <main>
+      <header>
+        <p class="eyebrow">Embedder-control fixture</p>
+        <h1>Text input and IME basics</h1>
+        <p>
+          Focus these fields to exercise touch focus, keyboard/IME display,
+          editing, composition, multiline input, and viewport behavior near the
+          bottom of the page.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="text-input-heading">
+        <h2 id="text-input-heading">Common input modes</h2>
+        <div class="input-stack">
+          <label for="name">
+            Name / text
+            <input id="name" type="text" autocomplete="name" placeholder="Type text here" />
+          </label>
+
+          <label for="search">
+            Search
+            <input id="search" type="search" placeholder="Search terms" />
+          </label>
+
+          <label for="email">
+            Email
+            <input id="email" type="email" autocomplete="email" placeholder="servo@example.com" />
+          </label>
+
+          <label for="url">
+            URL
+            <input id="url" type="url" placeholder="https://servo.org" />
+          </label>
+
+          <label for="telephone">
+            Telephone
+            <input id="telephone" type="tel" placeholder="+1 555 0100" />
+          </label>
+
+          <label for="password">
+            Password
+            <input id="password" type="password" autocomplete="new-password" placeholder="password" />
+          </label>
+
+          <label for="notes">
+            Multiline textarea
+            <textarea id="notes" placeholder="Type multiple lines here"></textarea>
+          </label>
+
+          <label for="editable">
+            Contenteditable text
+            <div id="editable" contenteditable="true" role="textbox" aria-multiline="true">
+              Edit this contenteditable region.
+            </div>
+          </label>
+        </div>
+        <div id="focus-output" class="result">Focus a text field to update this status.</div>
+      </section>
+
+      <section class="card" aria-labelledby="bottom-heading">
+        <h2 id="bottom-heading">Lower-page keyboard visibility</h2>
+        <div class="spacer" aria-hidden="true">Scroll spacer for keyboard/viewport checks</div>
+        <label for="bottom-field">
+          Bottom text field
+          <input id="bottom-field" type="text" placeholder="Focused field should remain reachable" />
+        </label>
+        <label for="bottom-comments">
+          Bottom textarea
+          <textarea id="bottom-comments" placeholder="Multiline input near the page bottom"></textarea>
+        </label>
+      </section>
+
+      <footer>
+        Expected host result: focus events and text editing work, the keyboard or
+        IME appears where supported, and focused lower-page fields remain usable.
+      </footer>
+    </main>
+
+    <script>
+      const focusOutput = document.getElementById("focus-output");
+      const fields = document.querySelectorAll("input, textarea, [contenteditable]");
+
+      for (const field of fields) {
+        field.addEventListener("focus", () => {
+          const label = field.id || field.getAttribute("aria-label") || field.tagName.toLowerCase();
+          focusOutput.textContent = `Focused: ${label}`;
+          document.title = `Text input fixture: focused ${label}`;
+        });
+        field.addEventListener("input", () => {
+          const label = field.id || field.tagName.toLowerCase();
+          const value = "value" in field ? field.value : field.textContent;
+          focusOutput.textContent = `Edited ${label}: ${(value || "").slice(0, 80)}`;
+        });
+      }
+    </script>
+  </body>
+</html>

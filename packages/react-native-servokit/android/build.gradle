@@ -1,0 +1,77 @@
+buildscript {
+  ext.Servo = [
+    kotlinVersion: "2.1.20",
+    minSdkVersion: 24,
+    compileSdkVersion: 36,
+    ndkVersion: "27.1.12297006"
+  ]
+
+  ext.getExtOrDefault = { prop ->
+    if (rootProject.ext.has(prop)) {
+      return rootProject.ext.get(prop)
+    }
+
+    return Servo[prop]
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.12.0"
+    // noinspection DifferentKotlinGradleVersion
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion')}"
+  }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+apply plugin: "com.facebook.react"
+
+android {
+  namespace "org.servo.servokit.reactnative"
+
+  compileSdkVersion Servo.compileSdkVersion
+  ndkVersion Servo.ndkVersion
+
+  defaultConfig {
+    minSdkVersion Servo.minSdkVersion
+
+    aarMetadata {
+      minCompileSdk = Servo.compileSdkVersion
+    }
+
+  }
+
+  buildFeatures {
+    buildConfig true
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+    }
+  }
+
+  lint {
+    disable "GradleCompatible"
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = JavaVersion.VERSION_17.toString()
+  }
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  implementation files("libs/servokit-android-host-release.aar")
+  testImplementation "junit:junit:4.13.2"
+}

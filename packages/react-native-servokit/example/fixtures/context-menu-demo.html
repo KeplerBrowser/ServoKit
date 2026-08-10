@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Context menu demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+
+      main {
+        max-width: 840px;
+        margin: 0 auto;
+        display: grid;
+        gap: 20px;
+      }
+
+      .card {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35);
+      }
+
+      h1, h2 {
+        margin: 0 0 12px;
+      }
+
+      p, li {
+        line-height: 1.6;
+      }
+
+      a {
+        color: #38bdf8;
+      }
+
+      img {
+        max-width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+      }
+
+      .selectable {
+        user-select: text;
+        padding: 14px;
+        border-radius: 12px;
+        background: rgba(30, 41, 59, 0.85);
+      }
+
+      textarea,
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        background: rgba(15, 23, 42, 0.75);
+        color: inherit;
+      }
+
+      .gallery {
+        display: grid;
+        gap: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>React Native ServoKit context menu demo</h1>
+        <p>
+          Long-press the elements below to verify Servo default actions and React Native injected
+          actions appear together.
+        </p>
+        <ul>
+          <li>Links should keep Servo actions like copy/open and add a custom bookmark action.</li>
+          <li>Text selections should keep copy/select-all and add a custom translate action.</li>
+          <li>Images should keep image actions and add a reverse-image-search action.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Links</h2>
+        <p>
+          Visit
+          <a href="https://servo.org/">Servo</a>
+          or read the
+          <a href="https://github.com/servo/servo">Servo GitHub repository</a>.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Selectable text</h2>
+        <p class="selectable">
+          Select part of this paragraph before long-pressing it. The browser should offer its usual
+          text actions, while React Native can inject custom actions such as translation.
+        </p>
+      </section>
+
+      <section class="card gallery">
+        <h2>Images</h2>
+        <img
+          alt="Servo gradient demo"
+          src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 240'><defs><linearGradient id='g' x1='0' x2='1'><stop stop-color='%2338bdf8'/><stop offset='1' stop-color='%23f472b6'/></linearGradient></defs><rect width='480' height='240' rx='24' fill='%230f172a'/><rect x='18' y='18' width='444' height='204' rx='18' fill='url(%23g)'/><text x='40' y='126' font-size='46' fill='white' font-family='Arial, sans-serif'>Servo image target</text></svg>"
+        />
+        <p>Long-press the image to confirm both Servo image actions and app-injected actions.</p>
+      </section>
+
+      <section class="card">
+        <h2>Editable text</h2>
+        <input value="Edit me and long-press for input actions." />
+        <textarea rows="4">Editable content for testing cut, copy, paste, and select-all.</textarea>
+      </section>
+    </main>
+  </body>
+</html>

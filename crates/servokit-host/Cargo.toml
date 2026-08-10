@@ -1,0 +1,8 @@
+[package]
+name = "servokit-host"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+raw-window-handle = { workspace = true }

@@ -1,0 +1,77 @@
+appId: org.servo.servokit.reactnative.example
+---
+- launchApp:
+    clearState: true
+- waitForAnimationToEnd
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- tapOn:
+    id: fixture.smoke-index
+- extendedWaitUntil:
+    visible: "Smoke fixtures ready"
+    timeout: 30000
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.actions
+- tapOn:
+    id: action.recycle-view
+- assertVisible: "Smoke fixtures ready"
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- tapOn:
+    id: fixture.policy
+- assertVisible: "Navigation policy"
+- tapOn: "Denied HTTP(S) link"
+- assertVisible: "Navigation policy"
+- tapOn: "Allowed same-origin link"
+- assertVisible: "History start"
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- tapOn:
+    id: fixture.reload
+- extendedWaitUntil:
+    visible: "Reload count: 1"
+    timeout: 30000
+- tapOn:
+    id: browser.reload
+- extendedWaitUntil:
+    visible: "Reload count: 2"
+    timeout: 30000
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.actions
+- tapOn:
+    id: action.recycle-view
+- extendedWaitUntil:
+    visible: "Reload count: 3"
+    timeout: 30000
+- tapOn:
+    id: browser.reload
+- extendedWaitUntil:
+    visible: "Reload count: 4"
+    timeout: 30000
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- tapOn:
+    id: fixture.policy
+- assertVisible: "Navigation policy"
+- tapOn: "Denied HTTP(S) link"
+- assertVisible: "Navigation policy"
+- tapOn: "Allowed same-origin link"
+- assertVisible: "History start"

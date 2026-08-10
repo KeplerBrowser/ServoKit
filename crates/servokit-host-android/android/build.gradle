@@ -1,0 +1,582 @@
+import org.gradle.api.tasks.PathSensitivity
+
+buildscript {
+  ext.ServoKitAndroidHost = [
+    kotlinVersion: "2.1.20",
+    minSdkVersion: 24,
+    compileSdkVersion: 36,
+    ndkVersion: "28.2.13676358"
+  ]
+
+  ext.getExtOrDefault = { prop ->
+    if (rootProject.ext.has(prop)) {
+      return rootProject.ext.get(prop)
+    }
+
+    return ServoKitAndroidHost[prop]
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.12.0"
+    // noinspection DifferentKotlinGradleVersion
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion')}"
+  }
+}
+
+def servokitMinGradleVersion = org.gradle.util.GradleVersion.version("8.13")
+if (org.gradle.util.GradleVersion.current() < servokitMinGradleVersion) {
+  throw new GradleException(
+    "ServoKit Android alpha requires at least Gradle ${servokitMinGradleVersion.version}; got ${org.gradle.util.GradleVersion.current().version}. Use a compatible Gradle wrapper."
+  )
+}
+
+def servokitMinAgpVersion = org.gradle.util.GradleVersion.version("8.9.1")
+def servokitAgpVersion = org.gradle.util.GradleVersion.version(com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION)
+if (servokitAgpVersion < servokitMinAgpVersion) {
+  throw new GradleException(
+    "ServoKit Android alpha requires at least Android Gradle Plugin ${servokitMinAgpVersion.version} for compileSdkVersion ${ServoKitAndroidHost.compileSdkVersion}; got ${servokitAgpVersion.version}."
+  )
+}
+
+if (JavaVersion.current() != JavaVersion.VERSION_17) {
+  throw new GradleException(
+    "ServoKit Android alpha is tested with and requires JDK 17; got ${JavaVersion.current()}. Set JAVA_HOME to a JDK 17 installation."
+  )
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+def servokitRustTargets = [
+  "arm64-v8a": "aarch64-linux-android",
+  "x86_64": "x86_64-linux-android"
+]
+def servokitModuleDir = projectDir.canonicalFile
+def packageRustWorkspaceDir = new File(servokitModuleDir.parentFile.parentFile, "crates")
+def repoRustWorkspaceDir = new File(servokitModuleDir.parentFile.parentFile.parentFile, "crates")
+def servokitRustWorkspaceDir = packageRustWorkspaceDir.isDirectory() ? packageRustWorkspaceDir : repoRustWorkspaceDir
+def servokitRustHostDir = new File(servokitRustWorkspaceDir, "servokit-host-android")
+
+if (!servokitRustWorkspaceDir.isDirectory() || !servokitRustHostDir.isDirectory()) {
+  throw new GradleException(
+    "Could not find ServoKit Rust sources for :servokit-android-host. " +
+      "Expected package-local sources at ${packageRustWorkspaceDir} or repo-local sources at ${repoRustWorkspaceDir}."
+  )
+}
+
+def servokitNdkHost = {
+  def osName = System.getProperty("os.name").toLowerCase(Locale.ROOT)
+
+  if (osName.contains("mac")) {
+    // NDK 28 still ships the macOS LLVM toolchain under the darwin-x86_64 host tag.
+    return [tag: "darwin-x86_64", windows: false]
+  }
+  if (osName.contains("linux")) {
+    return [tag: "linux-x86_64", windows: false]
+  }
+  if (osName.contains("windows")) {
+    return [tag: "windows-x86_64", windows: true]
+  }
+
+  throw new GradleException("Unsupported host OS for Android NDK toolchain: ${osName}")
+}
+def servokitNdkToolchainBinDir = {
+  file("${android.sdkDirectory}/ndk/${android.ndkVersion}/toolchains/llvm/prebuilt/${servokitNdkHost().tag}/bin")
+}
+def servokitResolveNdkLibclang = { toolchainDir, host ->
+  def layout = [
+    "darwin-x86_64": [directory: "lib", name: "libclang.dylib"],
+    "linux-x86_64": [directory: "lib", name: "libclang.so"],
+    "windows-x86_64": [directory: "bin", name: "libclang.dll"]
+  ][host.tag]
+  if (layout == null) {
+    throw new GradleException("Unsupported Android NDK host for libclang: ${host.tag}")
+  }
+
+  def directory = new File(toolchainDir, layout.directory)
+  return [directory: directory, library: new File(directory, layout.name)]
+}
+def servokitResolveNdkTools = { binDir, windows, rustTarget ->
+  def executableSuffix = windows ? ".exe" : ""
+  def compilerSuffix = windows ? ".cmd" : ""
+  [
+    ar: new File(binDir, "llvm-ar${executableSuffix}"),
+    ranlib: new File(binDir, "llvm-ranlib${executableSuffix}"),
+    nm: new File(binDir, "llvm-nm${executableSuffix}"),
+    readelf: new File(binDir, "llvm-readelf${executableSuffix}"),
+    clang: new File(
+      binDir,
+      "${rustTarget}${ServoKitAndroidHost.minSdkVersion}-clang${compilerSuffix}"
+    ),
+    clangxx: new File(
+      binDir,
+      "${rustTarget}${ServoKitAndroidHost.minSdkVersion}-clang++${compilerSuffix}"
+    )
+  ]
+}
+def servokitRustInputs = fileTree(servokitRustWorkspaceDir) {
+  exclude "target/**"
+  exclude "**/build/**"
+  exclude "**/.gradle/**"
+}
+def servokitRustOutputDir = { profile ->
+  file("$buildDir/rustJniLibs/${profile}")
+}
+def servokitCargoBinDir = {
+  def cargoHome = System.getenv("CARGO_HOME")
+  if (cargoHome != null && !cargoHome.trim().isEmpty()) {
+    return new File(cargoHome, "bin")
+  }
+
+  return new File(System.getProperty("user.home"), ".cargo/bin")
+}
+def servokitCargoPath = {
+  def cargoBinPath = servokitCargoBinDir().absolutePath
+  def path = System.getenv("PATH") ?: System.getenv("Path") ?: ""
+  if (path.split(File.pathSeparator).contains(cargoBinPath)) {
+    return path
+  }
+
+  return cargoBinPath + File.pathSeparator + path
+}
+def servokitToolExecutable = { environmentName, executable ->
+  def explicitExecutable = System.getenv(environmentName)
+  if (explicitExecutable != null && !explicitExecutable.trim().isEmpty()) {
+    return explicitExecutable
+  }
+
+  def suffixes = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows")
+    ? [".exe", ".cmd", ".bat", ""]
+    : [""]
+  def installedExecutable = suffixes
+    .collect { new File(servokitCargoBinDir(), "${executable}${it}") }
+    .find { it.isFile() }
+  return installedExecutable?.absolutePath ?: executable
+}
+def servokitCargoExecutable = { servokitToolExecutable("CARGO", "cargo") }
+def servokitRustupExecutable = { servokitToolExecutable("RUSTUP", "rustup") }
+def servokitExecOutput = { args, message ->
+  try {
+    def processBuilder = new ProcessBuilder(args.collect { it.toString() })
+      .directory(servokitRustHostDir)
+      .redirectErrorStream(true)
+    processBuilder.environment().put("PATH", servokitCargoPath())
+    def process = processBuilder.start()
+    def output = process.inputStream.text.trim()
+    def exitValue = process.waitFor()
+    if (exitValue != 0) {
+      throw new GradleException(output.isEmpty() ? message : "${message}\n${output}")
+    }
+
+    return output
+  } catch (GradleException error) {
+    throw error
+  } catch (Exception error) {
+    throw new GradleException("${message}\nTried: ${args.join(' ')}\n${error.message}", error)
+  }
+}
+def servokitValidateAndroidAlphaToolchain = {
+  def ndkDir = file("${android.sdkDirectory}/ndk/${android.ndkVersion}")
+  if (!ndkDir.isDirectory()) {
+    throw new GradleException(
+      "ServoKit Android alpha requires Android NDK ${android.ndkVersion} at ${ndkDir}. " +
+        "Install it with: sdkmanager \"ndk;${android.ndkVersion}\""
+    )
+  }
+
+  def ndkToolsByTarget = servokitRustTargets.values().collectEntries { rustTarget ->
+    [(rustTarget): servokitResolveNdkTools(
+      servokitNdkToolchainBinDir(),
+      servokitNdkHost().windows,
+      rustTarget
+    )]
+  }
+  def missingNdkTools = ndkToolsByTarget.values().collectMany { it.values() }.findAll { !it.isFile() }
+  if (!missingNdkTools.isEmpty()) {
+    throw new GradleException(
+      "ServoKit Android alpha requires the NDK ${android.ndkVersion} LLVM toolchain. " +
+        "Missing: ${missingNdkTools.join(', ')}"
+    )
+  }
+  def ndkLibclang = servokitResolveNdkLibclang(servokitNdkToolchainBinDir().parentFile, servokitNdkHost())
+  if (!ndkLibclang.library.isFile()) {
+    throw new GradleException(
+      "ServoKit Android alpha requires NDK libclang for ${servokitNdkHost().tag}. Missing: ${ndkLibclang.library}"
+    )
+  }
+
+  servokitExecOutput(
+    [servokitCargoExecutable(), "--version"],
+    "ServoKit Android alpha requires Cargo. Install Rust and Cargo from https://rustup.rs, then ensure cargo is on PATH or set CARGO."
+  )
+  servokitExecOutput(
+    [servokitCargoExecutable(), "ndk", "--version"],
+    "ServoKit Android alpha requires cargo-ndk. Install it with: cargo install cargo-ndk"
+  )
+
+  servokitExecOutput(
+    [servokitRustupExecutable(), "--version"],
+    "ServoKit Android alpha requires rustup. Install it from https://rustup.rs, then ensure rustup is on PATH or set RUSTUP."
+  )
+  def installedRustTargets = servokitExecOutput(
+    [servokitRustupExecutable(), "target", "list", "--installed"],
+    "ServoKit Android alpha requires rustup to verify its Android targets."
+  ).readLines()
+  def missingRustTargets = servokitRustTargets.values().findAll { !installedRustTargets.contains(it) }
+  if (!missingRustTargets.isEmpty()) {
+    throw new GradleException(
+      "ServoKit Android alpha requires Rust targets ${missingRustTargets.join(', ')}. " +
+      "Install them with: rustup target add ${missingRustTargets.join(' ')}"
+    )
+  }
+
+  return ndkToolsByTarget
+}
+
+android {
+  namespace "org.servo.servokit.androidhost"
+
+  compileSdkVersion ServoKitAndroidHost.compileSdkVersion
+  ndkVersion ServoKitAndroidHost.ndkVersion
+
+  defaultConfig {
+    minSdkVersion ServoKitAndroidHost.minSdkVersion
+
+    aarMetadata {
+      minCompileSdk = ServoKitAndroidHost.compileSdkVersion
+    }
+
+    ndk {
+      abiFilters(*servokitRustTargets.keySet().toList())
+    }
+
+    consumerProguardFiles "consumer-rules.pro"
+  }
+
+  sourceSets {
+    debug {
+      jniLibs.srcDir servokitRustOutputDir("debug")
+    }
+    release {
+      jniLibs.srcDir servokitRustOutputDir("release")
+    }
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+    }
+  }
+
+  lint {
+    disable "GradleCompatible"
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = JavaVersion.VERSION_17.toString()
+  }
+}
+
+tasks.register("verifyServokitWindowsNdkToolResolution") {
+  group = "verification"
+  description = "Verifies Windows NDK tool and libclang path resolution."
+  doLast {
+    def toolchainDir = new File(temporaryDir, "toolchain")
+    def binDir = new File(toolchainDir, "bin")
+    servokitRustTargets.values().each { rustTarget ->
+      def expectedNames = [
+        "llvm-ar.exe",
+        "llvm-ranlib.exe",
+        "llvm-nm.exe",
+        "llvm-readelf.exe",
+        "${rustTarget}${ServoKitAndroidHost.minSdkVersion}-clang.cmd",
+        "${rustTarget}${ServoKitAndroidHost.minSdkVersion}-clang++.cmd"
+      ]
+      def resolvedNames = servokitResolveNdkTools(binDir, true, rustTarget).values()*.name
+      if (resolvedNames != expectedNames) {
+        throw new GradleException("Unexpected Windows NDK tool paths for ${rustTarget}: ${resolvedNames}")
+      }
+    }
+    def libclang = servokitResolveNdkLibclang(toolchainDir, [tag: "windows-x86_64", windows: true])
+    if (libclang.directory != binDir || libclang.library.name != "libclang.dll") {
+      throw new GradleException("Unexpected Windows NDK libclang path: ${libclang.library}")
+    }
+  }
+}
+
+[
+  debug: [],
+  release: ["--release"]
+].each { profile, cargoProfileArgs ->
+  servokitRustTargets.each { abi, rustTarget ->
+    def taskSuffix = abi.tokenize("-_")*.capitalize().join()
+    tasks.register("buildRustAndroid${profile.capitalize()}${taskSuffix}", Exec) {
+      group = "build"
+      description = "Builds the ServoKit Android ${profile} host for ${abi}."
+      workingDir servokitRustHostDir
+      def ndkSysroot = new File(servokitNdkToolchainBinDir().parentFile, "sysroot")
+      def ndkSysrootPath = ndkSysroot.absolutePath.replace("\\", "/")
+      // bindgen checks this hyphenated key before cargo-ndk's underscored fallback.
+      environment "BINDGEN_EXTRA_CLANG_ARGS_${rustTarget}",
+        "--target=${rustTarget}${ServoKitAndroidHost.minSdkVersion} --sysroot=\"${ndkSysrootPath}\""
+      environment "LIBCLANG_PATH",
+        servokitResolveNdkLibclang(servokitNdkToolchainBinDir().parentFile, servokitNdkHost()).directory.absolutePath
+      def ndkTools = servokitResolveNdkTools(servokitNdkToolchainBinDir(), servokitNdkHost().windows, rustTarget)
+      def targetEnvironmentSuffix = rustTarget.replace('-', '_')
+      def cargoTargetEnvironmentSuffix = targetEnvironmentSuffix.toUpperCase(Locale.ROOT)
+      environment "AR", ndkTools.ar.absolutePath
+      environment "RANLIB", ndkTools.ranlib.absolutePath
+      environment "AR_${targetEnvironmentSuffix}", ndkTools.ar.absolutePath
+      environment "RANLIB_${targetEnvironmentSuffix}", ndkTools.ranlib.absolutePath
+      environment "NM_${targetEnvironmentSuffix}", ndkTools.nm.absolutePath
+      environment "CC_${targetEnvironmentSuffix}", ndkTools.clang.absolutePath
+      environment "CXX_${targetEnvironmentSuffix}", ndkTools.clangxx.absolutePath
+      environment "CARGO_TARGET_${cargoTargetEnvironmentSuffix}_AR", ndkTools.ar.absolutePath
+      environment "CARGO_TARGET_${cargoTargetEnvironmentSuffix}_LINKER", ndkTools.clang.absolutePath
+      doFirst {
+        servokitValidateAndroidAlphaToolchain()
+      }
+      inputs.files(servokitRustInputs).withPathSensitivity(PathSensitivity.RELATIVE)
+      inputs.property "servokitAndroidAbi", abi
+      inputs.property "servokitRustTarget", rustTarget
+      inputs.property "servokitAndroidMinSdk", ServoKitAndroidHost.minSdkVersion
+      inputs.property "servokitAndroidNdkVersion", ServoKitAndroidHost.ndkVersion
+      inputs.property "servokitRustProfile", profile
+      environment "ANDROID_HOME", android.sdkDirectory.absolutePath
+      environment "ANDROID_SDK_ROOT", android.sdkDirectory.absolutePath
+      environment "ANDROID_NDK_HOME", "${android.sdkDirectory}/ndk/${android.ndkVersion}"
+      environment "ANDROID_NDK_ROOT", "${android.sdkDirectory}/ndk/${android.ndkVersion}"
+      environment "ANDROID_API_LEVEL", ServoKitAndroidHost.minSdkVersion.toString()
+      environment "PATH", servokitCargoPath()
+      environment "AWS_LC_SYS_NO_JITTER_ENTROPY", "1"
+      commandLine([servokitCargoExecutable(), "ndk", "-t", abi,
+        "-o", servokitRustOutputDir(profile).absolutePath, "--platform", ServoKitAndroidHost.minSdkVersion.toString(), "--link-builtins", "--link-libcxx-shared", "rustc", "--locked", "--lib", "--crate-type=cdylib"] +
+        cargoProfileArgs)
+      outputs.dir(new File(servokitRustOutputDir(profile), abi))
+      // Cargo owns incrementality; Gradle must always revalidate the external toolchain.
+      outputs.upToDateWhen { false }
+    }
+  }
+
+  tasks.register("buildRustAndroid${profile.capitalize()}") {
+    group = "build"
+    description = "Builds all supported ServoKit Android ${profile} hosts."
+    dependsOn(servokitRustTargets.keySet().collect { abi ->
+      def taskSuffix = abi.tokenize("-_")*.capitalize().join()
+      "buildRustAndroid${profile.capitalize()}${taskSuffix}"
+    })
+  }
+}
+
+tasks.register("verifyServokitAndroidBindgenConfiguration") {
+  group = "verification"
+  description = "Verifies bindgen receives NDK libclang, the Android target, and NDK sysroot."
+  doLast {
+    def expectedTargets = [
+      "arm64-v8a": "aarch64-linux-android",
+      "x86_64": "x86_64-linux-android"
+    ]
+    if (servokitRustTargets != expectedTargets) {
+      throw new GradleException("Unexpected ServoKit Android target mapping: ${servokitRustTargets}")
+    }
+    def ndkLibclang = servokitResolveNdkLibclang(servokitNdkToolchainBinDir().parentFile, servokitNdkHost())
+    if (!ndkLibclang.library.isFile()) {
+      throw new GradleException("Missing NDK libclang for ${servokitNdkHost().tag}: ${ndkLibclang.library}")
+    }
+    def expectedLibclangPath = ndkLibclang.directory.absolutePath
+    def requiredCargoArgs = ["rustc", "--locked", "--lib", "--crate-type=cdylib"]
+    servokitRustTargets.each { abi, rustTarget ->
+      def taskSuffix = abi.tokenize("-_")*.capitalize().join()
+      def releaseTask = tasks.named("buildRustAndroidRelease${taskSuffix}", Exec).get()
+      def releaseEnvironment = releaseTask.environment
+      if (releaseEnvironment["LIBCLANG_PATH"] != expectedLibclangPath) {
+        throw new GradleException("Unexpected LIBCLANG_PATH for ${abi}: ${releaseEnvironment['LIBCLANG_PATH']}")
+      }
+      def expectedTargetArgs = ["-t", abi]
+      def actualTargetArgs = []
+      releaseTask.commandLine.eachWithIndex { argument, index ->
+        if (argument == "-t") {
+          actualTargetArgs.addAll([argument, releaseTask.commandLine[index + 1]])
+        }
+      }
+      if (actualTargetArgs != expectedTargetArgs || !releaseTask.commandLine.containsAll(requiredCargoArgs)) {
+        throw new GradleException("Unexpected ServoKit Android Cargo command for ${abi}: ${releaseTask.commandLine}")
+      }
+      def ndkTools = servokitResolveNdkTools(servokitNdkToolchainBinDir(), servokitNdkHost().windows, rustTarget)
+      if (releaseEnvironment["AR"] != ndkTools.ar.absolutePath ||
+          releaseEnvironment["RANLIB"] != ndkTools.ranlib.absolutePath) {
+        throw new GradleException(
+          "Unexpected archive tools for ${abi}: AR=${releaseEnvironment['AR']}, RANLIB=${releaseEnvironment['RANLIB']}"
+        )
+      }
+      def key = "BINDGEN_EXTRA_CLANG_ARGS_${rustTarget}"
+      def ndkSysroot = new File(servokitNdkToolchainBinDir().parentFile, "sysroot")
+      def ndkSysrootPath = ndkSysroot.absolutePath.replace("\\", "/")
+      def expected = "--target=${rustTarget}${ServoKitAndroidHost.minSdkVersion} --sysroot=\"${ndkSysrootPath}\""
+      if (releaseEnvironment[key] != expected) {
+        throw new GradleException("Unexpected ${key}: ${releaseEnvironment[key]}")
+      }
+    }
+  }
+}
+
+def servokitVerifyAndroidNativeClosure = { nativeRootDir, payload ->
+  def systemLibraries = [
+    "libandroid.so",
+    "libc.so",
+    "libdl.so",
+    "liblog.so",
+    "libm.so",
+    "libz.so"
+  ] as Set
+  def ndkToolsByTarget = servokitValidateAndroidAlphaToolchain()
+
+  servokitRustTargets.each { abi, rustTarget ->
+    def abiDir = new File(nativeRootDir, abi)
+    def hostLibrary = new File(abiDir, "libservokit_host_android.so")
+    def packagedLibraries = abiDir.listFiles()
+      ?.findAll { it.isFile() && it.name.endsWith(".so") }
+      ?.collect { it.name }
+      ?.sort() ?: []
+    def expectedLibraries = ["libc++_shared.so", "libservokit_host_android.so"]
+    if (packagedLibraries != expectedLibraries) {
+      throw new GradleException(
+        "Unexpected ServoKit Android ${payload} payload for ${abi}: ${packagedLibraries}; expected ${expectedLibraries}"
+      )
+    }
+
+    def ndkTools = ndkToolsByTarget[rustTarget]
+    def undefinedSymbols = servokitExecOutput(
+      [ndkTools.nm, "--dynamic", "--undefined-only", hostLibrary],
+      "Could not inspect undefined symbols in ${hostLibrary}."
+    ).readLines()
+    def undefinedJemallocSymbols = undefinedSymbols.findAll { it =~ /\bU\s+_rjem_/ }
+    if (!undefinedJemallocSymbols.isEmpty()) {
+      throw new GradleException(
+        "ServoKit Android ${payload} ${abi} host has undefined jemalloc symbols: ${undefinedJemallocSymbols.join(', ')}"
+      )
+    }
+
+    packagedLibraries.each { libraryName ->
+      def library = new File(abiDir, libraryName)
+      def dynamicSection = servokitExecOutput(
+        [ndkTools.readelf, "--dynamic", "--wide", library],
+        "Could not inspect dynamic dependencies in ${library}."
+      )
+      def neededLibraries = dynamicSection.readLines()
+        .findAll { it.contains("(NEEDED)") }
+        .collect { line ->
+          def matcher = line =~ /Shared library: \[([^]]+)\]/
+          if (!matcher.find()) {
+            throw new GradleException("Could not parse DT_NEEDED line in ${library}: ${line}")
+          }
+          matcher.group(1)
+        }
+      def unexpectedLibraries = neededLibraries.findAll { needed ->
+        !systemLibraries.contains(needed) && packagedLibraries.count { it == needed } != 1
+      }
+      if (!unexpectedLibraries.isEmpty()) {
+        throw new GradleException(
+          "ServoKit Android ${payload} ${abi}/${libraryName} has unpackaged dependencies: ${unexpectedLibraries}"
+        )
+      }
+
+      def programHeaders = servokitExecOutput(
+        [ndkTools.readelf, "--program-headers", "--wide", library],
+        "Could not inspect load alignment in ${library}."
+      )
+      def loadAlignments = programHeaders.readLines()
+        .findAll { it.trim().startsWith("LOAD ") }
+        .collect { it.trim().tokenize().last() }
+      if (loadAlignments.isEmpty() || loadAlignments.any { it != "0x4000" }) {
+        throw new GradleException(
+          "ServoKit Android ${payload} ${abi}/${libraryName} has unexpected LOAD alignment: ${loadAlignments}"
+        )
+      }
+    }
+  }
+}
+
+def verifyServokitAndroidReleaseNativeClosure = tasks.register("verifyServokitAndroidReleaseNativeClosure") {
+  group = "verification"
+  description = "Rejects incomplete or unexpected native linkage before release packaging."
+  dependsOn("buildRustAndroidRelease")
+  doLast {
+    servokitVerifyAndroidNativeClosure(servokitRustOutputDir("release"), "producer")
+  }
+}
+
+def verifyServokitAndroidReleaseAar = tasks.register("verifyServokitAndroidReleaseAar") {
+  group = "verification"
+  description = "Verifies the exact stripped native payload inside the release AAR."
+  dependsOn("bundleReleaseAar")
+  doLast {
+    def releaseAar = file("$buildDir/outputs/aar/${project.name}-release.aar")
+    if (!releaseAar.isFile()) {
+      throw new GradleException("Missing ServoKit Android release AAR: ${releaseAar}")
+    }
+
+    def nativeEntries = []
+    def archive = new java.util.zip.ZipFile(releaseAar)
+    try {
+      def entries = archive.entries()
+      while (entries.hasMoreElements()) {
+        def entry = entries.nextElement()
+        if (!entry.directory && entry.name.startsWith("jni/") && entry.name.endsWith(".so")) {
+          nativeEntries.add(entry.name)
+        }
+      }
+    } finally {
+      archive.close()
+    }
+
+    def expectedEntries = servokitRustTargets.keySet().collectMany { abi ->
+      ["jni/${abi}/libc++_shared.so", "jni/${abi}/libservokit_host_android.so"]
+    }.sort()
+    if (nativeEntries.sort() != expectedEntries) {
+      throw new GradleException(
+        "Unexpected ServoKit Android release AAR native entries: ${nativeEntries}; expected ${expectedEntries}"
+      )
+    }
+
+    project.sync {
+      from(project.zipTree(releaseAar))
+      into(temporaryDir)
+      include("jni/**/*.so")
+      includeEmptyDirs = false
+    }
+    servokitVerifyAndroidNativeClosure(new File(temporaryDir, "jni"), "release AAR")
+  }
+}
+
+tasks.register("stageReactNativeServokitReleaseAar", Copy) {
+  group = "distribution"
+  description = "Stages the verified release AAR into the React Native package."
+  dependsOn(verifyServokitAndroidReleaseAar)
+  from(layout.buildDirectory.file("outputs/aar/${project.name}-release.aar"))
+  into(new File(projectDir, "../../../packages/react-native-servokit/android/libs"))
+}
+
+tasks.configureEach {
+  if (name == "preDebugBuild") {
+    dependsOn("buildRustAndroidDebug")
+  }
+
+  if (name == "preReleaseBuild") {
+    dependsOn(verifyServokitAndroidReleaseNativeClosure)
+  }
+}
+
+dependencies {
+  testImplementation "junit:junit:4.13.2"
+}

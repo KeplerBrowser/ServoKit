@@ -1,0 +1,43 @@
+require 'pathname'
+
+ws_dir = Pathname.new(__dir__)
+ws_dir = ws_dir.parent until
+  File.exist?("#{ws_dir}/node_modules/react-native-macos/scripts/react_native_pods.rb") ||
+  ws_dir.expand_path.to_s == '/'
+require "#{ws_dir}/node_modules/react-native-macos/scripts/react_native_pods.rb"
+
+prepare_react_native_project!
+
+target 'ServoKitMacOSExample-macOS' do
+  platform :macos, '14.0'
+
+  servokit_package_root = Pod::Executable.execute_command('node', ['-p',
+    'require("path").dirname(require.resolve(
+      "react-native-servokit/package.json",
+      {paths: [process.argv[1]]},
+    ))', __dir__]).strip
+
+  if ENV['SERVOKIT_BUILD_FROM_SOURCE'] == '1'
+    Pod::Executable.execute_command(
+      'node',
+      [File.join(servokit_package_root, 'scripts/prepare-macos-source.mjs')]
+    )
+  elsif ENV['SERVOKIT_MACOS_BINARY_POD_DIR']
+    pod 'ServoKitMacOSBinary', :path => ENV['SERVOKIT_MACOS_BINARY_POD_DIR']
+  end
+
+  pod 'ServokitMacOS', :path => File.join(servokit_package_root, 'macos')
+
+  use_native_modules!
+
+  use_react_native!(
+    :path => '../node_modules/react-native-macos',
+    :fabric_enabled => ENV['RCT_NEW_ARCH_ENABLED'] == '1',
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  post_install do |installer|
+    react_native_post_install(installer)
+  end
+end

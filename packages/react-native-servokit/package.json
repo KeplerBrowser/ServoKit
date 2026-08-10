@@ -1,0 +1,111 @@
+{
+  "name": "react-native-servokit",
+  "version": "0.1.0",
+  "description": "Experimental React Native Fabric view backed by Servo on Android and WKWebView on iOS",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.tsx",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "src",
+    "!src/__tests__",
+    "!src/__tests__/**",
+    "lib",
+    "!lib/typescript/src/__tests__",
+    "!lib/typescript/src/__tests__/**",
+    "Servokit.podspec",
+    "ios/ServoView.mm",
+    "ios/ServoKitController.xcframework",
+    "android/build.gradle",
+    "android/src/main",
+    "android/libs/servokit-android-host-release.aar",
+    "react-native.config.js"
+  ],
+  "scripts": {
+    "clean": "del-cli android/build lib",
+    "prepack": "node scripts/verify-prepack-artifacts.mjs",
+    "prepare": "bob build",
+    "test:e2e:ios": "maestro test e2e",
+    "test:native:android": "bun run --cwd example test:native:android",
+    "example:android": "bun run --cwd example android",
+    "example:fixtures:ios": "python3 -m http.server 8481 --directory ../../examples/fixtures",
+    "example:ios": "bun run --cwd example ios",
+    "example:pods:ios": "bun run --cwd example pods:ios",
+    "typecheck": "tsc"
+  },
+  "keywords": [
+    "react-native",
+    "android",
+    "ios",
+    "servo",
+    "webkit",
+    "rust",
+    "fabric"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KeplerBrowser/ServoKit.git"
+  },
+  "author": "nujhong <w.chen-2@hotmail.com> (https://github.com/nujhong)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/KeplerBrowser/ServoKit/issues"
+  },
+  "homepage": "https://github.com/KeplerBrowser/ServoKit/tree/main/packages/react-native-servokit#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "@react-native/babel-preset": "0.85.0",
+    "@types/react": "^19.2.0",
+    "del-cli": "^7.0.0",
+    "react": "19.2.3",
+    "react-native": "0.85.0",
+    "react-native-builder-bob": "^0.41.0",
+    "typescript": "^6.0.2"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "codegenConfig": {
+    "name": "ServoViewSpec",
+    "type": "all",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "org.servo.servokit.reactnative"
+    },
+    "ios": {
+      "componentProvider": {
+        "ServoView": "ServoView"
+      }
+    }
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      "typescript"
+    ]
+  },
+  "create-react-native-library": {
+    "type": "fabric-view",
+    "languages": "kotlin-objc",
+    "tools": [],
+    "version": "0.61.0"
+  }
+}

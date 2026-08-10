@@ -1,0 +1,40 @@
+appId: org.servo.servokit.reactnative.example
+---
+- launchApp:
+    clearState: true
+- waitForAnimationToEnd
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- tapOn:
+    id: fixture.dialog
+- extendedWaitUntil:
+    visible: "JavaScript dialogs"
+    timeout: 30000
+
+- tapOn: "Trigger confirm"
+- assertVisible:
+    id: dialog.title
+    text: "JavaScript confirm"
+- assertVisible:
+    id: dialog.message
+    text: "Confirm this Servokit fixture request?"
+- tapOn:
+    id: dialog.confirm
+- assertVisible: "Confirm accepted"
+
+- tapOn: "Trigger prompt"
+- assertVisible:
+    id: dialog.title
+    text: "JavaScript prompt"
+- assertVisible:
+    id: dialog.message
+    text: "Enter a fixture response"
+- tapOn:
+    id: dialog.prompt-input
+- eraseText
+- inputText: "ServoKit"
+- tapOn:
+    id: dialog.confirm
+- assertVisible: "Prompt returned: ServoKit"

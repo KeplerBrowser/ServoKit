@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 280" role="img" aria-labelledby="title desc">
+  <title id="title">ServoKit</title>
+  <desc id="desc">A stylized ServoKit architecture diagram showing app surfaces flowing through thin host adapters into the Rust ServoKit runtime and Servo.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="0.55" stop-color="#172554"/>
+      <stop offset="1" stop-color="#0e7490"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0.1"/>
+      <stop offset="0.5" stop-color="#a78bfa" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#2dd4bf" stop-opacity="0.1"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.06"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.25 0 0 0 0 0.8 0 0 0 0 1 0 0 0 0.55 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="920" height="280" rx="34" fill="url(#bg)"/>
+  <path d="M18 202C130 134 248 174 360 106S590 40 760 83c63 16 106 45 142 82" fill="none" stroke="url(#beam)" stroke-width="42" stroke-linecap="round" opacity="0.65"/>
+  <path d="M36 82c85-42 170-42 255 0s169 42 254 0 170-42 255 0" fill="none" stroke="#93c5fd" stroke-width="1.5" opacity="0.22"/>
+  <path d="M52 224c88-46 176-46 264 0s176 46 264 0 176-46 264 0" fill="none" stroke="#99f6e4" stroke-width="1.5" opacity="0.2"/>
+
+  <g transform="translate(72 62)">
+    <rect x="0" y="0" width="178" height="112" rx="22" fill="url(#card)" stroke="#bae6fd" stroke-opacity="0.36"/>
+    <text x="24" y="38" fill="#e0f2fe" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18" font-weight="700">App surfaces</text>
+    <text x="24" y="66" fill="#bfdbfe" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13">React Native · Kotlin</text>
+    <text x="24" y="88" fill="#bfdbfe" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13">winit · GPUI</text>
+  </g>
+
+  <g transform="translate(302 62)">
+    <rect x="0" y="0" width="196" height="112" rx="22" fill="url(#card)" stroke="#ddd6fe" stroke-opacity="0.38"/>
+    <text x="24" y="38" fill="#ede9fe" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18" font-weight="700">Thin adapters</text>
+    <text x="24" y="66" fill="#ddd6fe" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13">SurfaceView · IME · JNI</text>
+    <text x="24" y="88" fill="#ddd6fe" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13">props · events · windows</text>
+  </g>
+
+  <g transform="translate(550 48)" filter="url(#glow)">
+    <rect x="0" y="0" width="270" height="140" rx="28" fill="#0f172a" fill-opacity="0.72" stroke="#67e8f9" stroke-opacity="0.58"/>
+    <text x="28" y="44" fill="#ffffff" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="28" font-weight="800" letter-spacing="0.4">ServoKit</text>
+    <text x="28" y="76" fill="#a5f3fc" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14" font-weight="600">Rust runtime + controller</text>
+    <text x="28" y="102" fill="#cbd5e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13">commands · events · policy</text>
+    <text x="28" y="124" fill="#cbd5e1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13">surfaces · Servo integration</text>
+  </g>
+
+  <g fill="none" stroke="#e0f2fe" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.82">
+    <path d="M250 118h40"/>
+    <path d="M486 118h46"/>
+    <path d="M250 118l-12-8m12 8l-12 8" transform="translate(40 0)"/>
+    <path d="M498 118l-12-8m12 8l-12 8" transform="translate(34 0)"/>
+  </g>
+
+  <g transform="translate(690 208)">
+    <circle cx="0" cy="0" r="34" fill="#14b8a6" fill-opacity="0.18" stroke="#5eead4" stroke-opacity="0.55"/>
+    <text x="0" y="6" text-anchor="middle" fill="#ecfeff" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18" font-weight="800">Servo</text>
+  </g>
+  <path d="M684 188c-28-14-50-32-66-54" fill="none" stroke="#67e8f9" stroke-width="3" stroke-linecap="round" opacity="0.65"/>
+
+  <g transform="translate(72 214)">
+    <rect width="334" height="34" rx="17" fill="#0f172a" fill-opacity="0.45" stroke="#ffffff" stroke-opacity="0.12"/>
+    <text x="22" y="22" fill="#e2e8f0" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="600">Servo embedding toolkit · APIs still unstable</text>
+  </g>
+</svg>

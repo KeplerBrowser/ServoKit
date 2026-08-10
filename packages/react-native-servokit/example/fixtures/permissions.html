@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Permission demo</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 24px;
+        line-height: 1.5;
+      }
+
+      button {
+        font: inherit;
+        padding: 12px 16px;
+      }
+
+      pre {
+        background: #f1f5f9;
+        border-radius: 8px;
+        padding: 12px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Notification permission demo</h1>
+    <p>Tap the button to request notification permission through the Android embedder prompt.</p>
+    <button id="request">Request notifications</button>
+    <pre id="output">Waiting for a permission request…</pre>
+    <script>
+      const output = document.getElementById('output');
+      const requestButton = document.getElementById('request');
+
+      function setOutput(message) {
+        output.textContent = message;
+      }
+
+      requestButton.addEventListener('click', () => {
+        if (!('Notification' in window)) {
+          setOutput('Notifications are unavailable in this browser.');
+          return;
+        }
+
+        setOutput('Requesting notification permission…');
+        Notification.requestPermission()
+          .then((permission) => {
+            setOutput(`Notification permission: ${permission}`);
+          })
+          .catch((error) => {
+            setOutput(String(error));
+          });
+      });
+    </script>
+  </body>
+</html>

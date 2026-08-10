@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Embedder-Control Fixtures</title>
+    <link rel="stylesheet" href="../smoke/assets/smoke.css" />
+    <style>
+      .surface-list {
+        display: grid;
+        gap: 14px;
+        margin: 18px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .surface-list li {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 14px;
+        padding: 14px;
+        background: rgba(15, 23, 42, 0.45);
+      }
+
+      .surface-list a {
+        color: #bfdbfe;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body data-fixture="servokit-control-index">
+    <main>
+      <header>
+        <p class="eyebrow">Servokit cross-host fixture</p>
+        <h1 id="fixture-ready">Embedder-control fixtures ready</h1>
+        <p>
+          These host-neutral pages exercise browser controls that are usually
+          resolved by the embedding host: dialogs, text input and IME, select
+          controls, picker inputs, file inputs, permissions, and context-menu
+          targets. They use static HTML, CSS, and inline JavaScript only.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="controls-heading">
+        <h2 id="controls-heading">Control fixture pages</h2>
+        <nav class="fixture-nav" aria-label="Servokit embedder-control fixture pages">
+          <a id="control-link-dialogs" class="fixture-link" href="dialogs.html">Dialogs</a>
+          <a id="control-link-text-input" class="fixture-link" href="ime-form.html">Text input and IME</a>
+          <a id="control-link-select" class="fixture-link" href="select-elements.html">Select elements</a>
+          <a id="control-link-pickers" class="fixture-link" href="pickers.html">Non-text pickers</a>
+          <a id="control-link-file" class="fixture-link" href="file-input.html">File input</a>
+          <a id="control-link-permissions" class="fixture-link" href="permissions.html">Permissions</a>
+          <a id="control-link-context-menu" class="fixture-link" href="context-menu-demo.html">Context-menu targets</a>
+        </nav>
+      </section>
+
+      <section class="card" aria-labelledby="surface-heading">
+        <h2 id="surface-heading">Coverage map</h2>
+        <ul class="surface-list">
+          <li>
+            <a href="dialogs.html">Dialogs</a> trigger
+            <code>alert()</code>, <code>confirm()</code>, and <code>prompt()</code>
+            so a host can present and resolve simple JavaScript dialogs.
+          </li>
+          <li>
+            <a href="ime-form.html">Text input and IME</a> includes common text
+            input modes, multiline text, contenteditable text, and lower-page
+            fields for keyboard/viewport checks.
+          </li>
+          <li>
+            <a href="select-elements.html">Select elements</a> includes basic,
+            grouped, disabled, preselected, and multiple-select controls.
+          </li>
+          <li>
+            <a href="pickers.html">Non-text pickers</a> includes color, date,
+            time, datetime-local, month, week, number, range, and checkbox/radio
+            controls.
+          </li>
+          <li>
+            <a href="file-input.html">File input</a> includes single, multiple,
+            image-filtered, and capture-hinted file controls.
+          </li>
+          <li>
+            <a href="permissions.html">Permissions</a> triggers notification,
+            geolocation, camera, and microphone requests when the browser and
+            serving context support them.
+          </li>
+          <li>
+            <a href="context-menu-demo.html">Context-menu targets</a> provides
+            links, selectable text, images, editable fields, and generic blocks
+            for long-press or right-click checks.
+          </li>
+        </ul>
+      </section>
+
+      <footer>
+        Expected host signal: each page loads successfully, the host logs the
+        corresponding control request when implemented, and unsupported controls
+        report unavailable/unsupported without crashing the webview.
+      </footer>
+    </main>
+  </body>
+</html>

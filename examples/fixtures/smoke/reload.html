@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Smoke - Reload Visibility</title>
+    <link rel="stylesheet" href="assets/smoke.css" />
+    <script>
+      (function () {
+        function updateReloadState() {
+          var loadedAt = new Date().toISOString();
+          var countLabel = "unavailable";
+
+          try {
+            var key = "servokit-smoke.reload-count";
+            var nextCount = Number(window.localStorage.getItem(key) || "0") + 1;
+            window.localStorage.setItem(key, String(nextCount));
+            countLabel = String(nextCount);
+          } catch (error) {
+            countLabel = "storage unavailable; use timestamp";
+          }
+
+          document.getElementById("loaded-at").textContent = loadedAt;
+          document.getElementById("reload-count").textContent =
+            "Reload count: " + countLabel;
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", updateReloadState, { once: true });
+        } else {
+          updateReloadState();
+        }
+      })();
+    </script>
+  </head>
+  <body data-fixture="servokit-smoke-reload">
+    <main>
+      <header>
+        <p class="eyebrow">Reload smoke fixture</p>
+        <h1>Reload visibility</h1>
+        <p>
+          The timestamp updates on every document load. When local storage is
+          available, the count also increments across reloads for the same origin.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>Current load</h2>
+        <p class="status">Loaded at: <span id="loaded-at">pending</span></p>
+        <p id="reload-count" class="status">Reload count: pending</p>
+        <p>
+          Expected host signal: invoking the host reload command re-renders this
+          page and changes the visible timestamp, with no host-specific page code.
+        </p>
+        <nav class="fixture-nav" aria-label="Reload smoke actions">
+          <button id="page-reload-button" type="button" onclick="window.location.reload()">Reload with page button</button>
+          <a class="fixture-link" href="form.html">Next: focusable fields</a>
+          <a class="fixture-link" href="index.html">Back to index</a>
+        </nav>
+      </section>
+    </main>
+  </body>
+</html>

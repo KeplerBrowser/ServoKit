@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servo control demo</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f3f4f6;
+        color: #111827;
+      }
+
+      h1,
+      h2 {
+        margin-top: 0;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      .stack {
+        display: grid;
+        gap: 16px;
+      }
+
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      input,
+      select {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 12px;
+        font-size: 16px;
+        background: #fff;
+      }
+
+      .value {
+        margin-top: 8px;
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Servo control demo</h1>
+      <p>Tap the controls below to exercise Android-owned picker UI for non-text input types and native select handling.</p>
+
+      <div class="stack">
+        <div>
+          <label for="color">Color</label>
+          <input id="color" type="color" value="#336699" />
+          <div class="value" id="color-value">#336699</div>
+        </div>
+
+        <div>
+          <label for="date">Date</label>
+          <input id="date" type="date" value="2026-04-27" />
+          <div class="value" id="date-value">2026-04-27</div>
+        </div>
+
+        <div>
+          <label for="time">Time</label>
+          <input id="time" type="time" value="08:15" />
+          <div class="value" id="time-value">08:15</div>
+        </div>
+
+        <div>
+          <label for="datetime-local">Datetime local</label>
+          <input id="datetime-local" type="datetime-local" value="2026-04-27T08:15" />
+          <div class="value" id="datetime-local-value">2026-04-27T08:15</div>
+        </div>
+
+        <div>
+          <label for="month">Month</label>
+          <input id="month" type="month" value="2026-04" />
+          <div class="value" id="month-value">2026-04</div>
+        </div>
+
+        <div>
+          <label for="week">Week</label>
+          <input id="week" type="week" value="2026-W18" />
+          <div class="value" id="week-value">2026-W18</div>
+        </div>
+
+        <div>
+          <label for="favorite-browser">Single select</label>
+          <select id="favorite-browser">
+            <option value="servo" selected>Servo</option>
+            <option value="firefox">Firefox</option>
+            <optgroup label="Chromium family">
+              <option value="chrome">Chrome</option>
+              <option value="edge" disabled>Edge (disabled)</option>
+            </optgroup>
+          </select>
+          <div class="value" id="favorite-browser-value">servo</div>
+        </div>
+
+        <div>
+          <label for="single-file">Single file</label>
+          <input id="single-file" type="file" accept=".txt,.md,image/*" />
+          <div class="value" id="single-file-value">(none)</div>
+        </div>
+
+        <div>
+          <label for="multi-file">Multiple files</label>
+          <input id="multi-file" type="file" accept=".png,.jpg,.jpeg" multiple />
+          <div class="value" id="multi-file-value">(none)</div>
+        </div>
+
+      </div>
+    </div>
+
+    <script>
+      for (const id of ["color", "date", "time", "datetime-local", "month", "week"]) {
+        const input = document.getElementById(id);
+        const output = document.getElementById(`${id}-value`);
+        const sync = () => {
+          output.textContent = input.value || "(empty)";
+          document.title = `Control demo: ${id}=${input.value || "(empty)"}`;
+        };
+        input.addEventListener("input", sync);
+        input.addEventListener("change", sync);
+        sync();
+      }
+
+      const favoriteBrowser = document.getElementById("favorite-browser");
+      const favoriteBrowserValue = document.getElementById("favorite-browser-value");
+      const syncFavoriteBrowser = () => {
+        favoriteBrowserValue.textContent = favoriteBrowser.value || "(empty)";
+      };
+      favoriteBrowser.addEventListener("input", syncFavoriteBrowser);
+      favoriteBrowser.addEventListener("change", syncFavoriteBrowser);
+      syncFavoriteBrowser();
+
+      for (const id of ["single-file", "multi-file"]) {
+        const input = document.getElementById(id);
+        const output = document.getElementById(`${id}-value`);
+        const sync = () => {
+          const names = Array.from(input.files || [], (file) => file.name);
+          output.textContent = names.length > 0 ? names.join(", ") : "(none)";
+          document.title = `Control demo: ${id}=${names.join(",") || "(none)"}`;
+        };
+        input.addEventListener("input", sync);
+        input.addEventListener("change", sync);
+        sync();
+      }
+    </script>
+  </body>
+</html>

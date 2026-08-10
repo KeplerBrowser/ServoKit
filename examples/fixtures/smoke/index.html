@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Smoke Fixtures</title>
+    <link rel="stylesheet" href="assets/smoke.css" />
+    <script>
+      function updateViewportSignal() {
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+        var band = width >= 720 ? "wide" : "narrow";
+        var size = document.getElementById("viewport-size");
+        var mode = document.getElementById("viewport-band");
+        if (!size || !mode) {
+          return;
+        }
+        document.body.dataset.viewportBand = band;
+        size.textContent = "Viewport " + width + " x " + height;
+        mode.textContent = "Breakpoint " + band;
+        document.title =
+          "Servokit Smoke Fixtures - " + band + " " + width + "x" + height;
+      }
+
+      window.addEventListener("resize", updateViewportSignal);
+      window.addEventListener("DOMContentLoaded", updateViewportSignal);
+    </script>
+  </head>
+  <body data-fixture="servokit-smoke-index">
+    <main>
+      <header>
+        <p class="eyebrow">Servokit cross-host fixture</p>
+        <h1 id="fixture-ready">Smoke fixtures ready</h1>
+        <p>
+          This platform-neutral page set exercises the cross-host smoke flow with
+          plain HTML, CSS, and JavaScript. It is safe to serve from a desktop
+          helper, an Android app-local fixture server, or a file URL when the
+          host supports file navigation.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="coverage-heading">
+        <h2 id="coverage-heading">Coverage map</h2>
+        <ul class="checklist">
+          <li>Initial load: this page should render and report its URL/load status.</li>
+          <li>Title changes: the title page updates <code>document.title</code> after load.</li>
+          <li>Links/history: the history pages use normal anchors for back/forward checks.</li>
+          <li>Reload visibility: the reload page displays a fresh timestamp/count.</li>
+          <li>Focusable fields: the form page includes text inputs, textarea, select, checkbox, and button controls.</li>
+          <li>Error handling: the error page links to intentionally missing/unreachable resources.</li>
+          <li>Navigation policy: the policy page includes allowed and host-denied links.</li>
+        </ul>
+      </section>
+
+      <section class="card viewport-check" aria-labelledby="viewport-heading">
+        <h2 id="viewport-heading">Viewport reflow</h2>
+        <p id="viewport-size" class="viewport-size">Viewport pending</p>
+        <p id="viewport-band" class="status">Breakpoint pending</p>
+      </section>
+
+      <section class="card" aria-labelledby="pages-heading">
+        <h2 id="pages-heading">Fixture pages</h2>
+        <nav class="fixture-nav" aria-label="Servokit smoke fixture pages">
+          <a id="smoke-link-title" class="fixture-link" href="title-change.html">Title change</a>
+          <a id="smoke-link-history" class="fixture-link" href="history-start.html">Links/history</a>
+          <a id="smoke-link-reload" class="fixture-link" href="reload.html">Reload visibility</a>
+          <a id="smoke-link-form" class="fixture-link" href="form.html">Focusable fields</a>
+          <a id="smoke-link-error" class="fixture-link danger" href="error.html">Expected errors</a>
+          <a id="smoke-link-policy" class="fixture-link" href="policy.html">Navigation policy</a>
+        </nav>
+      </section>
+
+      <footer>
+        Expected host signal: URL changed to this fixture, load status reaches loaded/complete,
+        and the rendered heading reads <strong>Smoke fixtures ready</strong>.
+      </footer>
+    </main>
+  </body>
+</html>

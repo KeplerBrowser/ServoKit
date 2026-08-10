@@ -1,0 +1,12 @@
+[package]
+name = "desktop-winit"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+servokit = { path = "../../crates/servokit", features = ["servo"] }
+winit = "0.30"
+
+[patch.crates-io]
+tikv-jemalloc-sys = { path = "../../crates/vendor/tikv-jemalloc-sys" }

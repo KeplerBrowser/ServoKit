@@ -1,0 +1,35 @@
+[package]
+name = "servokit-embedder"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+default = []
+servo = [
+    "dep:dpi",
+    "dep:euclid",
+    "dep:rustls",
+    "dep:servo",
+    "dep:servo-default-resources",
+]
+
+[dependencies]
+serde_json = "1"
+servokit-host = { path = "../servokit-host" }
+thiserror = "2.0"
+url = "2.5"
+
+[target.'cfg(target_os = "android")'.dependencies]
+dpi = { workspace = true, optional = true }
+euclid = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true, features = ["ring"] }
+servo = { workspace = true, optional = true }
+servo-default-resources = { workspace = true, optional = true }
+
+[target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
+dpi = { workspace = true, optional = true }
+euclid = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+servo = { workspace = true, optional = true }
+servo-default-resources = { workspace = true, optional = true }

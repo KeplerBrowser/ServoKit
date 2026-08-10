@@ -1,0 +1,48 @@
+appId: org.servo.servokit.reactnative.example
+---
+- launchApp:
+    clearState: true
+- waitForAnimationToEnd
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- tapOn:
+    id: fixture.title-event
+- extendedWaitUntil:
+    visible: "Title changed to: Servokit Smoke - Title Changed"
+    timeout: 30000
+
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.actions
+- tapOn:
+    id: action.focus
+- tapOn:
+    id: tools.tab.status
+- assertVisible:
+    id: status.focus
+    text: "Focus: focused"
+
+- tapOn:
+    id: tools.tab.actions
+- tapOn:
+    id: action.blur
+- tapOn:
+    id: tools.tab.status
+- assertVisible:
+    id: status.focus
+    text: "Focus: blurred"
+
+- tapOn:
+    id: tools.tab.actions
+- tapOn:
+    id: action.evaluate-title
+- tapOn:
+    id: tools.tab.status
+- extendedWaitUntil:
+    visible:
+      id: status.javascript-evaluation
+      text: 'JavaScript evaluation: \{"type":"string","value":"Servokit Smoke - Title Changed"\}'
+    timeout: 10000

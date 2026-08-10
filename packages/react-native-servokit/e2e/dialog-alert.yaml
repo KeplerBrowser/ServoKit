@@ -1,0 +1,38 @@
+appId: org.servo.servokit.reactnative.example
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- scrollUntilVisible:
+    element:
+      id: fixture.dialog
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: fixture.dialog
+- waitForAnimationToEnd
+- assertVisible: "JavaScript dialogs"
+- scrollUntilVisible:
+    element:
+      text: "Trigger alert"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Trigger alert"
+- assertVisible:
+    id: dialog.title
+    text: "JavaScript alert"
+- assertVisible:
+    id: dialog.message
+    text: "Servokit dialog fixture alert."
+- tapOn:
+    id: dialog.confirm
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.status
+- assertVisible:
+    id: status.title
+    text: "Title: Dialog fixture: Alert completed"

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Control Fixture - Permissions</title>
+    <link rel="stylesheet" href="../smoke/assets/smoke.css" />
+    <style>
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .result {
+        margin-top: 18px;
+        border-left: 4px solid #38bdf8;
+        border-radius: 10px;
+        padding: 12px 14px;
+        background: rgba(14, 165, 233, 0.16);
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body data-fixture="servokit-control-permissions">
+    <main>
+      <header>
+        <p class="eyebrow">Embedder-control fixture</p>
+        <h1>Permission request triggers</h1>
+        <p>
+          Use these buttons to trigger permission requests where the browser and
+          serving context support them. Unsupported APIs should update the result
+          text rather than crashing the host.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="permission-heading">
+        <h2 id="permission-heading">Permission cases</h2>
+        <div class="actions">
+          <button id="notification-button" type="button">Request notifications</button>
+          <button id="geolocation-button" type="button">Request geolocation</button>
+          <button id="camera-button" type="button">Request camera</button>
+          <button id="microphone-button" type="button">Request microphone</button>
+          <button id="query-button" type="button">Query permission states</button>
+        </div>
+        <pre id="output" class="result">No permission request has been made yet.</pre>
+      </section>
+
+      <footer>
+        Expected host result: supported permission APIs surface a host permission
+        request and resolve to granted, denied, prompt, unavailable, or an error
+        message visible on this page.
+      </footer>
+    </main>
+
+    <script>
+      const output = document.getElementById("output");
+
+      function setOutput(message) {
+        output.textContent = message;
+        document.title = `Permission fixture: ${message.split("\n")[0]}`;
+      }
+
+      document.getElementById("notification-button").addEventListener("click", async () => {
+        if (!("Notification" in window) || typeof Notification.requestPermission !== "function") {
+          setOutput("Notifications are unavailable in this browser.");
+          return;
+        }
+
+        try {
+          setOutput("Requesting notification permission…");
+          const permission = await Notification.requestPermission();
+          setOutput(`Notification permission: ${permission}`);
+        } catch (error) {
+          setOutput(`Notification error: ${error}`);
+        }
+      });
+
+      document.getElementById("geolocation-button").addEventListener("click", () => {
+        if (!navigator.geolocation) {
+          setOutput("Geolocation is unavailable in this browser.");
+          return;
+        }
+
+        setOutput("Requesting geolocation permission…");
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setOutput(
+              `Geolocation success: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`,
+            );
+          },
+          (error) => {
+            setOutput(`Geolocation error ${error.code}: ${error.message}`);
+          },
+          { enableHighAccuracy: false, maximumAge: 0, timeout: 10000 },
+        );
+      });
+
+      async function requestMedia(kind, constraints) {
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
+          setOutput(`${kind} capture is unavailable in this browser.`);
+          return;
+        }
+
+        try {
+          setOutput(`Requesting ${kind} permission…`);
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          const tracks = stream.getTracks();
+          setOutput(`${kind} stream opened with ${tracks.length} track(s). Stopping tracks now.`);
+          for (const track of tracks) {
+            track.stop();
+          }
+        } catch (error) {
+          setOutput(`${kind} error: ${error && error.name ? error.name : error}`);
+        }
+      }
+
+      document
+        .getElementById("camera-button")
+        .addEventListener("click", () => requestMedia("Camera", { video: true }));
+
+      document
+        .getElementById("microphone-button")
+        .addEventListener("click", () => requestMedia("Microphone", { audio: true }));
+
+      document.getElementById("query-button").addEventListener("click", async () => {
+        if (!navigator.permissions || typeof navigator.permissions.query !== "function") {
+          setOutput("The Permissions API is unavailable in this browser.");
+          return;
+        }
+
+        const names = ["notifications", "geolocation", "camera", "microphone"];
+        const lines = [];
+        for (const name of names) {
+          try {
+            const status = await navigator.permissions.query({ name });
+            lines.push(`${name}: ${status.state}`);
+          } catch (error) {
+            lines.push(`${name}: query unsupported (${error && error.name ? error.name : error})`);
+          }
+        }
+        setOutput(lines.join("\n"));
+      });
+    </script>
+  </body>
+</html>

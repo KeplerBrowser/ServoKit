@@ -1,0 +1,2 @@
+# Keep doc-facing Clippy checks on private implementation details enabled too.
+check-private-items = true

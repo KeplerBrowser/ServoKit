@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Smoke - Focusable Fields</title>
+    <link rel="stylesheet" href="assets/smoke.css" />
+    <script>
+      (function () {
+        function describeElement(element) {
+          if (!element) {
+            return "none";
+          }
+
+          return element.id || element.name || element.tagName.toLowerCase();
+        }
+
+        function wireFocusStatus() {
+          var status = document.getElementById("focus-status");
+          var form = document.getElementById("focus-form");
+          var actionButton = document.getElementById("form-action-button");
+
+          form.addEventListener("focusin", function (event) {
+            status.textContent = "Focused field: " + describeElement(event.target);
+          });
+
+          form.addEventListener("focusout", function () {
+            window.setTimeout(function () {
+              status.textContent = "Focused field: " + describeElement(document.activeElement);
+            }, 0);
+          });
+
+          actionButton.addEventListener("click", function () {
+            status.textContent = "Button activated; form controls remain interactive.";
+          });
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", wireFocusStatus, { once: true });
+        } else {
+          wireFocusStatus();
+        }
+      })();
+    </script>
+  </head>
+  <body data-fixture="servokit-smoke-form">
+    <main>
+      <header>
+        <p class="eyebrow">Focusable fields smoke fixture</p>
+        <h1>Focusable fields</h1>
+        <p>
+          Use this page to verify host focus/blur commands, touch or pointer focus,
+          text entry, form controls, and visible focus rings.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>Form controls</h2>
+        <p id="focus-status" class="status" aria-live="polite">Focused field: none</p>
+        <form id="focus-form" class="form-grid" action="form.html" method="get">
+          <label for="smoke-text-input">
+            Text input
+            <input id="smoke-text-input" name="text" type="text" autocomplete="off" value="Servo" />
+          </label>
+
+          <label for="smoke-email-input">
+            Email input
+            <input id="smoke-email-input" name="email" type="email" autocomplete="off" placeholder="servo@example.test" />
+          </label>
+
+          <label for="smoke-textarea">
+            Textarea
+            <textarea id="smoke-textarea" name="notes">Focusable textarea fixture</textarea>
+          </label>
+
+          <label for="smoke-select">
+            Select
+            <select id="smoke-select" name="choice">
+              <option>Initial load</option>
+              <option>Title changes</option>
+              <option>History navigation</option>
+              <option>Reload visibility</option>
+            </select>
+          </label>
+
+          <label for="smoke-checkbox">
+            <span>Checkbox</span>
+            <input id="smoke-checkbox" name="checked" type="checkbox" checked />
+          </label>
+
+          <button id="form-action-button" type="button">Activate button</button>
+        </form>
+      </section>
+
+      <nav class="fixture-nav" aria-label="Fixture navigation">
+        <a class="fixture-link" href="error.html">Next: expected errors</a>
+        <a class="fixture-link" href="index.html">Back to index</a>
+      </nav>
+    </main>
+  </body>
+</html>

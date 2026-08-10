@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.ServokitNativeExample" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:colorAccent">#1565C0</item>
+    </style>
+</resources>

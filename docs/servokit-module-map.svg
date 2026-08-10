@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="878" viewBox="0 0 1600 878" role="img" aria-labelledby="title desc">
+  <title id="title">Servokit module map</title>
+  <desc id="desc">Architecture diagram showing native Rust callers through the servokit facade, React Native Android and Kotlin Android examples through the shared Android host module, reusable host/backend modules, and Servo.</desc>
+  <defs>
+    <filter id="soft-shadow" x="-12%" y="-18%" width="124%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.08" />
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .page-title { fill: #0f172a; font: 800 40px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .group { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; filter: url(#soft-shadow); }
+      .group-title { font: 800 21px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .native-title { fill: #166534; }
+      .android-title { fill: #1d4ed8; }
+      .backend-title { fill: #6d28d9; }
+      .node { stroke-width: 2.2; }
+      .node-title { fill: #0f172a; font: 800 18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .node-subtitle { fill: #475569; font: 500 14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .note { fill: #475569; font: 700 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+      .native { fill: #ecfdf5; stroke: #22c55e; }
+      .android { fill: #eff6ff; stroke: #3b82f6; }
+      .core { fill: #f0f9ff; stroke: #0ea5e9; }
+      .host { fill: #faf5ff; stroke: #a855f7; }
+      .servo { fill: #fff1f2; stroke: #fb7185; }
+      .arrow { fill: none; stroke: #334155; stroke-width: 2.6; marker-end: url(#arrow); }
+      .label-bg { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
+      .label { fill: #334155; font: 700 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1600" height="1080" />
+  <text class="page-title" x="800" y="58">Servokit module map</text>
+
+  <rect class="group" x="52" y="96" width="500" height="225" rx="18" />
+  <text class="group-title native-title" x="88" y="136">Native Rust facade path</text>
+
+  <rect class="group" x="600" y="96" width="948" height="370" rx="18" />
+  <text class="group-title android-title" x="636" y="136">Android app-facing host paths</text>
+
+  <rect class="group" x="52" y="494" width="1496" height="330" rx="18" />
+  <text class="group-title backend-title" x="88" y="534">Reusable ServoKit host/backend modules</text>
+
+  <rect class="node native" x="96" y="178" width="260" height="88" rx="12" ry="12" />
+  <text class="node-title" x="226" y="216">desktop-winit</text>
+  <text class="node-title" x="226" y="239">desktop-gpui</text>
+
+  <rect class="node core" x="390" y="178" width="132" height="88" rx="12" ry="12" />
+  <text class="node-title" x="456" y="213">servokit</text>
+  <text class="node-subtitle" x="456" y="239">Rust facade</text>
+
+  <rect class="node android" x="642" y="138" width="270" height="86" rx="12" ry="12" />
+  <text class="node-title" x="777" y="171">react-native-servokit</text>
+  <text class="node-subtitle" x="777" y="196">Fabric ServoView + RN ergonomics</text>
+
+  <rect class="node android" x="642" y="242" width="270" height="86" rx="12" ry="12" />
+  <text class="node-title" x="777" y="267">examples/</text>
+  <text class="node-title" x="777" y="290">android-kotlin-browser</text>
+  <text class="node-subtitle" x="777" y="314">Kotlin browser example</text>
+
+  <rect class="node android" x="642" y="346" width="270" height="86" rx="12" ry="12" />
+  <text class="node-title" x="777" y="371">examples/</text>
+  <text class="node-title" x="777" y="394">android-native-example</text>
+  <text class="node-subtitle" x="777" y="418">native Android proof app</text>
+
+  <rect class="node android" x="1030" y="226" width="330" height="126" rx="12" ry="12" />
+  <text class="node-title" x="1195" y="261">crates/servokit-host-android</text>
+  <text class="node-title" x="1195" y="284">android/</text>
+  <text class="node-subtitle" x="1195" y="311">shared Kotlin/JNI host</text>
+  <text class="node-subtitle" x="1195" y="331">+ control coordinator</text>
+
+  <rect class="node core" x="214" y="572" width="290" height="96" rx="12" ry="12" />
+  <text class="node-title" x="359" y="606">servokit-embedder</text>
+  <text class="node-subtitle" x="359" y="631">Servo runtime + delegate</text>
+  <text class="node-subtitle" x="359" y="651">control translation</text>
+
+  <rect class="node host" x="590" y="572" width="250" height="96" rx="12" ry="12" />
+  <text class="node-title" x="715" y="610">servokit-host</text>
+  <text class="node-subtitle" x="715" y="636">host-neutral surface traits</text>
+
+  <rect class="node host" x="970" y="542" width="330" height="112" rx="12" ry="12" />
+  <text class="node-title" x="1135" y="579">servokit-host-android</text>
+  <text class="node-subtitle" x="1135" y="605">standalone Rust Android</text>
+  <text class="node-subtitle" x="1135" y="625">host backend</text>
+
+  <rect class="node host" x="1350" y="572" width="160" height="96" rx="12" ry="12" />
+  <text class="node-title" x="1430" y="610">servokit-</text>
+  <text class="node-title" x="1430" y="633">host-*</text>
+  <text class="node-subtitle" x="1430" y="653">future backends</text>
+
+  <rect class="node servo" x="268" y="720" width="182" height="76" rx="12" ry="12" />
+  <text class="node-title" x="359" y="750">Servo</text>
+  <text class="node-subtitle" x="359" y="774">engine crate</text>
+
+  <path class="arrow" d="M 356 222 H 382" />
+
+  <path class="arrow" d="M 912 181 C 966 181 982 258 1022 274" />
+  <path class="arrow" d="M 912 285 H 1022" />
+  <path class="arrow" d="M 912 389 C 966 389 982 320 1022 306" />
+
+  <rect class="label-bg" x="1000" y="370" width="390" height="34" rx="9" />
+  <text class="note" x="1195" y="392">shared Android host/control truth below adapters</text>
+
+  <path class="arrow" d="M 456 266 V 480 H 359 V 564" />
+  <path class="arrow" d="M 522 222 C 566 292 632 378 715 564" />
+  <path class="arrow" d="M 1195 352 V 480 H 1135 V 534" />
+  <path class="arrow" d="M 970 588 C 920 588 896 604 848 614" />
+  <path class="arrow" d="M 970 624 C 836 686 640 664 512 636" />
+  <path class="arrow" d="M 840 596 C 960 514 1218 514 1342 596" />
+  <path class="arrow" d="M 359 668 V 712" />
+</svg>

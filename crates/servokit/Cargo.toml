@@ -1,0 +1,29 @@
+[package]
+name = "servokit"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+default = []
+servo = [
+    "dep:cocoa",
+    "dep:dpi",
+    "dep:raw-window-handle",
+    "dep:servo",
+    "dep:webrender_api",
+    "servokit-embedder/servo",
+]
+
+[dependencies]
+servokit-embedder = { path = "../servokit-embedder" }
+servokit-host = { path = "../servokit-host" }
+
+[target.'cfg(any(target_os = "android", target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
+dpi = { workspace = true, optional = true }
+raw-window-handle = { workspace = true, optional = true }
+servo = { workspace = true, optional = true }
+webrender_api = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = { workspace = true, optional = true }

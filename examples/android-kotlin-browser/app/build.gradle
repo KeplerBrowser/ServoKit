@@ -1,0 +1,66 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+}
+
+def servokitRootDir = projectDir.canonicalFile.parentFile.parentFile.parentFile
+def sharedFixtureSourceDir = new File(servokitRootDir, "examples/fixtures")
+def sharedKotlinHostSourceDir = new File(servokitRootDir, "examples/android-native-example/app/src/main/java")
+def generatedFixtureAssetsDir = file("$buildDir/generated/servo-fixtures/assets")
+def generatedFixtureAssetRoot = file("$generatedFixtureAssetsDir/servo-fixtures")
+
+tasks.register("syncFixtureAssets", Sync) {
+    from(sharedFixtureSourceDir)
+    into(generatedFixtureAssetRoot)
+}
+
+android {
+    namespace "org.servo.servokit.androidkotlinbrowser"
+    compileSdk rootProject.ext.compileSdkVersion
+    ndkVersion rootProject.ext.ndkVersion
+
+    defaultConfig {
+        applicationId "org.servo.servokit.androidkotlinbrowser"
+        minSdk rootProject.ext.minSdkVersion
+        targetSdk rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "0.1.0"
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDir generatedFixtureAssetsDir
+            java.srcDir sharedKotlinHostSourceDir
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("syncFixtureAssets")
+}
+
+dependencies {
+    implementation project(":servokit-android-host")
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.5"
+}

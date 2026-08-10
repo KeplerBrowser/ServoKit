@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Smoke - History Start</title>
+    <link rel="stylesheet" href="assets/smoke.css" />
+  </head>
+  <body data-fixture="servokit-smoke-history-start">
+    <main>
+      <header>
+        <p class="eyebrow">Links/history smoke fixture</p>
+        <h1>History start</h1>
+        <p>
+          This page uses ordinary same-origin anchors so host examples can check
+          link activation, URL events, and back/forward state without any
+          framework-specific bridge code.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>Step 1</h2>
+        <p class="status">Expected host signal: current URL ends with <code>/smoke/history-start.html</code>.</p>
+        <p>
+          Activate the next link, then use the host back command to return here
+          and the forward command to revisit the next page.
+        </p>
+        <nav class="fixture-nav" aria-label="History smoke actions">
+          <a id="history-next-link" class="fixture-link success" href="history-next.html">Go to history next</a>
+          <a class="fixture-link" href="index.html">Back to index</a>
+        </nav>
+      </section>
+    </main>
+  </body>
+</html>

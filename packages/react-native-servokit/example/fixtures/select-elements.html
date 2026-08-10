@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select Element Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .test-group {
+      margin-bottom: 30px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #f9f9f9;
+    }
+    .test-group h2 {
+      margin-top: 0;
+      color: #555;
+      font-size: 18px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #666;
+    }
+    select {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 2px solid #007AFF;
+      border-radius: 6px;
+      background: white;
+      margin-bottom: 10px;
+    }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      background: #e8f4fd;
+      border-left: 3px solid #007AFF;
+      font-family: monospace;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Select Element Tests</h1>
+
+  <div class="test-group">
+    <h2>Basic Select</h2>
+    <label for="basic-select">Choose a fruit:</label>
+    <select id="basic-select">
+      <option value="apple">Apple</option>
+      <option value="banana">Banana</option>
+      <option value="cherry">Cherry</option>
+      <option value="date">Date</option>
+      <option value="elderberry">Elderberry</option>
+    </select>
+    <div class="result" id="basic-result">Selected: (none)</div>
+  </div>
+
+  <div class="test-group">
+    <h2>Select with Optgroups</h2>
+    <label for="grouped-select">Choose a food:</label>
+    <select id="grouped-select">
+      <optgroup label="Fruits">
+        <option value="apple">Apple</option>
+        <option value="banana">Banana</option>
+        <option value="orange">Orange</option>
+      </optgroup>
+      <optgroup label="Vegetables">
+        <option value="carrot">Carrot</option>
+        <option value="broccoli">Broccoli</option>
+        <option value="spinach">Spinach</option>
+      </optgroup>
+      <optgroup label="Grains">
+        <option value="rice">Rice</option>
+        <option value="wheat">Wheat</option>
+        <option value="oats">Oats</option>
+      </optgroup>
+    </select>
+    <div class="result" id="grouped-result">Selected: (none)</div>
+  </div>
+
+  <div class="test-group">
+    <h2>Select with Disabled Options</h2>
+    <label for="disabled-select">Choose an option:</label>
+    <select id="disabled-select">
+      <option value="enabled1">Enabled Option 1</option>
+      <option value="disabled1" disabled>Disabled Option 1</option>
+      <option value="enabled2">Enabled Option 2</option>
+      <option value="disabled2" disabled>Disabled Option 2</option>
+      <option value="enabled3">Enabled Option 3</option>
+    </select>
+    <div class="result" id="disabled-result">Selected: (none)</div>
+  </div>
+
+  <div class="test-group">
+    <h2>Select with Pre-selected Option</h2>
+    <label for="preselected-select">Choose a color:</label>
+    <select id="preselected-select">
+      <option value="red">Red</option>
+      <option value="green" selected>Green (Pre-selected)</option>
+      <option value="blue">Blue</option>
+      <option value="yellow">Yellow</option>
+    </select>
+    <div class="result" id="preselected-result">Selected: green</div>
+  </div>
+
+  <script>
+    function setupSelect(selectId, resultId) {
+      const select = document.getElementById(selectId);
+      const result = document.getElementById(resultId);
+
+      select.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        result.textContent = `Selected: ${selectedOption.value} (${selectedOption.text})`;
+      });
+
+      // Show initial value
+      if (select.value) {
+        const selectedOption = select.options[select.selectedIndex];
+        result.textContent = `Selected: ${selectedOption.value} (${selectedOption.text})`;
+      }
+    }
+
+    setupSelect('basic-select', 'basic-result');
+    setupSelect('grouped-select', 'grouped-result');
+    setupSelect('disabled-select', 'disabled-result');
+    setupSelect('preselected-select', 'preselected-result');
+  </script>
+</body>
+</html>

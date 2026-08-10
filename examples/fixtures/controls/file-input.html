@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Control Fixture - File Input</title>
+    <link rel="stylesheet" href="../smoke/assets/smoke.css" />
+    <style>
+      .file-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+
+      .file-case {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 14px;
+        padding: 14px;
+        background: rgba(15, 23, 42, 0.45);
+      }
+
+      .value {
+        margin-top: 10px;
+        color: #bfdbfe;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body data-fixture="servokit-control-file-input">
+    <main>
+      <header>
+        <p class="eyebrow">Embedder-control fixture</p>
+        <h1>File input controls</h1>
+        <p>
+          These file inputs exercise single-file, multiple-file, image-filtered,
+          and capture-hinted selection. The page only displays selected file
+          names and metadata exposed by the browser; it does not upload files.
+        </p>
+      </header>
+
+      <section class="card" aria-labelledby="file-heading">
+        <h2 id="file-heading">File chooser cases</h2>
+        <div class="file-grid">
+          <div class="file-case">
+            <label for="single-file">
+              Single file
+              <input id="single-file" type="file" />
+            </label>
+            <div class="value" id="single-file-value">Selected: (none)</div>
+          </div>
+
+          <div class="file-case">
+            <label for="multi-file">
+              Multiple text/markdown files
+              <input id="multi-file" type="file" accept=".txt,.md,text/plain" multiple />
+            </label>
+            <div class="value" id="multi-file-value">Selected: (none)</div>
+          </div>
+
+          <div class="file-case">
+            <label for="image-file">
+              Image files
+              <input id="image-file" type="file" accept="image/*" />
+            </label>
+            <div class="value" id="image-file-value">Selected: (none)</div>
+          </div>
+
+          <div class="file-case">
+            <label for="capture-file">
+              Capture-hinted image
+              <input id="capture-file" type="file" accept="image/*" capture="environment" />
+            </label>
+            <div class="value" id="capture-file-value">Selected: (none)</div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        Expected host result: activating a file input opens the host file picker
+        or reports unsupported; committed selections update the visible file
+        summary and cancelling leaves the value unchanged.
+      </footer>
+    </main>
+
+    <script>
+      function fileSummary(fileList) {
+        const files = Array.from(fileList || []);
+        if (files.length === 0) {
+          return "Selected: (none)";
+        }
+        return files
+          .map((file) => `${file.name || "(unnamed)"} [${file.type || "unknown type"}, ${file.size} bytes]`)
+          .join("; ");
+      }
+
+      for (const id of ["single-file", "multi-file", "image-file", "capture-file"]) {
+        const input = document.getElementById(id);
+        const output = document.getElementById(`${id}-value`);
+        const sync = () => {
+          const summary = fileSummary(input.files);
+          output.textContent = summary;
+          document.title = `File fixture: ${id}`;
+        };
+        input.addEventListener("input", sync);
+        input.addEventListener("change", sync);
+        sync();
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+Pods/
+build/
+*.xcworkspace/
+.xcode.env.local
+DerivedData/

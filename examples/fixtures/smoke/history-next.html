@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servokit Smoke - History Next</title>
+    <link rel="stylesheet" href="assets/smoke.css" />
+  </head>
+  <body data-fixture="servokit-smoke-history-next">
+    <main>
+      <header>
+        <p class="eyebrow">Links/history smoke fixture</p>
+        <h1>History next</h1>
+        <p>
+          Reaching this page proves same-origin anchor navigation. The host back
+          command should return to the history start page, and the host forward
+          command should return here when history is available.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>Step 2</h2>
+        <p class="status">Expected host signal: current URL ends with <code>/smoke/history-next.html</code>.</p>
+        <nav class="fixture-nav" aria-label="History smoke actions">
+          <a id="history-previous-link" class="fixture-link" href="history-start.html">Anchor back to start</a>
+          <a class="fixture-link" href="reload.html">Next: reload visibility</a>
+        </nav>
+      </section>
+    </main>
+  </body>
+</html>

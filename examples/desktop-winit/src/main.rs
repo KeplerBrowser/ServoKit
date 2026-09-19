@@ -10,6 +10,10 @@ use std::{
 };
 
 use servokit::{
+    input::{
+        HostInputEvent, KeyboardInputEvent, KeyboardInputKey, KeyboardInputState, PointerButton,
+        PointerButtonAction, PointerInputEvent, PointerScrollMode,
+    },
     runtime::{ensure_default_rustls_crypto_provider, Runtime},
     surface::{
         HostSurface, MemoryClipboard, NativeChildSurface, SurfaceDelegate, SurfaceError,
@@ -133,8 +137,8 @@ fn print_usage() {
         "Usage: desktop-winit [--smoke] [--smoke-timeout-ms <ms>] [url]\n\n\
          Without --smoke, the example runs interactively and uses the optional URL.\n\
          With --smoke, the example loads the URL (default: {DEFAULT_INITIAL_URL}), prints a\n\
-         deterministic platform/surface/load summary, and exits 0 on load completion or 1 on\n\
-         timeout, Servo error, or crash."
+         deterministic platform/surface/load/input/reattach summary, and exits 0 after those\n\
+         gates complete or 1 on timeout, Servo error, or crash."
     );
 }
 
@@ -352,6 +356,39 @@ impl DesktopWinitExample {
             event_loop.exit();
             return;
         }
+        if self
+            .smoke
+            .as_ref()
+            .is_some_and(smoke::SmokeState::should_run_input_probe)
+        {
+            if let Some(smoke) = self.smoke.as_mut() {
+                smoke.mark_input_probe_started();
+            }
+            match self.run_smoke_input_probe() {
+                Ok(()) => {
+                    if let Some(smoke) = self.smoke.as_mut() {
+                        smoke.mark_input_probe_complete();
+                    }
+                }
+                Err(error) => {
+                    eprintln!("{error}");
+                    self.record_smoke_failure(error);
+                }
+            }
+        }
+        if self
+            .smoke
+            .as_ref()
+            .is_some_and(smoke::SmokeState::should_run_reattach_cycle)
+        {
+            if let Some(smoke) = self.smoke.as_mut() {
+                smoke.mark_reattach_cycle_started();
+            }
+            if let Err(error) = self.run_smoke_reattach_cycle() {
+                eprintln!("{error}");
+                self.record_smoke_failure(error);
+            }
+        }
         let outcome = self.smoke.as_ref().and_then(|smoke| smoke.outcome());
         let Some(outcome) = outcome else {
             return;
@@ -362,6 +399,71 @@ impl DesktopWinitExample {
             smoke.print_result(&outcome);
         }
         event_loop.exit();
+    }
+
+    fn run_smoke_input_probe(&mut self) -> Result<(), String> {
+        let webview = self
+            .webview
+            .ok_or_else(|| "servokit smoke input probe failed: webview is missing".to_owned())?;
+        let viewport = self
+            .window
+            .as_ref()
+            .map(|window| viewport(window))
+            .ok_or_else(|| "servokit smoke input probe failed: window is missing".to_owned())?;
+        {
+            let runtime = self
+                .runtime
+                .as_mut()
+                .ok_or_else(|| {
+                    "servokit smoke input probe failed: runtime is missing".to_owned()
+                })?;
+            for input in smoke_input_probe_events(viewport.size) {
+                runtime
+                    .dispatch_input_event(webview, input)
+                    .map_err(|error| format!("servokit smoke input probe failed: {error}"))?;
+            }
+            runtime
+                .perform_updates(webview)
+                .map_err(|error| format!("servokit smoke input probe update failed: {error}"))?;
+        }
+        self.drain_events();
+        Ok(())
+    }
+
+    fn run_smoke_reattach_cycle(&mut self) -> Result<(), String> {
+        let webview = self
+            .webview
+            .ok_or_else(|| "servokit smoke reattach failed: webview is missing".to_owned())?;
+        {
+            let runtime = self
+                .runtime
+                .as_mut()
+                .ok_or_else(|| "servokit smoke detach failed: runtime is missing".to_owned())?;
+            runtime
+                .detach_surface(webview)
+                .map_err(|error| format!("servokit smoke detach failed: {error}"))?;
+        }
+        self.drain_events();
+
+        let viewport = self
+            .window
+            .as_ref()
+            .map(|window| viewport(window))
+            .ok_or_else(|| "servokit smoke reattach failed: window is missing".to_owned())?;
+        {
+            let runtime = self
+                .runtime
+                .as_mut()
+                .ok_or_else(|| "servokit smoke reattach failed: runtime is missing".to_owned())?;
+            runtime
+                .attach_surface_with_viewport(webview, HostSurface::new(SURFACE_ID), viewport)
+                .map_err(|error| format!("servokit smoke reattach failed: {error}"))?;
+            runtime
+                .perform_updates(webview)
+                .map_err(|error| format!("servokit smoke update after reattach failed: {error}"))?;
+        }
+        self.drain_events();
+        Ok(())
     }
 
     fn detach_surface(&mut self) {
@@ -427,4 +529,47 @@ fn viewport(window: &Window) -> SurfaceViewport {
         SurfaceSize::new(size.width, size.height),
         window.scale_factor() as f32,
     )
+}
+
+fn smoke_input_probe_events(size: SurfaceSize) -> Vec<HostInputEvent> {
+    let x = size.width.saturating_sub(1) as f32 / 2.0;
+    let y = size.height.saturating_sub(1) as f32 / 2.0;
+    vec![
+        HostInputEvent::Focus { is_focused: true },
+        HostInputEvent::Pointer(PointerInputEvent::moved(x, y)),
+        HostInputEvent::Pointer(PointerInputEvent::button(
+            PointerButtonAction::Pressed,
+            PointerButton::Primary,
+            x,
+            y,
+        )),
+        HostInputEvent::Pointer(PointerInputEvent::button(
+            PointerButtonAction::Released,
+            PointerButton::Primary,
+            x,
+            y,
+        )),
+        HostInputEvent::Pointer(PointerInputEvent::wheel(
+            0.0,
+            24.0,
+            PointerScrollMode::Pixels,
+            x,
+            y,
+        )),
+        HostInputEvent::Keyboard(KeyboardInputEvent {
+            key: KeyboardInputKey::Character("s".to_owned()),
+            state: KeyboardInputState::Pressed,
+            repeat: false,
+            is_composing: false,
+        }),
+        HostInputEvent::Keyboard(KeyboardInputEvent {
+            key: KeyboardInputKey::Character("s".to_owned()),
+            state: KeyboardInputState::Released,
+            repeat: false,
+            is_composing: false,
+        }),
+        HostInputEvent::ImeCommit {
+            text: "servokit-smoke".to_owned(),
+        },
+    ]
 }

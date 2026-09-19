@@ -27,9 +27,16 @@ rustls = { workspace = true, optional = true, features = ["ring"] }
 servo = { workspace = true, optional = true }
 servo-default-resources = { workspace = true, optional = true }
 
-[target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
+[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 dpi = { workspace = true, optional = true }
 euclid = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 servo = { workspace = true, optional = true }
+servo-default-resources = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+dpi = { workspace = true, optional = true }
+euclid = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+servo = { workspace = true, optional = true, features = ["no-wgl"] }
 servo-default-resources = { workspace = true, optional = true }

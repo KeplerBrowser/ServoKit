@@ -11,3 +11,6 @@ crate-type = ["rlib", "staticlib"]
 raw-window-handle = { workspace = true }
 servokit = { path = "../servokit", features = ["servo"] }
 servokit-embedder = { path = "../servokit-embedder" }
+
+[dev-dependencies]
+serde_json = "1"

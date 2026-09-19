@@ -20,6 +20,13 @@ child `NSView` layout-slot path through
 `servokit::surface::macos::AppKitChildSurface`; both paths exercise the same
 host-neutral ServoKit surface facade.
 
+On Windows this is the initial visible Win32 proof path: `winit` owns the native
+top-level window, ServoKit receives borrowed `raw-window-handle` Win32 handles
+through `NativeChildSurface`, and Windows-specific behavior must stay expressed
+through the same facade vocabulary. This example does not create a React Native
+Windows adapter, package a Windows runtime, or claim `GpuLayerSurface` /
+shared-D3D support.
+
 ## Run commands
 
 From the repository root, optional fixture server:
@@ -47,12 +54,25 @@ Run deterministic smoke mode:
 cargo run --locked --manifest-path examples/desktop-winit/Cargo.toml -- --smoke http://127.0.0.1:8481/smoke/index.html
 ```
 
+On Windows, run these commands from an x64 Visual Studio developer shell or an
+equivalent shell where Rust and the C++17 toolchain can find the MSVC linker and
+Windows SDK libraries. The repository workflow
+`.github/workflows/windows-host-lifecycle.yml` runs the headless Windows
+host-lifecycle slice through `scripts/windows-host-lifecycle.ps1`; attended
+smoke still requires an interactive desktop session. To capture the attended
+Windows smoke evidence consistently, run
+`scripts/windows-desktop-smoke.ps1 -Attended` from that session.
+
 Smoke mode opens the same native window and uses the same Servokit surface/event
-path as interactive mode, but it exits after the first `Complete` load status or
-a timeout. The default timeout is 30 seconds; override it with
-`--smoke-timeout-ms <milliseconds>`. The process exits `0` when a page reaches
-`Complete` and exits `1` on timeout, Servo error, Servo crash, or early window
-close. Normal interactive behavior is unchanged when `--smoke` is not supplied.
+path as interactive mode. After the first `Complete` load status, it dispatches
+a synthetic focus/pointer/wheel/keyboard/IME input probe through the same
+runtime input path, detaches and reattaches the same webview surface once, then
+exits after the reattach events are observed or after a timeout. The default
+timeout is 30 seconds; override it with `--smoke-timeout-ms <milliseconds>`.
+The process exits `0` when a page reaches `Complete`, the input probe completes,
+and the reattach cycle completes. It exits `1` on timeout, Servo error, Servo
+crash, input-probe failure, reattach failure, or early window close. Normal
+interactive behavior is unchanged when `--smoke` is not supplied.
 
 ## Lockfile and update workflow
 
@@ -88,8 +108,13 @@ Smoke mode prints the same event trace plus a deterministic start/result summary
 smoke mode=enabled platform=macos/aarch64 url=http://127.0.0.1:8481/smoke/index.html timeout_ms=30000
 webview=1 surface attached 960x640
 webview=1 load=Complete
+smoke action=input-probe
+smoke action=input-probe-complete
+smoke action=reattach-cycle
 webview=1 surface detached
-smoke result=pass platform=macos/aarch64 target_url=http://127.0.0.1:8481/smoke/index.html last_url=http://127.0.0.1:8481/smoke/index.html load_status=Complete surface_attached=960x640 surface_resized=none elapsed_ms=1234 errors=0 reason=none
+webview=1 surface attached 960x640
+webview=1 surface detached
+smoke result=pass platform=macos/aarch64 target_url=http://127.0.0.1:8481/smoke/index.html last_url=http://127.0.0.1:8481/smoke/index.html load_status=Complete surface_attached=960x640 surface_resized=none surface_attach_count=2 surface_detach_count=2 input_probe=complete reattach=complete elapsed_ms=1234 errors=0 reason=none
 ```
 
 If Servo emits an error or crash event, smoke mode keeps the event detail in the

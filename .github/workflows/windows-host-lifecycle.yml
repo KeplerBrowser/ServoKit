@@ -1,0 +1,43 @@
+name: Windows Host Lifecycle
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/windows-host-lifecycle.yml"
+      - "crates/Cargo.lock"
+      - "crates/servokit-embedder/Cargo.toml"
+      - "crates/servokit-host-desktop/**"
+      - "docs/desktop-winit.md"
+      - "docs/readiness-checks.md"
+      - "examples/desktop-winit/**"
+      - "scripts/windows-desktop-smoke.ps1"
+      - "scripts/windows-host-lifecycle.ps1"
+
+permissions:
+  contents: read
+
+jobs:
+  host-lifecycle:
+    runs-on: windows-latest
+    timeout-minutes: 240
+    env:
+      CARGO_BUILD_TARGET: x86_64-pc-windows-msvc
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+
+      - name: Run Windows host lifecycle evidence
+        shell: pwsh
+        run: |
+          ./scripts/windows-host-lifecycle.ps1 -EvidenceDir "$env:RUNNER_TEMP\servokit-windows-evidence"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: ServoKit-Windows-host-lifecycle-evidence
+          path: ${{ runner.temp }}\servokit-windows-evidence\*
+          if-no-files-found: warn

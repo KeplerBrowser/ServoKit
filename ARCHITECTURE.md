@@ -100,7 +100,7 @@ React Native macOS
   separate. A controller can outlive a render surface; disposing the host
   invalidates later commands explicitly.
 
-## Current Servo Runtime Limit
+## Servo runtime ownership
 
 Servo-backed paths use one process engine and one active owner on its UI thread.
 The native Rust `Runtime<SurfaceHost<_>>` can create multiple independent live
@@ -109,24 +109,14 @@ controller/pending state, event queue, and rendering target. The host retains th
 engine connection independently of its views, including while no views exist.
 
 The runtime manages view membership and handle routing; the application manages
-tabs/cards, selection, layout, and presentation. Servo owns internal IPC,
+selection, layout, and presentation. Servo owns internal IPC,
 networking/storage infrastructure, and engine coordination. Existing
 `SessionHandle`s identify logical groups; they do not provide storage partitions.
 
-`Runtime::destroy_webview` closes one view without affecting siblings.
-`Runtime::perform_all_updates` prepares live surfaces, spins Servo once, then
-presents and drains each view with its originating handle. View-specific failures
-do not stop sibling updates; engine-wide failures have no view attribution.
-
-Ordinary runtime/host drop detaches and destroys its views and releases the owner
-lease; a later host can reuse the retained process engine. Explicit
-`Runtime::shutdown` is terminal: it closes views and drops the process engine on
-the owning thread, before native parents and logging are torn down. Servo 0.3
-cannot initialize twice in a process, so later attachment fails after shutdown.
-Final shutdown attempts all view cleanup even after a detach error. A final host
-with no attached views can retire a retained engine from an earlier dropped host,
-but cannot retire another active owner's engine.
-Surface detach alone retains both view identity and the owner connection.
+View destruction and ordinary host disposal preserve the process engine for
+reuse. Explicit `Runtime::shutdown` is terminal because Servo 0.3 cannot initialize
+twice in one process. The [surface contract](docs/surface-modes.md) defines update
+servicing, error attribution, and view/native-resource teardown ordering.
 
 The single-view Android and private desktop adapters retain their existing
 ownership paths; this does not introduce a public React Native multi-view API.

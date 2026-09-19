@@ -62,12 +62,9 @@ Fabric `ServoView` surface through an AppKit adapter and the package-private
 desktop C boundary into Rust ServoKit. It is not a supported or distributed
 runtime contract and does not claim full Android feature parity.
 
-The native Rust facade supports multiple independent live views under one
-owning-thread engine connection. Each view has separate control/event and
-rendering state. Closing a view preserves siblings; a zero-view runtime remains
-usable. This does not extend the React Native adapter contracts or introduce
-storage partitioning. See
-[Architecture](../ARCHITECTURE.md#current-servo-runtime-limit).
+Independent multiview support applies to the native Rust surface host; it does
+not extend the React Native adapter contracts. See
+[Architecture](../ARCHITECTURE.md#servo-runtime-ownership).
 
 The mounted React Native JavaScript evaluation API covers app-initiated
 `ServoView.evaluateJavaScript(script): Promise<string>` on a mounted `ServoView`:

@@ -59,8 +59,30 @@ is not a zero-copy GPU handoff.
   next update/present cycle.
 - Detach removes the render target while preserving browser/controller state
   for later reattachment.
+
+## Multiple Native Views
+
+In the native Rust `Runtime<SurfaceHost<_>>`, create multiple `WebViewHandle`s
+and attach a distinct `HostSurface`/native child to each. A `SurfaceDelegate`
+selects its target by `HostSurface` identity. Each view has its own delegate state
+and rendering target under the shared engine; creation does not require popup
+policy or an opener view.
+
+Use `Runtime::perform_all_updates` from the host event loop. It runs per-view
+`before_update` hooks, spins Servo once, then presents pending frames and drains
+all view events. `RuntimeError::WebView` identifies a failed view while sibling
+events remain available through `drain_events`; `RuntimeError::Host` denotes an
+owner-wide failure. The existing `perform_updates(view)` remains available for
+single-view callers. Multi-view hosts must service all views because a Servo
+spin can invoke any view's delegate.
+
+## View destruction and final shutdown
+
+The native Rust surface host distinguishes closing a view from retiring the engine:
+
 - `Runtime::destroy_webview` detaches and closes one view, invalidates its handle,
-  and discards its queued events. Sibling views and the runtime remain usable.
+  and discards its queued events. Siblings remain usable. A detach error leaves
+  the view registered so destruction can be retried.
 - The host retains its shared engine connection even with zero views. Ordinary
   host drop releases that connection after detaching/dropping all views, allowing
   a later host to reuse the process engine.
@@ -71,27 +93,12 @@ is not a zero-copy GPU handoff.
   error. An unattached final host can also retire an engine retained after an
   earlier host was dropped; it cannot shut down another live host's engine.
 
-## Multiple Native Views
-
-Create multiple `WebViewHandle`s in the same runtime and attach a distinct
-`HostSurface`/native child to each. A `SurfaceDelegate` selects its target by
-`HostSurface` identity. Views share the engine, not their delegate state or
-rendering target; creation does not require popup policy or an opener view.
-
-Use `Runtime::perform_all_updates` from the host event loop. It runs per-view
-`before_update` hooks, spins Servo once, then presents pending frames and drains
-all view events. `RuntimeError::WebView` identifies a failed view while sibling
-events remain available through `drain_events`; `RuntimeError::Host` denotes an
-owner-wide failure. The existing `perform_updates(view)` remains available for
-single-view callers. Multi-view hosts must service all views because a Servo
-spin can invoke any view's delegate.
-
-Native handles remain owned by the host. Destroy or detach the renderer before
-removing a child, and dispose of all renderers before destroying their parent
-window. The AppKit helper's visibility/removal API remains separate work; this
+Native handles remain owned by the host. Destroy or detach a view's renderer
+before removing its native child or destroying its parent window.
+The AppKit helper's visibility/removal API remains separate work; this
 contract does not add native clipping, stacking, or GPU export.
 
-See [Architecture](../ARCHITECTURE.md#current-servo-runtime-limit) for process
+See [Architecture](../ARCHITECTURE.md#servo-runtime-ownership) for process
 ownership and adapter limits, and [readiness checks](readiness-checks.md) for the
 runnable native proof.
 

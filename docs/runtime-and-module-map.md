@@ -36,8 +36,9 @@ timers, KVO/recycling, effect execution, engine handles, and main-thread
 scheduling. Servo-on-iOS is deferred rather than selected through package build
 configuration.
 
-| Layer | Main files | Responsibility |
+| Layer | Implementation | Responsibility |
 | --- | --- | --- |
+| Native Rust runtime and surface host | `servokit::Runtime`, `SurfaceHost`; `servokit-embedder::ServoRuntime`, `ServoWebView` | `Runtime` owns membership and handle routing; `SurfaceHost` retains the shared engine connection and adapts render targets; `ServoRuntime` shares the engine lease; each `ServoWebView` owns its delegate and pending controls. |
 | JS/Fabric surface | `packages/react-native-servokit/src/ServoView.tsx`, `packages/react-native-servokit/src/index.tsx` | Public `ServoView` API and generated Fabric surface contract, with callback names aligned to Servo delegate notifications plus optional RN-owned dialog, context-menu, and navigation-policy handling |
 | Android view host | `packages/react-native-servokit/android/src/main/java/org/servo/servokit/reactnative/ServoView.kt`, `ServoViewManager.kt`, `ServoViewportInsetsController.kt` | Own the React Native `ServoView`, mounted Fabric event dispatch, focus, frame scheduling via `Choreographer`, and RN-specific bridge ergonomics |
 | Portable controller | `crates/servokit-embedder/src/portable_controller.rs`, `crates/servokit-controller-ffi` | Owns Servo-free command validation, request identity, pending semantics, fallback policy, response validation, and the bounded C boundary packaged for iOS |
@@ -64,25 +65,6 @@ same Android flow at the shared `ServoViewBinding` /
 do not route browser control through React Native.
 
 The Android embedder follows servoshell's mobile defaults by enabling Servo viewport-meta handling and passing Android display density through `WebViewBuilder::hidpi_scale_factor(...)`, so pages render with phone-appropriate scaling instead of desktop-sized layout metrics.
-
-## Native multi-view ownership
-
-The public `Runtime` manages logical view membership and command/event routing.
-Its `SurfaceHost` retains one shared `ServoRuntime` connection independently of
-individual views. Each `ServoWebView` keeps its own delegate, pending responses,
-page state, and rendering attachment. Servo's own reference-counted handles,
-weak view registry, and IPC perform engine-level coordination.
-
-`perform_all_updates` prepares all live surfaces, spins the engine once, then
-paints/drains each view. `destroy_webview` detaches and releases only its target;
-a zero-view runtime can create another view. Application selection, tab/card
-ordering, and focus policy remain outside ServoKit. Logical sessions do not
-imply cookie/cache/storage isolation.
-
-Ordinary host disposal releases the connection for reuse. Explicit `shutdown`
-is reserved for final application teardown because Servo's process initialization
-is one-shot. The [surface contract](surface-modes.md#multiple-native-views)
-defines native resource ordering and error attribution.
 
 ## Engine-specific control ownership
 

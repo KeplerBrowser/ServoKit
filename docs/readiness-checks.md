@@ -114,16 +114,13 @@ cargo run --locked --manifest-path crates/Cargo.toml -p servokit \
 
 The proof creates two independent pages in separate native child views, checks
 per-view JavaScript/input, navigation/history and resizing, closes either sibling,
-creates replacements, and creates a page after a zero-view interval. It ends with
-`multiple-native-views result=pass` and explicit terminal engine shutdown.
+creates replacements, and creates a page after a zero-view interval. After final
+engine shutdown it prints `multiple-native-views result=pass`.
 It uses data URLs and needs no fixture server. Omit `--smoke` to leave both pages
 visible for inspection; the minimal native host does not implement browser chrome
 or general keyboard/IME event translation.
 
-The host owns these native children and removes each only after
-`destroy_webview` succeeds. This proves the renderer lifetime contract without
-adding visibility/removal operations to the AppKit helper. Clipping, overlap and
-GPU surface export are not covered.
+Clipping, overlap, native hide/reveal, and GPU surface export are not covered.
 
 Focused regression commands:
 
@@ -142,33 +139,13 @@ isolation.
 
 ## Final native shutdown on macOS
 
-The GPUI shutdown example exercises native window-close and application-quit
-callbacks with a live page and an active update task. Run both paths with tracing
-and log forwarding enabled, without an early informational log or formatter warmup:
-
-```sh
-for exit_path in --close-window --app-quit; do
-  RUST_LOG=warn RUST_BACKTRACE=1 RUSTC_WRAPPER=sccache \
-  CARGO_PROFILE_DEV_DEBUG=0 FREETYPE2_NO_PKG_CONFIG=1 \
-  cargo run --locked --manifest-path examples/desktop-gpui/Cargo.toml \
-    --example shutdown -- "$exit_path"
-done
-```
-
-Each process must exit successfully. The evidence shows the update task cancelled,
-the runtime finalized while the native surface remains alive, the wake target
-released, and the Rust host destructor executed. AppKit termination need not return
-through Rust `main`, so a `main-returned` marker is not required.
-
-Repeat with `--logger-after-page` to initialize logging after Servo, and with
-`--unattached-replacement` to finalize a fresh host after ordinary disposal of the
-initialized host. The latter must retire the retained engine without attaching a
-new native surface. These flags can be combined with either exit path.
-
-`--retain-runtime` is a deliberately failing control: it uses ordinary runtime drop
-instead of final shutdown and reproduces the tracing TLS destruction failure. Keep
-this control separate from successful smoke gates. Do not suppress logs, warm up
-formatter TLS, or bypass destructors to make teardown pass.
+Use the [GPUI shutdown regression](../examples/desktop-gpui/README.md#shutdown-regression)
+for owning-thread cleanup before logging TLS destruction. It covers native
+window-close and application-quit callbacks, both logging initialization orders,
+and finalization through either the original owner or an unattached replacement
+host. Each combination must exit successfully with update work cancelled and
+runtime destruction completed while native surfaces remain alive. The example
+README owns the commands, flags, and intentionally failing retained-runtime control.
 
 ## Matrix
 

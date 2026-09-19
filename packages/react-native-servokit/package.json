@@ -1,7 +1,7 @@
 {
   "name": "react-native-servokit",
   "version": "0.1.0",
-  "description": "Experimental React Native Fabric view backed by Servo on Android and WKWebView on iOS",
+  "description": "Experimental React Native Fabric view backed by Servo on Android and Windows, and WKWebView on iOS",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -24,6 +24,7 @@
     "Servokit.podspec",
     "ios/ServoView.mm",
     "ios/ServoKitController.xcframework",
+    "windows",
     "android/build.gradle",
     "android/src/main",
     "android/libs/servokit-android-host-release.aar",
@@ -45,6 +46,7 @@
     "react-native",
     "android",
     "ios",
+    "windows",
     "servo",
     "webkit",
     "rust",
@@ -64,17 +66,25 @@
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
+    "@react-native-community/cli": "20.1.0",
     "@react-native/babel-preset": "0.85.0",
     "@types/react": "^19.2.0",
     "del-cli": "^7.0.0",
     "react": "19.2.3",
     "react-native": "0.85.0",
     "react-native-builder-bob": "^0.41.0",
+    "react-native-windows": "0.85.0-preview.1",
     "typescript": "^6.0.2"
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "react-native-windows": "*"
+  },
+  "peerDependenciesMeta": {
+    "react-native-windows": {
+      "optional": true
+    }
   },
   "codegenConfig": {
     "name": "ServoViewSpec",
@@ -87,6 +97,15 @@
       "componentProvider": {
         "ServoView": "ServoView"
       }
+    },
+    "windows": {
+      "namespace": "ServoKitCodegen",
+      "generators": [
+        "componentsWindows",
+        "modulesWindows"
+      ],
+      "outputDirectory": "windows/ServoKit/codegen",
+      "separateDataTypes": true
     }
   },
   "react-native-builder-bob": {

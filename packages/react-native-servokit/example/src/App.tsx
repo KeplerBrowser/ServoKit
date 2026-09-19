@@ -22,7 +22,7 @@ import {
 } from "react-native-servokit";
 
 const fixtureServerBaseUrl = "http://127.0.0.1:8481";
-const smokeFixturesUrl = `${fixtureServerBaseUrl}/smoke/index.html`;
+const smokeFixturesUrl = "http://127.0.0.1:8481/smoke/index.html";
 const titleFixtureUrl = `${fixtureServerBaseUrl}/smoke/title-change.html`;
 const historyFixtureUrl = `${fixtureServerBaseUrl}/smoke/history-start.html`;
 const reloadFixtureUrl = `${fixtureServerBaseUrl}/smoke/reload.html`;

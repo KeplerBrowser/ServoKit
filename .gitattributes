@@ -1,3 +1,5 @@
 *.pbxproj -text
 # specific for windows script files
 *.bat text eol=crlf
+# RNW codegen output is checked byte-for-byte against the upstream generator.
+packages/react-native-servokit/windows/ServoKit/codegen/** whitespace=-trailing-space

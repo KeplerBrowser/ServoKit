@@ -28,10 +28,12 @@ flowchart TD
   fabric --> portable["Portable Rust controller"]
   fabric --> android["Android adapter"]
   fabric --> macos["macOS AppKit adapter"]
+  fabric --> windows["Windows RNW adapter"]
   portable --> ios["iOS UIKit effect adapter"]
   ios --> webkit["WKWebView / WebKit"]
   android --> runtime["Rust ServoKit runtime and host"]
   macos --> runtime
+  windows --> runtime
   runtime --> servo["Servo"]
 ```
 
@@ -46,7 +48,7 @@ flowchart TD
 | `servokit-host-desktop` | Package-private desktop C boundary over the Rust ServoKit runtime for framework adapters. |
 | `servokit-controller-ffi` | Servo-free portable controller C boundary packaged for iOS. |
 | `crates/servokit-host-android/android` | Shared repo-local Android Gradle/Kotlin/JNI host module below React Native and Android examples. |
-| `react-native-servokit` | One `ServoView` Fabric contract plus engine-specific Android, iOS, and macOS adapters. |
+| `react-native-servokit` | One `ServoView` Fabric contract plus engine-specific Android, iOS, macOS, and Windows adapters. |
 
 ## Runtime Paths
 
@@ -79,6 +81,12 @@ React Native macOS
   -> AppKit adapter + package-private desktop C boundary
   -> Rust ServoKit runtime and host
   -> Servo
+
+React Native Windows
+  -> react-native-servokit ServoView
+  -> React Native Windows Fabric/Win32 adapter + package-private desktop C boundary
+  -> Rust ServoKit runtime and host
+  -> Servo
 ```
 
 ## Ownership Model
@@ -88,7 +96,7 @@ React Native macOS
 - The shared React Native layer owns the public Fabric `ServoView` props,
   events, mounted command, refs, and JavaScript ergonomics. It does not choose
   one engine implementation for every platform.
-- Android and macOS adapters own native views and handles, mounting, geometry,
+- Android, macOS, and Windows adapters own native views and handles, mounting, geometry,
   input translation, native presentation, and platform scheduling. Rust owns
   controller/browser state and Servo integration behind those adapters.
 - On iOS, the portable Rust controller owns shared command validation, request
@@ -122,7 +130,7 @@ The React Native API uses shared capability names such as `navigationPolicy`
 and `dialog`, but sharing names does not move native engine state across
 platforms.
 
-- On Android and macOS, Rust creates and validates Servo-backed commands and
+- On Android, macOS, and Windows, Rust creates and validates Servo-backed commands and
   pending requests; native adapters translate platform input and presentation.
 - On iOS, the portable Rust controller validates supported commands and owns
   request identity, pending semantics, and fallback policy. The Objective-C++
@@ -142,7 +150,7 @@ second, and deny-by-default for risk-sensitive capabilities.
 | iOS | Packaged WKWebView/WebKit-backed React Native `ServoView` above the Servo-free portable Rust controller; Servo-on-iOS is deferred. |
 | macOS | Experimental Servo-backed React Native implementation through AppKit and the package-private desktop C boundary; not a supported or distributed runtime contract. |
 | Native desktop | Rust facade proof paths for app-owned native windows/layout slots. |
-| Windows React Native | Runtime adapter, package integration, and distribution are deferred. |
+| Windows React Native | Source-side RNW Fabric/Win32 adapter is present over the package-private desktop C boundary. Windows build/runtime acceptance and packaged runtime distribution remain pending. |
 
 iOS defaults to WebKit because iOS browser-engine policy, artifact supply, and
 entitlements are separate host constraints; see Open Web Advocacy's
@@ -159,6 +167,9 @@ Use the narrowest validation slice for the touched layer:
   shared Android host consumers when the shared host module changes.
 - React Native macOS changes should validate package checks first, then the
   source-backed framework and macOS example on a prepared native host.
+- React Native Windows changes should validate package checks first, then the
+  source-backed RNW project and desktop host evidence on a prepared Windows x64
+  host.
 - React Native iOS changes should validate package checks, the packaged
   Servo-free Rust controller, and the WKWebView adapter without introducing a
   Servo engine dependency.

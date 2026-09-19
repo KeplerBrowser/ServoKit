@@ -33,12 +33,12 @@ const servoViewManagerConfig = UIManager.getViewManagerConfig('ServoView') as
   | undefined;
 const SHOW_CONTEXT_MENU_COMMAND = servoViewManagerConfig?.Commands?.showContextMenu;
 
-/** Current URL from Servo `WebViewDelegate::notify_url_changed` on Android or `WKWebView.URL` on iOS. */
+/** Current URL from Servo `WebViewDelegate::notify_url_changed` or `WKWebView.URL` on iOS. */
 export type ServoViewUrlChangedEvent = Readonly<{
   url: string;
 }>;
 
-/** Page title from Servo `WebViewDelegate::notify_page_title_changed` on Android or `WKWebView.title` on iOS. */
+/** Page title from Servo `WebViewDelegate::notify_page_title_changed` or `WKWebView.title` on iOS. */
 export type ServoViewPageTitleChangedEvent = Readonly<{
   title: string | null;
 }>;
@@ -60,7 +60,7 @@ export type ServoViewCreateNewWebViewRequestedEvent = Readonly<{
   policy: string;
 }>;
 
-/** Android-only status text from Servo `WebViewDelegate::notify_status_text_changed`. */
+/** Servo-backed status text from `WebViewDelegate::notify_status_text_changed`. */
 export type ServoViewStatusTextChangedEvent = Readonly<{
   status: string | null;
 }>;
@@ -86,7 +86,7 @@ export type ServoViewFocusChangedEvent = Readonly<{
   isFocused: boolean;
 }>;
 
-/** Android-only CSS cursor name from Servo `WebViewDelegate::notify_cursor_changed`. */
+/** Servo-backed CSS cursor name from `WebViewDelegate::notify_cursor_changed`. */
 export type ServoViewCursor =
   | 'none'
   | 'default'
@@ -124,26 +124,26 @@ export type ServoViewCursor =
   | 'zoom-in'
   | 'zoom-out';
 
-/** Android-only cursor notification from Servo `WebViewDelegate::notify_cursor_changed`. */
+/** Servo-backed cursor notification from `WebViewDelegate::notify_cursor_changed`. */
 export type ServoViewCursorChangedEvent = Readonly<{
   cursor: ServoViewCursor;
 }>;
 
-/** Android-only fullscreen state from Servo `WebViewDelegate::notify_fullscreen_state_changed`. */
+/** Servo-backed fullscreen state from `WebViewDelegate::notify_fullscreen_state_changed`. */
 export type ServoViewFullscreenChangedEvent = Readonly<{
   isFullscreen: boolean;
 }>;
 
-/** Android-only closure notification from Servo `WebViewDelegate::notify_closed`. */
+/** Servo-backed closure notification from `WebViewDelegate::notify_closed`. */
 export type ServoViewClosedEvent = Readonly<{}>;
 
-/** Android-only crash details from Servo `WebViewDelegate::notify_crashed`. */
+/** Servo-backed crash details from `WebViewDelegate::notify_crashed`. */
 export type ServoViewCrashedEvent = Readonly<{
   reason: string;
   backtrace: string | null;
 }>;
 
-/** Android-only package host error; this is adapter vocabulary, not a Servo delegate method. */
+/** Package host error; this is adapter vocabulary, not a Servo delegate method. */
 export type ServoViewErrorEvent = Readonly<{
   code: CodegenTypes.Int32;
   message: string;
@@ -151,7 +151,7 @@ export type ServoViewErrorEvent = Readonly<{
 
 /** Dialog kind mapped from Servo `SimpleDialog` on Android or `WKUIDelegate` on iOS. */
 export type ServoViewJavaScriptDialogKind = JavaScriptDialogKind;
-/** Package-owned notification that a pending Android or iOS dialog was dismissed. */
+/** Package-owned notification that a pending platform dialog was dismissed. */
 export type ServoViewJavaScriptDialogDismissedEvent = JavaScriptDialogDismissedEvent;
 /** Package request wrapping Servo `SimpleDialog` on Android or a `WKUIDelegate` dialog on iOS. */
 export type ServoViewJavaScriptDialogRequest = JavaScriptDialogRequest;
@@ -234,40 +234,40 @@ export interface ServoViewProps
   > {
   /** Initial and controlled URL; Android calls Servo `WebView::load`, while iOS calls `WKWebView.load(_:)`. */
   url: string;
-  /** Fires when Servo `notify_url_changed` or observed `WKWebView.URL` changes. Android and iOS. */
+  /** Fires when Servo `notify_url_changed` or observed `WKWebView.URL` changes. */
   onUrlChanged?: CodegenTypes.DirectEventHandler<ServoViewUrlChangedEvent>;
-  /** Fires from Servo `notify_page_title_changed` or observed `WKWebView.title`. Android and iOS. */
+  /** Fires from Servo `notify_page_title_changed` or observed `WKWebView.title`. */
   onPageTitleChanged?: CodegenTypes.DirectEventHandler<ServoViewPageTitleChangedEvent>;
-  /** Fires from Servo `notify_status_text_changed`. Android only. */
+  /** Fires from Servo `notify_status_text_changed`. Android and Windows. */
   onStatusTextChanged?: CodegenTypes.DirectEventHandler<ServoViewStatusTextChangedEvent>;
-  /** Fires from Servo `notify_load_status_changed` or iOS navigation delegate state. Android and iOS. */
+  /** Fires from Servo `notify_load_status_changed` or iOS navigation delegate state. */
   onLoadStatusChanged?: CodegenTypes.DirectEventHandler<ServoViewLoadStatusChangedEvent>;
-  /** Fires from Servo `notify_history_changed` or the WKWebView back-forward list. Android and iOS. */
+  /** Fires from Servo `notify_history_changed` or the WKWebView back-forward list. */
   onHistoryChanged?: CodegenTypes.DirectEventHandler<ServoViewHistoryChangedEvent>;
-  /** Fires from Servo `notify_focus_changed` or WKWebView responder changes. Android and iOS. */
+  /** Fires from Servo `notify_focus_changed` or WKWebView responder changes. */
   onFocusChanged?: CodegenTypes.DirectEventHandler<ServoViewFocusChangedEvent>;
-  /** Fires from Servo `notify_cursor_changed`. Android only. */
+  /** Fires from Servo `notify_cursor_changed`. Android and Windows. */
   onCursorChanged?: CodegenTypes.DirectEventHandler<ServoViewCursorChangedEvent>;
-  /** Fires from Servo `notify_fullscreen_state_changed`. Android only. */
+  /** Fires from Servo `notify_fullscreen_state_changed`. Android and Windows. */
   onFullscreenChanged?: CodegenTypes.DirectEventHandler<ServoViewFullscreenChangedEvent>;
-  /** Fires from Servo `notify_closed`. Android only. */
+  /** Fires from Servo `notify_closed`. Android and Windows. */
   onClosed?: CodegenTypes.DirectEventHandler<ServoViewClosedEvent>;
-  /** Fires from Servo `notify_crashed`. Android only. */
+  /** Fires from Servo `notify_crashed`. Android and Windows. */
   onCrashed?: CodegenTypes.DirectEventHandler<ServoViewCrashedEvent>;
-  /** Reports package host errors not represented by a specific Servo delegate event. Android only. */
+  /** Reports package host errors not represented by a specific Servo delegate event. Android and Windows. */
   onError?: CodegenTypes.DirectEventHandler<ServoViewErrorEvent>;
-  /** Decides Servo `request_navigation` or WKNavigationDelegate policy. Android and iOS; failures default to allow. */
+  /** Decides Servo `request_navigation` or WKNavigationDelegate policy. Android, Windows, and iOS; failures default to allow. */
   onShouldStartLoadWithRequest?: (
     request: ServoViewShouldStartLoadRequest
   ) => boolean | Promise<boolean>;
   /**
-   * Android-only RN adapter event for Servo create-new-webview requests.
+   * Servo-backed RN adapter event for create-new-webview requests. Android and Windows.
    * This prop name is not a Servo crate API.
    */
   onCreateNewWebViewRequested?: CodegenTypes.DirectEventHandler<ServoViewCreateNewWebViewRequestedEvent>;
-  /** Handles Servo `SimpleDialog` or WKUIDelegate alert, confirm, and prompt requests. Android and iOS. */
+  /** Handles Servo `SimpleDialog` or WKUIDelegate alert, confirm, and prompt requests. Android, Windows, and iOS. */
   onJavaScriptDialog?: (request: ServoViewJavaScriptDialogRequest) => void;
-  /** Receives package-owned pending-dialog dismissal notifications. Android and iOS. */
+  /** Receives package-owned pending-dialog dismissal notifications. Android, Windows, and iOS. */
   onJavaScriptDialogDismissed?: (event: ServoViewJavaScriptDialogDismissedEvent) => void;
   /** Replaces Servo context-menu items before Android native presentation. Android only. */
   onBeforeShowContextMenu?: (
@@ -279,19 +279,19 @@ export interface ServoViewProps
   ) => Promise<void> | void;
 }
 
-/** Mounted commands supported by the Android Servo and iOS WKWebView adapters. */
+/** Mounted commands supported by Servo-backed adapters and the iOS WKWebView adapter. */
 export interface ServoViewHandle {
-  /** Loads a URL with Servo `WebView::load` on Android or `WKWebView.load(_:)` on iOS. */
+  /** Loads a URL with Servo `WebView::load` or `WKWebView.load(_:)` on iOS. */
   loadUrl(url: string): void;
-  /** Calls Servo `WebView::reload` on Android or `WKWebView.reload` on iOS. */
+  /** Calls Servo `WebView::reload` or `WKWebView.reload` on iOS. */
   reload(): void;
-  /** Calls Servo `WebView::go_back(1)` on Android or `WKWebView.goBack` on iOS. */
+  /** Calls Servo `WebView::go_back(1)` or `WKWebView.goBack` on iOS. */
   goBack(): void;
-  /** Calls Servo `WebView::go_forward(1)` on Android or `WKWebView.goForward` on iOS. */
+  /** Calls Servo `WebView::go_forward(1)` or `WKWebView.goForward` on iOS. */
   goForward(): void;
-  /** Calls Servo `WebView::focus` on Android or `becomeFirstResponder` on iOS. */
+  /** Calls Servo `WebView::focus` or `becomeFirstResponder` on iOS. */
   focus(): void;
-  /** Calls Servo `WebView::blur` on Android or `resignFirstResponder` on iOS. */
+  /** Calls Servo `WebView::blur` or `resignFirstResponder` on iOS. */
   blur(): void;
   /** Evaluates with Servo `WebView::evaluate_javascript` or `WKWebView.evaluateJavaScript`, returning tagged JSON. */
   evaluateJavaScript(script: string): Promise<string>;
@@ -319,7 +319,7 @@ type NativeContextMenuItem = Readonly<{
 
 function createUnsupportedPlatformError(platform: string): Error {
   return new Error(
-    `'react-native-servokit' currently supports Android and iOS. Received unsupported platform '${platform}'.`
+    `'react-native-servokit' currently supports Android, iOS, and Windows. Received unsupported platform '${platform}'.`
   );
 }
 
@@ -397,7 +397,11 @@ function createControllerCommandJson(
   return JSON.stringify(createControllerCommandPayload(command, payload));
 }
 
-/** Fabric web view backed by Servo on Android and WKWebView on iOS. */
+function dismissContextMenuCommandJson(contextMenuId: string): string {
+  return createControllerCommandJson('dismissContextMenu', { contextMenuId });
+}
+
+/** Fabric web view backed by Servo on Android and Windows, and WKWebView on iOS. */
 export const ServoView = forwardRef<ServoViewHandle, ServoViewProps>(
   function ServoView(props, ref) {
     const {
@@ -475,7 +479,7 @@ export const ServoView = forwardRef<ServoViewHandle, ServoViewProps>(
           );
         },
         NAVIGATION_DECISION_TIMEOUT_MS,
-        Platform.OS === 'android'
+        Platform.OS === 'android' || Platform.OS === 'windows'
       );
     }
 
@@ -533,7 +537,11 @@ export const ServoView = forwardRef<ServoViewHandle, ServoViewProps>(
       };
     }, []);
 
-    if (Platform.OS !== 'android' && Platform.OS !== 'ios') {
+    if (
+      Platform.OS !== 'android' &&
+      Platform.OS !== 'ios' &&
+      Platform.OS !== 'windows'
+    ) {
       throw createUnsupportedPlatformError(Platform.OS);
     }
 
@@ -546,10 +554,13 @@ export const ServoView = forwardRef<ServoViewHandle, ServoViewProps>(
       }
 
       pendingContextMenusRef.current.delete(contextMenuId);
-      dispatchViewManagerCommand(SHOW_CONTEXT_MENU_COMMAND, [
+      const shown = dispatchViewManagerCommand(SHOW_CONTEXT_MENU_COMMAND, [
         contextMenuId,
         items.map(serializeContextMenuItem),
       ]);
+      if (!shown) {
+        sendControllerCommand(dismissContextMenuCommandJson(contextMenuId));
+      }
     };
 
     const handleNavigationPolicyRequest = (

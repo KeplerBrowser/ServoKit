@@ -24,7 +24,13 @@ if ($SmokeTimeoutMs -le 0) {
   throw "SmokeTimeoutMs must be greater than 0"
 }
 
-$RepoRoot = (Resolve-Path $RepoRoot).Path
+$resolvedRepoRoot = Resolve-Path $RepoRoot
+$RepoRoot = $resolvedRepoRoot.ProviderPath
+if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+  $RepoRoot = $resolvedRepoRoot.Path
+}
+$RepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
+$env:SERVOKIT_REPO_ROOT = $RepoRoot
 if ([string]::IsNullOrWhiteSpace($EvidenceDir)) {
   $EvidenceDir = Join-Path ([System.IO.Path]::GetTempPath()) "servokit-windows-desktop-smoke"
 }
@@ -53,6 +59,16 @@ if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable("CARGO_TE
 }
 if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable("RUST_BACKTRACE"))) {
   $env:RUST_BACKTRACE = "1"
+}
+$cargoTargetDir = [Environment]::GetEnvironmentVariable("CARGO_TARGET_DIR")
+if ([string]::IsNullOrWhiteSpace($cargoTargetDir) -and
+    $RepoRoot.StartsWith("\", [System.StringComparison]::Ordinal)) {
+  $systemDrive = [Environment]::GetEnvironmentVariable("SystemDrive")
+  if ([string]::IsNullOrWhiteSpace($systemDrive)) {
+    throw "SystemDrive is not set"
+  }
+  $cargoTargetDir = Join-Path $systemDrive "servokit-target"
+  $env:CARGO_TARGET_DIR = $cargoTargetDir
 }
 
 function Resolve-VsDevCmd {
@@ -90,12 +106,43 @@ function Invoke-LoggedDevCommand {
     [Parameter(Mandatory = $true)][string]$Action
   )
 
-  cmd /c "call `"$VsDevCmd`" -arch=x64 -host_arch=x64 >nul && $CommandLine" > $LogPath 2>&1
-  if ($LASTEXITCODE -ne 0) {
-    Get-Content $LogPath
+  Push-Location ([System.IO.Path]::GetTempPath())
+  try {
+    cmd /d /s /c "(pushd `"$RepoRoot`" >nul && call `"$VsDevCmd`" -arch=x64 -host_arch=x64 >nul && $CommandLine) > `"$LogPath`" 2>&1"
+    $exitCode = $LASTEXITCODE
+  } finally {
+    Pop-Location
+  }
+  if ($exitCode -ne 0) {
+    Get-Content $LogPath -Tail 200
     throw "Failed to $Action"
   }
-  Get-Content $LogPath
+  Get-Content $LogPath -Tail 200
+}
+
+$gitConfigArgs = @()
+$gitSafeDirectory = $null
+if ($RepoRoot.StartsWith("\", [System.StringComparison]::Ordinal)) {
+  $gitSafeDirectory = "%(prefix)/" + ($RepoRoot -replace "\\", "/")
+  $gitConfigArgs = @(
+    "-c", "core.fsmonitor=false",
+    "-c", "core.autocrlf=false",
+    "-c", "safe.directory=$gitSafeDirectory"
+  )
+}
+
+function Invoke-RepoGit {
+  param(
+    [Parameter(Mandatory = $true)][string[]]$Arguments,
+    [Parameter(Mandatory = $true)][string]$Action
+  )
+
+  $output = & git @gitConfigArgs -C $RepoRoot @Arguments 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    $output | ForEach-Object { Write-Host $_ }
+    throw "Failed to $Action"
+  }
+  return $output
 }
 
 function Resolve-Python {
@@ -138,25 +185,33 @@ $fixtureUrl = "http://127.0.0.1:$FixturePort/smoke/index.html"
 $fixtureOutLog = Join-Path $EvidenceDir "fixture-server.stdout.txt"
 $fixtureErrLog = Join-Path $EvidenceDir "fixture-server.stderr.txt"
 $smokeLog = Join-Path $EvidenceDir "desktop-winit-smoke.txt"
-$smokeCommand = "cargo run --locked --manifest-path examples/desktop-winit/Cargo.toml -- --smoke --smoke-timeout-ms $SmokeTimeoutMs $fixtureUrl"
+$smokeCommand = "cargo run --release --locked --manifest-path examples/desktop-winit/Cargo.toml -- --smoke --smoke-timeout-ms $SmokeTimeoutMs $fixtureUrl"
 
 @(
   "repoRoot=$RepoRoot"
+  "servokitRepoRoot=$env:SERVOKIT_REPO_ROOT"
   "evidenceDir=$EvidenceDir"
   "fixtureUrl=$fixtureUrl"
   "smokeTimeoutMs=$SmokeTimeoutMs"
   "cargoBuildTarget=$env:CARGO_BUILD_TARGET"
   "cargoTermColor=$env:CARGO_TERM_COLOR"
   "rustBacktrace=$env:RUST_BACKTRACE"
+  "cargoTargetDir=$cargoTargetDir"
   "userInteractive=$([Environment]::UserInteractive)"
   "vsDevCmd=$vsdev"
+  "gitSafeDirectory=$gitSafeDirectory"
 ) | Out-File -Encoding utf8 (Join-Path $EvidenceDir "environment.txt")
 
-git rev-parse HEAD | Out-File -Encoding utf8 (Join-Path $EvidenceDir "commit.txt")
-git status --short --branch | Out-File -Encoding utf8 (Join-Path $EvidenceDir "git-status.txt")
-git diff HEAD --stat | Out-File -Encoding utf8 (Join-Path $EvidenceDir "git-diff-stat.txt")
-git diff HEAD --name-status | Out-File -Encoding utf8 (Join-Path $EvidenceDir "git-diff-name-status.txt")
-git submodule status --recursive | Out-File -Encoding utf8 (Join-Path $EvidenceDir "submodules.txt")
+Invoke-RepoGit -Arguments @("rev-parse", "HEAD") -Action "record the Git commit" `
+  | Out-File -Encoding utf8 (Join-Path $EvidenceDir "commit.txt")
+Invoke-RepoGit -Arguments @("status", "--short", "--branch", "--ignore-submodules=dirty") -Action "record Git status" `
+  | Out-File -Encoding utf8 (Join-Path $EvidenceDir "git-status.txt")
+Invoke-RepoGit -Arguments @("diff", "--ignore-submodules=dirty", "HEAD", "--stat") -Action "record Git diff statistics" `
+  | Out-File -Encoding utf8 (Join-Path $EvidenceDir "git-diff-stat.txt")
+Invoke-RepoGit -Arguments @("diff", "--ignore-submodules=dirty", "HEAD", "--name-status") -Action "record changed paths" `
+  | Out-File -Encoding utf8 (Join-Path $EvidenceDir "git-diff-name-status.txt")
+Invoke-RepoGit -Arguments @("submodule", "status", "--recursive") -Action "record submodule status" `
+  | Out-File -Encoding utf8 (Join-Path $EvidenceDir "submodules.txt")
 systeminfo | Out-File -Encoding utf8 (Join-Path $EvidenceDir "systeminfo.txt")
 "$($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)" | Out-File -Encoding utf8 (Join-Path $EvidenceDir "powershell.txt")
 $python = Resolve-Python

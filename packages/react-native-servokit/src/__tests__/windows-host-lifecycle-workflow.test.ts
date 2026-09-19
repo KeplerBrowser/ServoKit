@@ -193,11 +193,25 @@ test('Windows host lifecycle workflow preserves the issue #5 proof slice', () =>
   expect(desktopSmokeScript).toContain('x86_64-pc-windows-msvc');
   expect(desktopSmokeScript).toContain('SERVOKIT_VSDEVCMD');
   expect(desktopSmokeScript).toContain('vswhere.exe');
+  expect(desktopSmokeScript).toContain('$resolvedRepoRoot.ProviderPath');
+  expect(desktopSmokeScript).toContain('$env:SERVOKIT_REPO_ROOT = $RepoRoot');
+  expect(desktopSmokeScript).toContain('CARGO_TARGET_DIR');
+  expect(desktopSmokeScript).toContain('cargoTargetDir=$cargoTargetDir');
+  expect(desktopSmokeScript).toContain('safe.directory=$gitSafeDirectory');
+  expect(desktopSmokeScript).toContain('core.fsmonitor=false');
+  expect(desktopSmokeScript).toContain('core.autocrlf=false');
+  expect(desktopSmokeScript).toContain('pushd `"$RepoRoot`" >nul');
+  expect(desktopSmokeScript).toContain(
+    'Push-Location ([System.IO.Path]::GetTempPath())'
+  );
+  expect(desktopSmokeScript).toContain(
+    'Invoke-RepoGit -Arguments @("rev-parse", "HEAD")'
+  );
   expect(desktopSmokeScript).toContain('Start-Process');
   expect(desktopSmokeScript).toContain('http.server');
   expect(desktopSmokeScript).toContain('desktop-winit-smoke.txt');
   expect(desktopSmokeScript).toContain(
-    'cargo run --locked --manifest-path examples/desktop-winit/Cargo.toml -- --smoke'
+    'cargo run --release --locked --manifest-path examples/desktop-winit/Cargo.toml -- --smoke'
   );
   expect(desktopSmokeScript).toContain('smoke result=pass');
   expect(desktopSmokeScript).toContain('input_probe=complete');

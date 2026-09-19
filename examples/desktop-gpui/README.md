@@ -57,9 +57,13 @@ native-child proof path; both use the same ServoKit `NativeChildSurface` facade.
 ## Shutdown regression
 
 The separate `shutdown` example loads a self-contained page, then requests native
-window close or application quit. It cancels its update task and calls
-`Runtime::shutdown` while the native surface and logging remain alive. Run both
-paths from the repository root:
+window close or application quit. This single-window test program exits when its
+window closes, so both paths deliberately end the host's use of Servo. That is
+example policy, not a ServoKit requirement: an embedding host that remains alive
+can close a window's views and keep its engine for other or future views.
+
+The example cancels its update task and calls `Runtime::shutdown` while the native
+surface and logging remain alive. Run both paths from the repository root:
 
 ```sh
 for exit_path in --close-window --app-quit; do

@@ -78,7 +78,13 @@ spin can invoke any view's delegate.
 
 ## View destruction and final shutdown
 
-The native Rust surface host distinguishes closing a view from retiring the engine:
+The native Rust surface host distinguishes closing a view from retiring the engine.
+
+The embedding host decides the engine's lifetime. ServoKit does not observe window
+closure or automatically shut down the engine when a window, surface, or final view
+is removed. A host can keep the runtime alive with no windows or views and attach
+new views later. Call terminal shutdown only when the host is finished using Servo
+for the remainder of the process.
 
 - `Runtime::destroy_webview` detaches and closes one view, invalidates its handle,
   and discards its queued events. Siblings remain usable. A detach error leaves

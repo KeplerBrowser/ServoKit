@@ -3,6 +3,7 @@ param(
   [string]$PackageRoot = $null,
   [string]$EvidenceDir = $null,
   [ValidateSet("Debug", "Release")][string]$Configuration = "Release",
+  [string]$WindowsSdkVersion = "",
   [string]$CodegenCommand = "",
   [switch]$SkipCodegen
 )
@@ -154,6 +155,57 @@ function Resolve-Python3 {
   throw "Python 3 interpreter was not found"
 }
 
+function Resolve-WindowsSdkVersion {
+  param(
+    [string]$RequestedVersion = ""
+  )
+
+  $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
+  if ([string]::IsNullOrWhiteSpace($programFilesX86)) {
+    throw "ProgramFiles(x86) is not set"
+  }
+
+  $includeRoot = Join-Path $programFilesX86 "Windows Kits\10\Include"
+  if (!(Test-Path $includeRoot)) {
+    throw "Windows 10/11 SDK include directory was not found at $includeRoot"
+  }
+
+  $minimumVersion = [Version]"10.0.22621.0"
+  $installedVersions = @(
+    Get-ChildItem -LiteralPath $includeRoot -Directory | ForEach-Object {
+      $parsedVersion = $null
+      if ([Version]::TryParse($_.Name, [ref]$parsedVersion) -and
+          $parsedVersion -ge $minimumVersion -and
+          (Test-Path (Join-Path $_.FullName "um")) -and
+          (Test-Path (Join-Path $_.FullName "ucrt"))) {
+        [PSCustomObject]@{
+          Name = $_.Name
+          Version = $parsedVersion
+        }
+      }
+    } | Sort-Object Version -Descending
+  )
+
+  if ($installedVersions.Count -eq 0) {
+    throw "React Native Windows new architecture requires Windows SDK 10.0.22621.0 or newer"
+  }
+
+  if (![string]::IsNullOrWhiteSpace($RequestedVersion)) {
+    $requested = $installedVersions | Where-Object Name -eq $RequestedVersion | Select-Object -First 1
+    if ($null -eq $requested) {
+      throw "Requested Windows SDK $RequestedVersion is not installed or is older than 10.0.22621.0"
+    }
+    return $requested.Name
+  }
+
+  $rnwDefault = $installedVersions | Where-Object Name -eq "10.0.22621.0" | Select-Object -First 1
+  if ($null -ne $rnwDefault) {
+    return $rnwDefault.Name
+  }
+
+  return $installedVersions[0].Name
+}
+
 function Join-ProcessArguments {
   param(
     [Parameter(Mandatory = $true)][string[]]$Arguments
@@ -280,6 +332,7 @@ $pythonBin = Split-Path -Parent $python3
 if (($env:PATH -split ";") -notcontains $pythonBin) {
   $env:PATH = "$pythonBin;$env:PATH"
 }
+$WindowsSdkVersion = Resolve-WindowsSdkVersion -RequestedVersion $WindowsSdkVersion
 $desktopHostIncludeDir = Join-Path $RepoRoot "crates/servokit-host-desktop/include"
 $desktopHostProfile = if ($Configuration -eq "Debug") { "debug" } else { "release" }
 $desktopHostTargetDir = Join-Path $cargoTargetDir "x86_64-pc-windows-msvc"
@@ -340,6 +393,7 @@ $cargoBuildCommand = "cargo " + (Join-ProcessArguments -Arguments $cargoBuildArg
   "cc=$env:CC"
   "cxx=$env:CXX"
   "python3=$python3"
+  "windowsSdkVersion=$WindowsSdkVersion"
   "gitSafeDirectory=$gitSafeDirectory"
   "skipCodegen=$SkipCodegen"
 ) | Out-File -Encoding utf8 (Join-Path $EvidenceDir "environment.txt")
@@ -416,6 +470,7 @@ $msbuildCommand = "msbuild " + (Join-ProcessArguments -Arguments @(
   "/p:RestorePackagesConfig=true",
   "/p:Configuration=$Configuration",
   "/p:Platform=x64",
+  "/p:WindowsTargetPlatformVersion=$WindowsSdkVersion",
   "/p:ServokitDesktopHostIncludeDir=$desktopHostIncludeDir",
   "/p:ServokitDesktopHostLibDir=$desktopHostLibDir"
 ))
@@ -462,6 +517,7 @@ Invoke-LoggedDevCommand `
   "packageRoot=$PackageRoot"
   "evidenceDir=$EvidenceDir"
   "configuration=$Configuration"
+  "windowsSdkVersion=$WindowsSdkVersion"
   "desktopHostLib=$desktopHostLib"
   "generatedHeader=$generatedHeader"
   "vsDevCmd=$vsdev"

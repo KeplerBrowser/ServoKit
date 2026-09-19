@@ -42,7 +42,7 @@
 | React Native macOS | Experimental AppKit/private-C/Rust implementation; not a supported or distributed runtime contract. |
 | React Native Windows | Runtime adapter and distribution are deferred. |
 | Deferred support | No secure IPC bridge, preload/user-script system, or accessibility support is claimed yet. |
-| Servo runtime lifecycle | One live root/lease per process. Dropping or destroying its owning webview/host releases the lease; a later root reuses the retained UI-thread process runtime. Surface detach does not release it. |
+| Servo runtime lifecycle | Native Rust hosts can attach multiple independent views through one runtime/engine owner. Closing a view preserves siblings; ordinary host drop allows process-engine reuse. Explicit `Runtime::shutdown` is terminal. See [Architecture](./ARCHITECTURE.md#current-servo-runtime-limit). |
 | Popup/new-window | Lower-level Rust ServoKit supports root-scoped managed children. React Native Android remains default-deny and emits informational `onCreateNewWebViewRequested` intent only; iOS does not emit it. See [Architecture](./ARCHITECTURE.md#current-servo-runtime-limit). |
 
 ## What is ServoKit?

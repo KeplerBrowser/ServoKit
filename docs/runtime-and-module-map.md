@@ -65,6 +65,25 @@ do not route browser control through React Native.
 
 The Android embedder follows servoshell's mobile defaults by enabling Servo viewport-meta handling and passing Android display density through `WebViewBuilder::hidpi_scale_factor(...)`, so pages render with phone-appropriate scaling instead of desktop-sized layout metrics.
 
+## Native multi-view ownership
+
+The public `Runtime` manages logical view membership and command/event routing.
+Its `SurfaceHost` retains one shared `ServoRuntime` connection independently of
+individual views. Each `ServoWebView` keeps its own delegate, pending responses,
+page state, and rendering attachment. Servo's own reference-counted handles,
+weak view registry, and IPC perform engine-level coordination.
+
+`perform_all_updates` prepares all live surfaces, spins the engine once, then
+paints/drains each view. `destroy_webview` detaches and releases only its target;
+a zero-view runtime can create another view. Application selection, tab/card
+ordering, and focus policy remain outside ServoKit. Logical sessions do not
+imply cookie/cache/storage isolation.
+
+Ordinary host disposal releases the connection for reuse. Explicit `shutdown`
+is reserved for final application teardown because Servo's process initialization
+is one-shot. The [surface contract](surface-modes.md#multiple-native-views)
+defines native resource ordering and error attribution.
+
 ## Engine-specific control ownership
 
 The public React Native API can use the same capability names across engines,

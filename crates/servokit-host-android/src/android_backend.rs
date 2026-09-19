@@ -43,15 +43,17 @@ impl ServoAndroidBackend {
             size,
             refresh_driver.clone(),
         )?);
-        let webview = ServoWebView::new(ServoWebViewInit {
-            rendering_context: rendering_context.clone(),
-            clipboard_delegate: Rc::new(AndroidClipboardDelegate::default()),
-            event_loop_waker: Box::new(PollingEventLoopWaker),
-            initial_url: initial_url.map(str::to_owned),
-            density,
-            popup_policy: PopupRequestPolicy::DefaultDeny,
-            managed_child_rendering_context_factory: None,
-        })?;
+        let webview = ServoWebView::new(
+            ServoWebViewInit {
+                rendering_context: rendering_context.clone(),
+                clipboard_delegate: Rc::new(AndroidClipboardDelegate::default()),
+                initial_url: initial_url.map(str::to_owned),
+                density,
+                popup_policy: PopupRequestPolicy::DefaultDeny,
+                managed_child_rendering_context_factory: None,
+            },
+            Box::new(PollingEventLoopWaker),
+        )?;
 
         Ok(Self {
             refresh_driver,

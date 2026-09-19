@@ -102,19 +102,38 @@ React Native macOS
 
 ## Current Servo Runtime Limit
 
-Servo-backed paths currently support one live root Servo webview per process.
-`ProcessServoRuntime` is retained on its owning UI thread, while only one
-`ProcessServoRuntimeLease` and live root may be active. Dropping or destroying
-the owning root webview/host releases the lease; a later root reuses the retained
-process runtime. Surface detach does not release the lease.
+Servo-backed paths use one process engine and one active owner on its UI thread.
+The native Rust `Runtime<SurfaceHost<_>>` can create multiple independent live
+webviews under that owner. Each view keeps its own Servo `WebView`, delegate,
+controller/pending state, event queue, and rendering target. The host retains the
+engine connection independently of its views, including while no views exist.
 
-Within that root, lower-level Rust ServoKit supports
-`PopupRequestPolicy::ManagedChild` and managed-child surface lifecycle. Managed
-children do not permit a second root and are not a general N-root pool or public
-React Native multi-view API. React Native Android currently uses default-deny
-and emits `onCreateNewWebViewRequested` only as informational host-routed intent;
-it does not create, present, or adopt managed child views. iOS does not emit that
-React Native event.
+The runtime manages view membership and handle routing; the application manages
+tabs/cards, selection, layout, and presentation. Servo owns internal IPC,
+networking/storage infrastructure, and engine coordination. Existing
+`SessionHandle`s identify logical groups; they do not provide storage partitions.
+
+`Runtime::destroy_webview` closes one view without affecting siblings.
+`Runtime::perform_all_updates` prepares live surfaces, spins Servo once, then
+presents and drains each view with its originating handle. View-specific failures
+do not stop sibling updates; engine-wide failures have no view attribution.
+
+Ordinary runtime/host drop detaches and destroys its views and releases the owner
+lease; a later host can reuse the retained process engine. Explicit
+`Runtime::shutdown` is terminal: it closes views and drops the process engine on
+the owning thread, before native parents and logging are torn down. Servo 0.3
+cannot initialize twice in a process, so later attachment fails after shutdown.
+Final shutdown attempts all view cleanup even after a detach error. A final host
+with no attached views can retire a retained engine from an earlier dropped host,
+but cannot retire another active owner's engine.
+Surface detach alone retains both view identity and the owner connection.
+
+The single-view Android and private desktop adapters retain their existing
+ownership paths; this does not introduce a public React Native multi-view API.
+Lower-level Rust `PopupRequestPolicy::ManagedChild` remains root-scoped popup
+adoption, separate from independently created native views. React Native Android
+uses default-deny and emits `onCreateNewWebViewRequested` as informational intent;
+iOS does not emit that event.
 
 ## Engine-Specific Control Ownership
 

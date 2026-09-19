@@ -102,6 +102,74 @@ the browser slot, and the GPUI footer reports URL/load/title/status event output
 from `ServokitEvent` values. This validates macOS native-child embedding only;
 IOSurface / `GpuLayerSurface` export remains future upstream-dependent work.
 
+## Multiple native views on macOS
+
+Run the standalone public-facade proof on an interactive AppKit host:
+
+```sh
+RUSTC_WRAPPER=sccache CARGO_PROFILE_DEV_DEBUG=0 FREETYPE2_NO_PKG_CONFIG=1 \
+cargo run --locked --manifest-path crates/Cargo.toml -p servokit \
+  --features servo --example multiple-native-views -- --smoke
+```
+
+The proof creates two independent pages in separate native child views, checks
+per-view JavaScript/input, navigation/history and resizing, closes either sibling,
+creates replacements, and creates a page after a zero-view interval. It ends with
+`multiple-native-views result=pass` and explicit terminal engine shutdown.
+It uses data URLs and needs no fixture server. Omit `--smoke` to leave both pages
+visible for inspection; the minimal native host does not implement browser chrome
+or general keyboard/IME event translation.
+
+The host owns these native children and removes each only after
+`destroy_webview` succeeds. This proves the renderer lifetime contract without
+adding visibility/removal operations to the AppKit helper. Clipping, overlap and
+GPU surface export are not covered.
+
+Focused regression commands:
+
+```sh
+cargo test --locked --manifest-path crates/Cargo.toml -p servokit-embedder
+cargo test --locked --manifest-path crates/Cargo.toml -p servokit --features servo
+cargo test --locked --manifest-path crates/Cargo.toml -p servokit-embedder \
+  --features servo popup_and_process_runtime_lifetimes_share_one_real_servo_proof \
+  -- --test-threads=1
+```
+
+The real-Servo test includes shared-owner routing, zero-view reuse and final
+shutdown in one process, following the legacy single-view/popup checks. Servo's
+one-shot process initialization prevents treating engine recreation as test
+isolation.
+
+## Final native shutdown on macOS
+
+The GPUI shutdown example exercises native window-close and application-quit
+callbacks with a live page and an active update task. Run both paths with tracing
+and log forwarding enabled, without an early informational log or formatter warmup:
+
+```sh
+for exit_path in --close-window --app-quit; do
+  RUST_LOG=warn RUST_BACKTRACE=1 RUSTC_WRAPPER=sccache \
+  CARGO_PROFILE_DEV_DEBUG=0 FREETYPE2_NO_PKG_CONFIG=1 \
+  cargo run --locked --manifest-path examples/desktop-gpui/Cargo.toml \
+    --example shutdown -- "$exit_path"
+done
+```
+
+Each process must exit successfully. The evidence shows the update task cancelled,
+the runtime finalized while the native surface remains alive, the wake target
+released, and the Rust host destructor executed. AppKit termination need not return
+through Rust `main`, so a `main-returned` marker is not required.
+
+Repeat with `--logger-after-page` to initialize logging after Servo, and with
+`--unattached-replacement` to finalize a fresh host after ordinary disposal of the
+initialized host. The latter must retire the retained engine without attaching a
+new native surface. These flags can be combined with either exit path.
+
+`--retain-runtime` is a deliberately failing control: it uses ordinary runtime drop
+instead of final shutdown and reproduces the tracing TLS destruction failure. Keep
+this control separate from successful smoke gates. Do not suppress logs, warm up
+formatter TLS, or bypass destructors to make teardown pass.
+
 ## Matrix
 
 | Target | Purpose | Automation-friendly command(s) | Manual smoke command(s) | Expected result | Notes / limitations |

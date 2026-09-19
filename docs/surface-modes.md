@@ -59,15 +59,41 @@ is not a zero-copy GPU handoff.
   next update/present cycle.
 - Detach removes the render target while preserving browser/controller state
   for later reattachment.
-- Dropping or destroying the owning root webview/host releases its
-  process-runtime lease and invalidates its controller handle. Surface detach
-  does not release the lease.
+- `Runtime::destroy_webview` detaches and closes one view, invalidates its handle,
+  and discards its queued events. Sibling views and the runtime remain usable.
+- The host retains its shared engine connection even with zero views. Ordinary
+  host drop releases that connection after detaching/dropping all views, allowing
+  a later host to reuse the process engine.
+- `Runtime::shutdown` consumes the runtime, closes its views, and permanently
+  shuts down the engine. Call it on the owning UI thread before native parent
+  windows or logging are destroyed. Servo 0.3 does not support engine restart.
+  Final cleanup still runs if an individual detach fails, and returns the first
+  error. An unattached final host can also retire an engine retained after an
+  earlier host was dropped; it cannot shut down another live host's engine.
 
-Servo-backed paths retain `ProcessServoRuntime` on its owning UI thread and
-permit one active `ProcessServoRuntimeLease`/live root. A later root reuses the
-retained runtime after dropping or destroying the owning root webview/host
-releases its lease. See
-[Architecture](../ARCHITECTURE.md#current-servo-runtime-limit).
+## Multiple Native Views
+
+Create multiple `WebViewHandle`s in the same runtime and attach a distinct
+`HostSurface`/native child to each. A `SurfaceDelegate` selects its target by
+`HostSurface` identity. Views share the engine, not their delegate state or
+rendering target; creation does not require popup policy or an opener view.
+
+Use `Runtime::perform_all_updates` from the host event loop. It runs per-view
+`before_update` hooks, spins Servo once, then presents pending frames and drains
+all view events. `RuntimeError::WebView` identifies a failed view while sibling
+events remain available through `drain_events`; `RuntimeError::Host` denotes an
+owner-wide failure. The existing `perform_updates(view)` remains available for
+single-view callers. Multi-view hosts must service all views because a Servo
+spin can invoke any view's delegate.
+
+Native handles remain owned by the host. Destroy or detach the renderer before
+removing a child, and dispose of all renderers before destroying their parent
+window. The AppKit helper's visibility/removal API remains separate work; this
+contract does not add native clipping, stacking, or GPU export.
+
+See [Architecture](../ARCHITECTURE.md#current-servo-runtime-limit) for process
+ownership and adapter limits, and [readiness checks](readiness-checks.md) for the
+runnable native proof.
 
 ## Future GpuLayerSurface
 

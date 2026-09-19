@@ -43,13 +43,13 @@ Servokit facade/host implementation:
 | Input and focus | The app hit-tests its layout. Pointer, wheel, touch, keyboard, IME, and focus events that belong to the embedded slot are translated into Servokit `HostInputEvent` / host-specific input paths with coordinates relative to the slot. App shortcuts and surrounding UI can consume events before forwarding. |
 | Event draining | After attach, resize, commands, input, and updates, the app drains Servokit events and maps them to framework callbacks or chrome updates. Servo delegate policy requests stay in Rust pending state and resolve through the controller seam rather than through a platform view lifetime. |
 | Embedder controls | Servo webview delegate requests for navigation policy, dialogs, context menus, select/file pickers, permissions, fullscreen, cursor, focus, crash/error, and similar embedder-control events are converted into shared Servokit events. The control coordinator owns request identity, fallback/timeout policy, and response validation; the app owns user-facing UI for those controls. |
-| Lifetime | The control handle may outlive an attached render surface. Detach removes the render target but does not by itself invalidate browser control identity or release the root runtime lease. Dropping or destroying the owning root webview/host invalidates later commands and releases that lease. |
+| Lifetime | Detach preserves view identity. `destroy_webview` closes only the targeted view. The native Rust host retains the shared engine connection independently of visible views; ordinary host drop permits reuse, while explicit `shutdown` permanently stops the process engine. |
 
-Servo-backed paths retain `ProcessServoRuntime` on its owning UI thread and
-permit one active `ProcessServoRuntimeLease`/live root. A later root reuses that
-runtime after dropping or destroying the owning root webview/host releases its
-lease. See
-[Architecture](../ARCHITECTURE.md#current-servo-runtime-limit).
+Native Rust hosts can create independent live views through one runtime. Each
+view owns its rendering/delegate/controller state; the host coordinates the
+shared engine through `perform_all_updates`. Native surfaces must outlive their
+attached renderers. See [surface modes](surface-modes.md#multiple-native-views)
+for update, destruction, and shutdown ordering.
 
 Lower-level Rust ServoKit supports root-scoped `PopupRequestPolicy::ManagedChild`
 and managed-child surface lifecycle. React Native Android instead uses

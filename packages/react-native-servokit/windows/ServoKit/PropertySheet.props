@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_PropertySheetDisplayName>ServoKit</_PropertySheetDisplayName>
+    <ServokitRepoRoot Condition="'$(ServokitRepoRoot)' == ''">$(ProjectDir)..\..\..\..\</ServokitRepoRoot>
+    <ServokitDesktopHostProfile Condition="'$(ServokitDesktopHostProfile)' == '' and '$(Configuration)' == 'Debug'">debug</ServokitDesktopHostProfile>
+    <ServokitDesktopHostProfile Condition="'$(ServokitDesktopHostProfile)' == ''">release</ServokitDesktopHostProfile>
+    <ServokitDesktopHostIncludeDir Condition="'$(ServokitDesktopHostIncludeDir)' == ''">$(ServokitRepoRoot)crates\servokit-host-desktop\include</ServokitDesktopHostIncludeDir>
+    <ServokitCargoTargetDir Condition="'$(ServokitCargoTargetDir)' == '' and '$(CARGO_TARGET_DIR)' != ''">$(CARGO_TARGET_DIR)</ServokitCargoTargetDir>
+    <ServokitCargoTargetDir Condition="'$(ServokitCargoTargetDir)' == ''">$(ServokitRepoRoot)target</ServokitCargoTargetDir>
+    <ServokitDesktopHostLibDir Condition="'$(ServokitDesktopHostLibDir)' == ''">$(ServokitCargoTargetDir)\x86_64-pc-windows-msvc\$(ServokitDesktopHostProfile)</ServokitDesktopHostLibDir>
+    <ServokitDesktopHostLinkProps Condition="'$(ServokitDesktopHostLinkProps)' == ''">$(ServokitDesktopHostLibDir)\servokit_host_desktop.props</ServokitDesktopHostLinkProps>
+  </PropertyGroup>
+  <ItemDefinitionGroup />
+  <ItemGroup />
+</Project>

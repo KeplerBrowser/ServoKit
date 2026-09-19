@@ -5,9 +5,9 @@ toolkit. Android is Servo-backed through ServoKit's Rust runtime, the reusable
 `crates/servokit-host-android/android` Gradle module, and the mounted
 `ServoView` command path. The same local package contains the
 WKWebView/WebKit-backed iOS adapter and its Servo-free portable Rust controller.
-The experimental Servo-backed macOS adapter remains source-side and is not
-packaged or supported. Servo-on-iOS is deferred while Servo lacks official iOS
-platform support.
+The experimental Servo-backed macOS and Windows adapters remain source-side and
+are not packaged or supported runtime contracts. Servo-on-iOS is deferred while
+Servo lacks official iOS platform support.
 
 ## Status
 
@@ -16,13 +16,16 @@ platform support.
 | android | experimental local package | Servo-backed Kotlin -> JNI -> Rust path. The package-local AAR contains `arm64-v8a` and `x86_64` and has been proven in a clean external React Native Android consumer. |
 | ios | experimental local package | CocoaPods autolinks `ios/ServoView.mm`, WebKit, and `ServoKitController.xcframework`. Exact-package Release builds pass for device arm64 and simulator arm64/x86_64. The current baseline passed one attended ARM64 simulator run; each future candidate still needs its own manual runtime gate. Servo-on-iOS is deferred. |
 | macos | source-side experiment, not supported | Fabric/AppKit and package-private desktop C implementation over Rust ServoKit; not packaged, with no runtime or distribution contract claimed. |
-| windows | deferred | No Windows runtime adapter, package integration, or distribution is supported. |
+| windows | source-side experiment, not supported | React Native Windows Fabric/Win32 source project over the package-private desktop C boundary. It expects a repo-local `servokit_host_desktop.lib` and has no packaged runtime or runtime acceptance yet. |
 
 Package APIs and local packaging remain unstable. No npm release exists yet;
 `0.1.0` is still local and pre-public. The exact locally packed artifact
-contains the thin Android/iOS adapters, the dual-ABI Android AAR, and the iOS
-controller XCFramework. Consumer builds do not run Cargo, download native
-artifacts, or refer to the ServoKit workspace.
+contains the thin Android/iOS adapters, the dual-ABI Android AAR, the iOS
+controller XCFramework, and the experimental Windows source project. Android
+and iOS consumer builds do not run Cargo, download native artifacts, or refer to
+the ServoKit workspace. Windows packaging remains pending, so Windows builds
+from the source project currently need a prepared ServoKit checkout and
+`servokit_host_desktop.lib`.
 
 For current capability coverage and the remaining Servo embedder surfaces, see
 [`feature-coverage.md`](./feature-coverage.md). For the platform-specific
@@ -75,6 +78,65 @@ can use a prepared `ServoKit.xcframework` with
 `ServoKitMacOSBinary` pod. This is an experimental implementation, not a
 supported runtime or published distribution contract.
 
+## Windows source path
+
+The Windows projection uses `windows/ServoKit.sln` plus a C++/WinRT React
+Native Windows Fabric component. The adapter owns the Win32 child `HWND`,
+RNW `ComponentView` lifecycle, geometry/DPI conversion, input translation, and
+UI-dispatcher scheduling. It sends mounted controller commands and events
+through the package-private desktop C boundary to the Rust ServoKit runtime.
+The package carries the generated RNW component header for the shared
+`ServoViewNativeComponent.ts` contract, and the Windows source evidence script
+checks that generated header for drift. The example app lists
+`react-native-windows` as a dependency so the same script can verify the normal
+RNW `react-native config` path exposes ServoKit's Windows source project.
+
+This is a source-side implementation scaffold for issue #6, not package
+distribution. It expects `servokit_desktop_private.h` from
+`crates/servokit-host-desktop/include` and `servokit_host_desktop.lib` from a
+prepared Windows x64 Rust build. Clean npm-consumer Windows runtime packaging is
+separate issue #7 work.
+
+From a prepared Windows x64 checkout with React Native Windows dependencies
+available to the package root, run:
+
+```powershell
+.\scripts\windows-rnw-source.ps1 -EvidenceDir $env:TEMP\servokit-windows-rnw-source
+```
+
+The same source-build slice is available as the manual
+`.github/workflows/windows-rnw-source.yml` workflow.
+
+The script records environment, source hashes, exact commands, Rust staticlib
+build logs, RNW autolinking config, RNW codegen-check logs, and MSBuild logs for
+the source project. Passing that script proves source buildability only;
+attended RNW runtime smoke remains separate.
+
+For attended RNW runtime smoke against an app that already has a Windows project
+generated, run:
+
+```powershell
+.\scripts\windows-rnw-smoke.ps1 -Attended -AppRoot <rnw-app-root> -EvidenceDir $env:TEMP\servokit-windows-rnw-smoke
+```
+
+That wrapper builds the matching desktop static library, checks RNW autolinking
+for both ServoKit's dependency project and the consuming app's generated Windows
+solution/project, and requires the app source to mount `ServoView`, include the
+exact smoke fixture URL it starts, and expose the event/control hooks needed by
+the runtime checklist: URL/load/history/focus events, navigation policy,
+JavaScript dialogs, JavaScript evaluation, back/forward/reload/focus/blur
+commands, and a recycle/remount control. It then starts the fixture server and
+Metro, runs `react-native run-windows`, and leaves an evidence directory for
+screenshots or notes. The checked-in package example does not currently carry a
+generated `windows/` app project, so pass an app root that has already run RNW
+`init-windows`; that app root must still load
+`http://127.0.0.1:8481/smoke/index.html` by default unless `-FixturePort`
+selects a different URL and the app source contains that URL. The wrapper still
+requires a human to verify visible rendering, resize/DPI, hide/show,
+pointer/wheel, keyboard/text, focus, navigation commands/events, recycling,
+teardown, and stale-handle behavior, then type `PASS` before it records
+`status=attended-pass`.
+
 ## Control capability contract
 
 Public control docs should describe capabilities per platform rather than
@@ -83,9 +145,9 @@ upstream enum names or transport details. The shared capability vocabulary uses
 fullscreen, cursor, focus, and crash/error reporting.
 
 Android maps its supported capabilities to Servo-backed controls through Rust
-controller seams plus native platform behavior. The experimental macOS path
-uses the same ownership split without establishing a supported runtime
-contract. The iOS path maps only the native equivalents exposed by
+controller seams plus native platform behavior. The experimental macOS and
+Windows paths use the same ownership split without establishing a supported
+runtime contract. The iOS path maps only the native equivalents exposed by
 WKWebView/WebKit and UIKit. Rust owns request identity, pending semantics,
 fallback policy, and response validation on both packaged platforms; the iOS
 adapter owns WebKit's native completion/timer lifetime and effect execution.
@@ -94,8 +156,9 @@ engine's state owner.
 
 ## Quick usage
 
-The current local package exposes this component on Android and iOS. The macOS
-mapping described below remains a repository source experiment.
+The current packaged baseline exposes this component on Android and iOS. The
+macOS and Windows mappings described below remain repository source
+experiments.
 
 ```tsx
 import { useRef } from 'react';
@@ -135,9 +198,9 @@ function Browser() {
 - `evaluateJavaScript(script: string): Promise<string>`
 
 On Android, `evaluateJavaScript` follows Servo `WebView::evaluate_javascript` on
-the mounted view path. The experimental macOS adapter maps the same command to
-Servo. The React Native adapter resolves with a JSON string serialization of
-Servo's `JSValue` result
+the mounted view path. The experimental macOS and Windows source adapters map
+the same command to Servo. The React Native adapter resolves with a JSON string
+serialization of Servo's `JSValue` result
 such as `{"type":"string","value":"Example title"}` or `{"type":"null"}`.
 Promise rejection surfaces Servo evaluation error categories such as
 `DocumentNotFound`, `CompilationFailure`, `EvaluationFailure`, `InternalError`,
@@ -159,45 +222,50 @@ controller-command envelope documented in
 [`react-native-rust-control-seam.md`](./react-native-rust-control-seam.md). On
 iOS, the baseline routes supported commands, navigation-policy decisions, and
 JavaScript alert/confirm/prompt dialogs through the portable Rust controller
-before Objective-C++ applies effects to WKWebView/WebKit. On macOS, the mounted
-Fabric command travels through the AppKit adapter and package-private desktop C
-boundary to the Rust controller envelope.
+before Objective-C++ applies effects to WKWebView/WebKit. On macOS and Windows,
+mounted Fabric commands travel through the native adapter and package-private
+desktop C boundary to the Rust controller envelope. The Windows source adapter
+also routes Servo navigation-policy decisions and JavaScript dialog
+request/dismissal commands through that same desktop C boundary.
 
 `onShouldStartLoadWithRequest` is the shared React Native-facing name for
-Android Servo `WebViewDelegate::request_navigation` decisions and iOS WebKit
-`WKNavigationDelegate` policy decisions. It returns `boolean | Promise<boolean>`
-because the React Native decision is resolved asynchronously. If the callback is
-absent, throws, rejects, or never resolves, both platform paths explicitly fall
-back to allowing the navigation so neither Servo nor WebKit wedges on a pending
-request. The iOS callback receives the shared `{ url }` request shape only; no
+Android and Windows Servo `WebViewDelegate::request_navigation` decisions and
+iOS WebKit `WKNavigationDelegate` policy decisions. It returns
+`boolean | Promise<boolean>` because the React Native decision is resolved
+asynchronously. If the callback is absent, throws, rejects, or never resolves,
+the Servo-backed Android/Windows paths and the iOS path explicitly fall back to
+allowing the navigation so neither Servo nor WebKit wedges on a pending request.
+The iOS callback receives the shared `{ url }` request shape only; no
 WebKit-specific request fields are exposed in this baseline.
 
 When `onJavaScriptDialog` is present, Rust owns the pending dialog identity and
-semantics while the React Native callback only supplies UI and policy. iOS
+semantics while the React Native callback only supplies UI and policy. Windows
+uses the same Servo dialog request shape through the desktop C boundary. iOS
 mirrors the same React Native request shape for WebKit `WKUIDelegate`
 alert/confirm/prompt callbacks; Objective-C++ retains the native completion
-object while the portable controller remains the source of truth. Without an
-RN handler, Android falls back to host-native dialogs; iOS uses
-a no-UI WebKit-safe default: alerts complete, while confirm and prompt cancel.
-Dismissal events are emitted for RN-owned dialogs when the platform reports or
-settles the pending dialog. The Rust-owned controller command/control seams are
-documented in
+object while the portable controller remains the source of truth. Without an RN
+handler, Android falls back to host-native dialogs; Windows dismisses the Servo
+request through the shared controller command; iOS uses a no-UI WebKit-safe
+default: alerts complete, while confirm and prompt cancel. Dismissal events are
+emitted for RN-owned dialogs when the platform reports or settles the pending
+dialog. The Rust-owned controller command/control seams are documented in
 [`react-native-rust-control-seam.md`](./react-native-rust-control-seam.md).
 
-Servo-backed Android policy notifications currently include `onFocusChanged`,
-`onCursorChanged`, `onFullscreenChanged`, and
+Servo-backed Android and Windows policy notifications currently include
+`onFocusChanged`, `onCursorChanged`, `onFullscreenChanged`, and
 `onCreateNewWebViewRequested`, so apps can keep native chrome in sync without
 relying on placeholder APIs. The iOS WKWebView baseline currently emits focus
 but not cursor/fullscreen/crash/create-new-webview parity.
-`onCreateNewWebViewRequested` is an Android-only React Native adapter event. It
-maps Servo `WebViewDelegate::request_create_new` /
-`CreateNewWebViewRequest` into host-routed popup/new-window intent and emits
-`{ parentWebViewId, parentUrl, targetUrl, windowFeatures, policy }`, with
-`parentUrl`, `targetUrl`, and `windowFeatures` nullable. The prop itself is not
-a Servo crate API. React Native Android uses default-deny; a host can ignore the
-informational intent or interpret a surfaced URL in its own UI, but this adapter
-does not create, present, or adopt managed child views. iOS does not emit this
-event.
+`onCreateNewWebViewRequested` maps Servo
+`WebViewDelegate::request_create_new` / `CreateNewWebViewRequest` into
+host-routed popup/new-window intent and emits `{ parentWebViewId, parentUrl,
+targetUrl, windowFeatures, policy }`, with `parentUrl`, `targetUrl`, and
+`windowFeatures` nullable. The prop itself is not a Servo crate API. React
+Native Android uses default-deny; a host can ignore the informational intent or
+interpret a surfaced URL in its own UI, but this adapter does not create,
+present, or adopt managed child views. The Windows source adapter forwards the
+same informational event but still requires attended runtime acceptance. iOS
+does not emit this event.
 
 Lower-level Rust ServoKit separately supports root-scoped
 `PopupRequestPolicy::ManagedChild` and managed-child surface lifecycle. Those
@@ -224,12 +292,14 @@ before copying that artifact into `react-native-servokit`.
 
 The packed React Native package contains that AAR and the thin Android adapter,
 not the host Gradle project or Rust workspace. It also contains the iOS podspec,
-Objective-C++ adapter, and portable-controller XCFramework. Normal React Native
-autolinking resolves the installed package's native projects: Android depends
-on the package-local AAR, while CocoaPods links the iOS adapter, WebKit, and
-XCFramework. Consumer builds do not invoke Cargo, download a native artifact,
-or refer back to the ServoKit checkout. Maven publication is not part of this
-distribution path.
+Objective-C++ adapter, portable-controller XCFramework, and the Windows source
+project. Normal React Native autolinking resolves the installed package's native
+projects: Android depends on the package-local AAR, CocoaPods links the iOS
+adapter, WebKit, and XCFramework, and Windows points at the source-side RNW
+project. Android and iOS consumer builds do not invoke Cargo, download a native
+artifact, or refer back to the ServoKit checkout. Windows clean-consumer runtime
+packaging remains separate. Maven publication is not part of this distribution
+path.
 
 ## Exact-package iOS readiness
 

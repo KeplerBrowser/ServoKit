@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { constants, createReadStream } from "node:fs";
+import { constants, createReadStream, writeSync } from "node:fs";
 import {
   access,
   cp,
@@ -47,6 +47,22 @@ const androidFiles = [
 ];
 const iosControllerFiles = requiredIosControllerFiles;
 const iosFiles = ["Servokit.podspec", "ios/ServoView.mm", ...iosControllerFiles];
+const windowsFiles = [
+  "windows/ServoKit.sln",
+  "windows/NuGet.Config",
+  "windows/ServoKit/PropertySheet.props",
+  "windows/ServoKit/ReactPackageProvider.cpp",
+  "windows/ServoKit/ReactPackageProvider.h",
+  "windows/ServoKit/ReactPackageProvider.idl",
+  "windows/ServoKit/ServoKit.def",
+  "windows/ServoKit/ServoKit.vcxproj",
+  "windows/ServoKit/ServoKit.vcxproj.filters",
+  "windows/ServoKit/ServoView.cpp",
+  "windows/ServoKit/ServoView.h",
+  "windows/ServoKit/codegen/react/components/ServoViewSpec/ServoView.g.h",
+  "windows/ServoKit/pch.cpp",
+  "windows/ServoKit/pch.h",
+];
 const approvedAppleBinaryFiles = new Set(iosControllerFiles);
 const requiredPackageFiles = [
   "package.json",
@@ -55,6 +71,7 @@ const requiredPackageFiles = [
   "src/ServoViewNativeComponent.ts",
   ...androidFiles,
   ...iosFiles,
+  ...windowsFiles,
 ];
 const negativeControlFiles = [
   "android/build.gradle",
@@ -126,6 +143,8 @@ const iosMatrices = [
   },
 ];
 let activeChild;
+let activeChildKillTarget;
+let activeChildKillTimer;
 let receivedSignal;
 
 function signalChild(child, signal) {
@@ -141,8 +160,16 @@ for (const signal of Object.keys(signalExitCodes)) {
   process.on(signal, () => {
     receivedSignal ??= signal;
     const child = activeChild;
+    if (activeChildKillTimer) clearTimeout(activeChildKillTimer);
+    activeChildKillTarget = undefined;
+    activeChildKillTimer = undefined;
+    if (!child) return;
     signalChild(child, signal);
-    setTimeout(() => activeChild === child && signalChild(child, "SIGKILL"), 5_000).unref();
+    activeChildKillTarget = child;
+    activeChildKillTimer = setTimeout(
+      () => activeChild === child && signalChild(child, "SIGKILL"),
+      5_000,
+    );
   });
 }
 const templateExcludedNames = new Set([
@@ -261,6 +288,11 @@ async function runChecked(command, args, options = {}) {
     throw new Error(`${command} failed to start: ${error.message}`, { cause: error });
   } finally {
     if (activeChild === child) activeChild = undefined;
+    if (activeChildKillTarget === child) {
+      clearTimeout(activeChildKillTimer);
+      activeChildKillTarget = undefined;
+      activeChildKillTimer = undefined;
+    }
   }
   if (capture && options.echo) process.stdout.write(output);
   if (signal) {
@@ -291,6 +323,14 @@ function isUnexpectedAppleBinary(file) {
   );
 }
 
+function isUnexpectedWindowsBinary(file) {
+  const lower = file.toLowerCase();
+  return (
+    lower.startsWith("windows/") &&
+    [".dll", ".exe", ".lib", ".pdb"].some((extension) => lower.endsWith(extension))
+  );
+}
+
 function assertPackShape(packResult) {
   assert(Array.isArray(packResult.files), "npm pack result did not include a file list");
   const packedFiles = new Set(packResult.files.map((file) => file.path));
@@ -307,6 +347,9 @@ function assertPackShape(packResult) {
   const appleBinaries = packResult.files
     .map((file) => file.path)
     .filter((file) => isUnexpectedAppleBinary(file) && !approvedAppleBinaryFiles.has(file));
+  const windowsBinaries = packResult.files
+    .map((file) => file.path)
+    .filter((file) => isUnexpectedWindowsBinary(file));
 
   if (missing.length > 0) {
     throw new Error(`packed tarball is missing required files:\n${missing.join("\n")}`);
@@ -316,6 +359,11 @@ function assertPackShape(packResult) {
   }
   if (appleBinaries.length > 0) {
     throw new AppleBinaryError(appleBinaries);
+  }
+  if (windowsBinaries.length > 0) {
+    throw new Error(
+      `packed tarball contains unexpected Windows native binaries:\n${windowsBinaries.join("\n")}`,
+    );
   }
 }
 
@@ -355,14 +403,27 @@ async function assertPackageShape(installedPackage) {
     !Object.keys(manifest.scripts ?? {}).some((name) => name.startsWith("ubrn:")),
     "packed package retained UBRN scripts",
   );
+  assert(
+    manifest.peerDependencies?.["react-native-windows"] === "*",
+    "packed package changed the optional React Native Windows peer dependency",
+  );
+  assert(
+    manifest.peerDependenciesMeta?.["react-native-windows"]?.optional === true,
+    "packed package changed the optional React Native Windows peer metadata",
+  );
   for (const lifecycle of ["preinstall", "install", "postinstall"]) {
     assert(!manifest.scripts?.[lifecycle], `packed package retained ${lifecycle} lifecycle script`);
   }
   assert.equal(manifest.codegenConfig?.type, "all", "packed package changed Codegen type");
-  assert.equal(
+  assert.deepEqual(
     manifest.codegenConfig?.windows,
-    undefined,
-    "packed package advertises unsupported Windows settings",
+    {
+      namespace: "ServoKitCodegen",
+      generators: ["componentsWindows", "modulesWindows"],
+      outputDirectory: "windows/ServoKit/codegen",
+      separateDataTypes: true,
+    },
+    "packed package changed Windows source adapter Codegen settings",
   );
 }
 
@@ -1514,6 +1575,6 @@ async function validate() {
 }
 
 validate().catch((error) => {
-  console.error(formatError(error));
+  writeSync(process.stderr.fd, `${formatError(error)}\n`);
   process.exitCode = signalExitCodes[receivedSignal] ?? 1;
 });

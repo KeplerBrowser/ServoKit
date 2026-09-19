@@ -59,15 +59,54 @@ is not a zero-copy GPU handoff.
   next update/present cycle.
 - Detach removes the render target while preserving browser/controller state
   for later reattachment.
-- Dropping or destroying the owning root webview/host releases its
-  process-runtime lease and invalidates its controller handle. Surface detach
-  does not release the lease.
 
-Servo-backed paths retain `ProcessServoRuntime` on its owning UI thread and
-permit one active `ProcessServoRuntimeLease`/live root. A later root reuses the
-retained runtime after dropping or destroying the owning root webview/host
-releases its lease. See
-[Architecture](../ARCHITECTURE.md#current-servo-runtime-limit).
+## Multiple Native Views
+
+In the native Rust `Runtime<SurfaceHost<_>>`, create multiple `WebViewHandle`s
+and attach a distinct `HostSurface`/native child to each. A `SurfaceDelegate`
+selects its target by `HostSurface` identity. Each view has its own delegate state
+and rendering target under the shared engine; creation does not require popup
+policy or an opener view.
+
+Use `Runtime::perform_all_updates` from the host event loop. It runs per-view
+`before_update` hooks, spins Servo once, then presents pending frames and drains
+all view events. `RuntimeError::WebView` identifies a failed view while sibling
+events remain available through `drain_events`; `RuntimeError::Host` denotes an
+owner-wide failure. The existing `perform_updates(view)` remains available for
+single-view callers. Multi-view hosts must service all views because a Servo
+spin can invoke any view's delegate.
+
+## View destruction and final shutdown
+
+The native Rust surface host distinguishes closing a view from retiring the engine.
+
+The embedding host decides the engine's lifetime. ServoKit does not observe window
+closure or automatically shut down the engine when a window, surface, or final view
+is removed. A host can keep the runtime alive with no windows or views and attach
+new views later. Call terminal shutdown only when the host is finished using Servo
+for the remainder of the process.
+
+- `Runtime::destroy_webview` detaches and closes one view, invalidates its handle,
+  and discards its queued events. Siblings remain usable. A detach error leaves
+  the view registered so destruction can be retried.
+- The host retains its shared engine connection even with zero views. Ordinary
+  host drop releases that connection after detaching/dropping all views, allowing
+  a later host to reuse the process engine.
+- `Runtime::shutdown` consumes the runtime, closes its views, and permanently
+  shuts down the engine. Call it on the owning UI thread before native parent
+  windows or logging are destroyed. Servo 0.3 does not support engine restart.
+  Final cleanup still runs if an individual detach fails, and returns the first
+  error. An unattached final host can also retire an engine retained after an
+  earlier host was dropped; it cannot shut down another live host's engine.
+
+Native handles remain owned by the host. Destroy or detach a view's renderer
+before removing its native child or destroying its parent window.
+The AppKit helper's visibility/removal API remains separate work; this
+contract does not add native clipping, stacking, or GPU export.
+
+See [Architecture](../ARCHITECTURE.md#servo-runtime-ownership) for process
+ownership and adapter limits, and [readiness checks](readiness-checks.md) for the
+runnable native proof.
 
 ## Future GpuLayerSurface
 

@@ -95,7 +95,7 @@ pub use servo_adapter::{
         target_os = "linux"
     )
 ))]
-pub use servo_webview::{ServoWebView, ServoWebViewInit};
+pub use servo_webview::{ServoRuntime, ServoWebView, ServoWebViewInit};
 #[cfg(all(
     feature = "servo",
     any(

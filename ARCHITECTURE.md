@@ -100,21 +100,30 @@ React Native macOS
   separate. A controller can outlive a render surface; disposing the host
   invalidates later commands explicitly.
 
-## Current Servo Runtime Limit
+## Servo runtime ownership
 
-Servo-backed paths currently support one live root Servo webview per process.
-`ProcessServoRuntime` is retained on its owning UI thread, while only one
-`ProcessServoRuntimeLease` and live root may be active. Dropping or destroying
-the owning root webview/host releases the lease; a later root reuses the retained
-process runtime. Surface detach does not release the lease.
+Servo-backed paths use one process engine and one active owner on its UI thread.
+The native Rust `Runtime<SurfaceHost<_>>` can create multiple independent live
+webviews under that owner. Each view keeps its own Servo `WebView`, delegate,
+controller/pending state, event queue, and rendering target. The host retains the
+engine connection independently of its views, including while no views exist.
 
-Within that root, lower-level Rust ServoKit supports
-`PopupRequestPolicy::ManagedChild` and managed-child surface lifecycle. Managed
-children do not permit a second root and are not a general N-root pool or public
-React Native multi-view API. React Native Android currently uses default-deny
-and emits `onCreateNewWebViewRequested` only as informational host-routed intent;
-it does not create, present, or adopt managed child views. iOS does not emit that
-React Native event.
+The runtime manages view membership and handle routing; the application manages
+selection, layout, and presentation. Servo owns internal IPC,
+networking/storage infrastructure, and engine coordination. Existing
+`SessionHandle`s identify logical groups; they do not provide storage partitions.
+
+View destruction and ordinary host disposal preserve the process engine for
+reuse. Explicit `Runtime::shutdown` is terminal because Servo 0.3 cannot initialize
+twice in one process. The [surface contract](docs/surface-modes.md) defines update
+servicing, error attribution, and view/native-resource teardown ordering.
+
+The single-view Android and private desktop adapters retain their existing
+ownership paths; this does not introduce a public React Native multi-view API.
+Lower-level Rust `PopupRequestPolicy::ManagedChild` remains root-scoped popup
+adoption, separate from independently created native views. React Native Android
+uses default-deny and emits `onCreateNewWebViewRequested` as informational intent;
+iOS does not emit that event.
 
 ## Engine-Specific Control Ownership
 

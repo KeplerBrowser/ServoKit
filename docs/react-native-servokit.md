@@ -200,10 +200,10 @@ does not create, present, or adopt managed child views. iOS does not emit this
 event.
 
 Lower-level Rust ServoKit separately supports root-scoped
-`PopupRequestPolicy::ManagedChild` and managed-child surface lifecycle. Those
-children do not allow a second root or provide a general N-root pool/public
-React Native multi-view API. See
-[Architecture](../ARCHITECTURE.md#current-servo-runtime-limit).
+`PopupRequestPolicy::ManagedChild` and managed-child surface lifecycle. Popup
+adoption is separate from independently created native Rust views; neither
+introduces a public React Native multi-view API. See
+[Architecture](../ARCHITECTURE.md#servo-runtime-ownership).
 
 ## Android host module boundary
 

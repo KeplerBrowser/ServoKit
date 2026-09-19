@@ -39,6 +39,17 @@ pub struct ServoWebViewAdapter {
 }
 
 impl ServoWebViewAdapter {
+    pub(crate) fn close(&self) {
+        let mut ids = self.managed_child_webview_ids();
+        if let Some(root) = self.shared.manager.borrow().root_webview_id() {
+            ids.push(root);
+        }
+        for id in ids {
+            self.shared.cleanup_pending_for_webview(&id);
+        }
+        self.shared.manager.borrow_mut().managed_children.clear();
+    }
+
     pub fn new(
         popup_policy: PopupRequestPolicy,
         rendering_context: Rc<dyn RenderingContext>,

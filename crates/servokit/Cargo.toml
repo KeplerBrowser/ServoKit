@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[[example]]
+name = "multiple-native-views"
+path = "examples/multiple-native-views/main.rs"
+required-features = ["servo"]
+
 [features]
 default = []
 servo = [

@@ -62,11 +62,9 @@ Fabric `ServoView` surface through an AppKit adapter and the package-private
 desktop C boundary into Rust ServoKit. It is not a supported or distributed
 runtime contract and does not claim full Android feature parity.
 
-Servo-backed paths retain the process runtime on its owning UI thread and allow
-one active runtime lease/live root. Dropping or destroying its owning
-webview/host releases the lease so a later root can reuse the runtime; surface
-detach does not. See
-[Architecture](../ARCHITECTURE.md#current-servo-runtime-limit).
+Independent multiview support applies to the native Rust surface host; it does
+not extend the React Native adapter contracts. See
+[Architecture](../ARCHITECTURE.md#servo-runtime-ownership).
 
 The mounted React Native JavaScript evaluation API covers app-initiated
 `ServoView.evaluateJavaScript(script): Promise<string>` on a mounted `ServoView`:

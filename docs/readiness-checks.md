@@ -102,6 +102,51 @@ the browser slot, and the GPUI footer reports URL/load/title/status event output
 from `ServokitEvent` values. This validates macOS native-child embedding only;
 IOSurface / `GpuLayerSurface` export remains future upstream-dependent work.
 
+## Multiple native views on macOS
+
+Run the standalone public-facade proof on an interactive AppKit host:
+
+```sh
+RUSTC_WRAPPER=sccache CARGO_PROFILE_DEV_DEBUG=0 FREETYPE2_NO_PKG_CONFIG=1 \
+cargo run --locked --manifest-path crates/Cargo.toml -p servokit \
+  --features servo --example multiple-native-views -- --smoke
+```
+
+The proof creates two independent pages in separate native child views, checks
+per-view JavaScript/input, navigation/history and resizing, closes either sibling,
+creates replacements, and creates a page after a zero-view interval. After final
+engine shutdown it prints `multiple-native-views result=pass`.
+It uses data URLs and needs no fixture server. Omit `--smoke` to leave both pages
+visible for inspection; the minimal native host does not implement browser chrome
+or general keyboard/IME event translation.
+
+Clipping, overlap, native hide/reveal, and GPU surface export are not covered.
+
+Focused regression commands:
+
+```sh
+cargo test --locked --manifest-path crates/Cargo.toml -p servokit-embedder
+cargo test --locked --manifest-path crates/Cargo.toml -p servokit --features servo
+cargo test --locked --manifest-path crates/Cargo.toml -p servokit-embedder \
+  --features servo popup_and_process_runtime_lifetimes_share_one_real_servo_proof \
+  -- --test-threads=1
+```
+
+The real-Servo test includes shared-owner routing, zero-view reuse and final
+shutdown in one process, following the legacy single-view/popup checks. Servo's
+one-shot process initialization prevents treating engine recreation as test
+isolation.
+
+## Final native shutdown on macOS
+
+Use the [GPUI shutdown regression](../examples/desktop-gpui/README.md#shutdown-regression)
+for owning-thread cleanup before logging TLS destruction. It covers native
+window-close and application-quit callbacks, both logging initialization orders,
+and finalization through either the original owner or an unattached replacement
+host. Each combination must exit successfully with update work cancelled and
+runtime destruction completed while native surfaces remain alive. The example
+README owns the commands, flags, and intentionally failing retained-runtime control.
+
 ## Matrix
 
 | Target | Purpose | Automation-friendly command(s) | Manual smoke command(s) | Expected result | Notes / limitations |

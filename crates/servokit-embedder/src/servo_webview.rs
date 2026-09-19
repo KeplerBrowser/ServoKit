@@ -23,7 +23,6 @@ use crate::{
 pub struct ServoWebViewInit {
     pub rendering_context: Rc<dyn RenderingContext>,
     pub clipboard_delegate: Rc<dyn ClipboardDelegate>,
-    pub event_loop_waker: Box<dyn EventLoopWaker>,
     pub initial_url: Option<String>,
     pub density: f32,
     pub popup_policy: PopupRequestPolicy,
@@ -33,20 +32,29 @@ pub struct ServoWebViewInit {
 pub struct ServoWebView {
     adapter: ServoWebViewAdapter,
     webview: WebView,
-    runtime: ProcessServoRuntimeLease,
+    runtime: ServoRuntime,
 }
 
 impl ServoWebView {
-    pub fn new(init: ServoWebViewInit) -> Result<Self, String> {
-        // Keep the inventory-only default reader reachable from native static-library consumers.
-        std::hint::black_box(
-            &servo_default_resources::DefaultResourceReader
-                as &dyn servo::resources::ResourceReaderMethods,
-        );
+    /// Creates a standalone view with its own process-runtime lease.
+    ///
+    /// Hosts embedding multiple independent views use `ServoRuntime::create_webview`
+    /// so those views share one owner and wake callback.
+    pub fn new(
+        init: ServoWebViewInit,
+        event_loop_waker: Box<dyn EventLoopWaker>,
+    ) -> Result<Self, String> {
+        // Reject malformed initial URLs before acquiring the process engine.
+        if let Some(url) = &init.initial_url {
+            Url::parse(url).map_err(|error| error.to_string())?;
+        }
+        ServoRuntime::new(event_loop_waker)?.create_webview(init)
+    }
+
+    fn with_runtime(init: ServoWebViewInit, runtime: ServoRuntime) -> Result<Self, String> {
         let ServoWebViewInit {
             rendering_context,
             clipboard_delegate,
-            event_loop_waker,
             initial_url,
             density,
             popup_policy,
@@ -66,11 +74,9 @@ impl ServoWebView {
         } else {
             ServoWebViewAdapter::new(popup_policy, rendering_context.clone())
         };
-        let _ = crate::ensure_default_rustls_crypto_provider();
-        let runtime = acquire_process_servo_runtime(event_loop_waker)?;
         let delegate = adapter.webview_delegate();
 
-        let builder = WebViewBuilder::new(runtime.servo(), rendering_context)
+        let builder = WebViewBuilder::new(runtime.lease.servo(), rendering_context)
             .clipboard_delegate(clipboard_delegate)
             .delegate(delegate)
             .hidpi_scale_factor(hidpi_scale_factor(density));
@@ -502,14 +508,37 @@ impl ServoWebView {
         present: impl FnOnce(),
     ) -> Result<Vec<ServoWebViewEvent>, String> {
         before_spin();
-        self.runtime.servo().spin_event_loop();
+        self.runtime.perform_updates()?;
 
+        Ok(self.paint_pending(surface_attached, present))
+    }
+
+    /// Paints this view if needed and drains its events after a shared engine update.
+    ///
+    /// This does not spin Servo. The owner must call `ServoRuntime::perform_updates`
+    /// before presenting the independent views affected by that update.
+    pub fn present_pending(
+        &mut self,
+        surface_attached: bool,
+        present: impl FnOnce(),
+    ) -> Vec<HostEvent> {
+        self.paint_pending(surface_attached, present)
+            .into_iter()
+            .map(|event| event.event)
+            .collect()
+    }
+
+    fn paint_pending(
+        &mut self,
+        surface_attached: bool,
+        present: impl FnOnce(),
+    ) -> Vec<ServoWebViewEvent> {
         if surface_attached && self.adapter.take_needs_paint() {
             self.webview.paint();
             present();
         }
 
-        Ok(self.adapter.drain_webview_events())
+        self.adapter.drain_webview_events()
     }
 
     pub fn perform_managed_child_updates(
@@ -525,7 +554,7 @@ impl ServoWebView {
             .managed_child_surface_attached(child_webview_id)?;
 
         before_spin();
-        self.runtime.servo().spin_event_loop();
+        self.runtime.perform_updates()?;
 
         if surface_attached
             && self
@@ -538,6 +567,95 @@ impl ServoWebView {
         }
 
         Ok(self.adapter.drain_webview_events())
+    }
+}
+
+impl Drop for ServoWebView {
+    fn drop(&mut self) {
+        self.adapter.close();
+    }
+}
+
+/// One owning-thread connection to the process Servo engine.
+///
+/// Clones share a single lease and event-loop waker. Each created view retains this
+/// connection, while a host can retain it independently through a zero-view interval.
+/// Native Servo reference counting owns the engine and webviews; this type only owns
+/// the host connection and does not manage product tabs, windows, or popup policy.
+#[derive(Clone)]
+pub struct ServoRuntime {
+    lease: Rc<ProcessServoRuntimeLease>,
+}
+
+impl ServoRuntime {
+    /// Permanently shuts down the process engine after every view and other owner
+    /// clone has been dropped. Ordinary drop releases the lease for later reuse.
+    ///
+    /// Servo 0.3 supports only one engine initialization per process. Subsequent
+    /// acquisition after this call returns an error, rather than rebuilding Servo.
+    pub fn shutdown(self) -> Result<(), String> {
+        let lease = Rc::try_unwrap(self.lease)
+            .map_err(|_| "cannot shut down Servo while views or owner clones remain".to_owned())?;
+        drop(lease);
+        Self::shutdown_retained()
+    }
+
+    /// Permanently retires the process engine retained after ordinary owner drop.
+    ///
+    /// This also supports finalizing a host that never attached a surface. It must
+    /// run on the engine's owning thread and cannot retire another live owner's engine.
+    pub fn shutdown_retained() -> Result<(), String> {
+        if PROCESS_SERVO_THREAD
+            .get()
+            .is_some_and(|owner| *owner != std::thread::current().id())
+        {
+            return Err("ServoKit process runtime must stay on its owning UI thread".into());
+        }
+        let runtime = PROCESS_SERVO_RUNTIME.with(|slot| {
+            let mut slot = slot.borrow_mut();
+            if slot
+                .as_ref()
+                .is_some_and(|runtime| runtime.waker.is_active())
+            {
+                return Err("cannot shut down Servo while a runtime owner remains".to_owned());
+            }
+            Ok(slot.take())
+        })?;
+        PROCESS_SERVO_SHUT_DOWN.store(true, std::sync::atomic::Ordering::Release);
+        // Drop outside the thread-local borrow: Servo's shutdown pumps delegates.
+        drop(runtime);
+        Ok(())
+    }
+
+    /// Acquires the process engine on its owning UI thread.
+    pub fn new(event_loop_waker: Box<dyn EventLoopWaker>) -> Result<Self, String> {
+        Ok(Self {
+            lease: Rc::new(acquire_process_servo_runtime(event_loop_waker)?),
+        })
+    }
+
+    /// Creates an independent view with its own delegate and rendering context.
+    pub fn create_webview(&self, init: ServoWebViewInit) -> Result<ServoWebView, String> {
+        ServoWebView::with_runtime(init, self.clone())
+    }
+
+    /// Spins the shared engine; callbacks may target any of its views.
+    pub fn perform_updates(&self) -> Result<(), String> {
+        self.lease.servo().spin_event_loop();
+        let errors = self.lease.errors.borrow_mut().drain(..).collect::<Vec<_>>();
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors.join("; "))
+        }
+    }
+}
+
+struct EngineDelegate(Rc<RefCell<Vec<String>>>);
+
+impl servo::ServoDelegate for EngineDelegate {
+    fn notify_error(&self, error: servo::ServoError) {
+        self.0.borrow_mut().push(format!("{error:?}"));
     }
 }
 
@@ -590,10 +708,17 @@ impl EventLoopWaker for RoutedEventLoopWaker {
 struct ProcessServoRuntime {
     servo: Servo,
     waker: RoutedEventLoopWaker,
+    errors: Rc<RefCell<Vec<String>>>,
 }
 
 impl ProcessServoRuntime {
     fn new(event_loop_waker: Box<dyn EventLoopWaker>) -> (Self, ProcessServoRuntimeLease) {
+        // Keep the inventory-only default reader reachable from native static-library consumers.
+        std::hint::black_box(
+            &servo_default_resources::DefaultResourceReader
+                as &dyn servo::resources::ResourceReaderMethods,
+        );
+        let _ = crate::ensure_default_rustls_crypto_provider();
         let waker = RoutedEventLoopWaker::default();
         waker.activate(event_loop_waker);
 
@@ -607,11 +732,21 @@ impl ProcessServoRuntime {
             .preferences(preferences)
             .event_loop_waker(Box::new(waker.clone()))
             .build();
+        let errors = Rc::new(RefCell::new(Vec::new()));
+        servo.set_delegate(Rc::new(EngineDelegate(errors.clone())));
         let lease = ProcessServoRuntimeLease {
             servo: servo.clone(),
             waker: waker.clone(),
+            errors: errors.clone(),
         };
-        (Self { servo, waker }, lease)
+        (
+            Self {
+                servo,
+                waker,
+                errors,
+            },
+            lease,
+        )
     }
 
     fn acquire(
@@ -619,12 +754,13 @@ impl ProcessServoRuntime {
         event_loop_waker: Box<dyn EventLoopWaker>,
     ) -> Result<ProcessServoRuntimeLease, String> {
         if self.waker.is_active() {
-            return Err("ServoKit supports one live root Servo webview per process".into());
+            return Err("ServoKit supports one live Servo runtime owner per process; create sibling views through that owner".into());
         }
         self.waker.activate(event_loop_waker);
         Ok(ProcessServoRuntimeLease {
             servo: self.servo.clone(),
             waker: self.waker.clone(),
+            errors: self.errors.clone(),
         })
     }
 }
@@ -632,6 +768,7 @@ impl ProcessServoRuntime {
 struct ProcessServoRuntimeLease {
     servo: Servo,
     waker: RoutedEventLoopWaker,
+    errors: Rc<RefCell<Vec<String>>>,
 }
 
 impl ProcessServoRuntimeLease {
@@ -649,6 +786,9 @@ impl Drop for ProcessServoRuntimeLease {
 static PROCESS_SERVO_THREAD: std::sync::OnceLock<std::thread::ThreadId> =
     std::sync::OnceLock::new();
 
+static PROCESS_SERVO_SHUT_DOWN: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 thread_local! {
     static PROCESS_SERVO_RUNTIME: RefCell<Option<ProcessServoRuntime>> = const { RefCell::new(None) };
 }
@@ -656,6 +796,12 @@ thread_local! {
 fn acquire_process_servo_runtime(
     event_loop_waker: Box<dyn EventLoopWaker>,
 ) -> Result<ProcessServoRuntimeLease, String> {
+    if PROCESS_SERVO_SHUT_DOWN.load(std::sync::atomic::Ordering::Acquire) {
+        return Err(
+            "ServoKit process engine has been shut down; Servo cannot restart in this process"
+                .into(),
+        );
+    }
     let current_thread = std::thread::current().id();
     let owner_thread = PROCESS_SERVO_THREAD.get_or_init(|| current_thread.clone());
     if *owner_thread != current_thread {
@@ -768,12 +914,10 @@ mod tests {
         popup_policy: PopupRequestPolicy,
         managed_child_rendering_context_factory: Option<ManagedChildRenderingContextFactory>,
         rendering_context: Rc<dyn RenderingContext>,
-        wake_requested: Arc<AtomicBool>,
     ) -> ServoWebViewInit {
         ServoWebViewInit {
             rendering_context,
             clipboard_delegate: Rc::new(TestClipboardDelegate),
-            event_loop_waker: Box::new(TestEventLoopWaker(wake_requested)),
             initial_url: Some(initial_url.to_owned()),
             density: 1.0,
             popup_policy,
@@ -992,13 +1136,15 @@ mod tests {
             "data:text/html,%3Ctitle%3EReplacement%3C/title%3Ereplacement-runtime";
 
         let rendering_context = test_rendering_context();
-        let invalid = ServoWebView::new(test_webview_init(
-            "not a valid URL",
-            PopupRequestPolicy::DefaultDeny,
-            None,
-            rendering_context.clone(),
-            Arc::new(AtomicBool::new(false)),
-        ));
+        let invalid = ServoWebView::new(
+            test_webview_init(
+                "not a valid URL",
+                PopupRequestPolicy::DefaultDeny,
+                None,
+                rendering_context.clone(),
+            ),
+            Box::new(TestEventLoopWaker(Arc::new(AtomicBool::new(false)))),
+        );
         assert!(invalid.is_err());
         assert!(PROCESS_SERVO_THREAD.get().is_none());
         PROCESS_SERVO_RUNTIME.with(|runtime| assert!(runtime.borrow().is_none()));
@@ -1016,13 +1162,15 @@ mod tests {
                 context
             }
         });
-        let mut webview = ServoWebView::new(test_webview_init(
-            "about:blank",
-            PopupRequestPolicy::DefaultDeny,
-            Some(child_context_factory),
-            rendering_context.clone(),
-            first_wake.clone(),
-        ))
+        let mut webview = ServoWebView::new(
+            test_webview_init(
+                "about:blank",
+                PopupRequestPolicy::DefaultDeny,
+                Some(child_context_factory),
+                rendering_context.clone(),
+            ),
+            Box::new(TestEventLoopWaker(first_wake.clone())),
+        )
         .expect("Servo webview should be created");
         webview
             .load_url(STARTUP_REPLACEMENT_URL)
@@ -1095,20 +1243,22 @@ mod tests {
         assert_default_denied_popup_event(popup_events[0]);
 
         let concurrent_wake = Arc::new(AtomicBool::new(false));
-        let concurrent = ServoWebView::new(test_webview_init(
-            "about:blank",
-            PopupRequestPolicy::DefaultDeny,
-            None,
-            rendering_context.clone(),
-            concurrent_wake.clone(),
-        ));
+        let concurrent = ServoWebView::new(
+            test_webview_init(
+                "about:blank",
+                PopupRequestPolicy::DefaultDeny,
+                None,
+                rendering_context.clone(),
+            ),
+            Box::new(TestEventLoopWaker(concurrent_wake.clone())),
+        );
         let concurrent_error = match concurrent {
             Ok(_) => panic!("a concurrent root webview must be rejected"),
             Err(error) => error,
         };
         assert_eq!(
             concurrent_error,
-            "ServoKit supports one live root Servo webview per process"
+            "ServoKit supports one live Servo runtime owner per process; create sibling views through that owner"
         );
         first_wake.store(false, Ordering::Relaxed);
         concurrent_wake.store(false, Ordering::Relaxed);
@@ -1287,13 +1437,15 @@ mod tests {
 
         drop(webview);
         let replacement_wake = Arc::new(AtomicBool::new(false));
-        let mut replacement = ServoWebView::new(test_webview_init(
-            REPLACEMENT_URL,
-            PopupRequestPolicy::DefaultDeny,
-            None,
-            rendering_context,
-            replacement_wake.clone(),
-        ))
+        let mut replacement = ServoWebView::new(
+            test_webview_init(
+                REPLACEMENT_URL,
+                PopupRequestPolicy::DefaultDeny,
+                None,
+                rendering_context,
+            ),
+            Box::new(TestEventLoopWaker(replacement_wake.clone())),
+        )
         .expect("replacement webview should reuse the process Servo runtime");
         assert!(replacement.managed_child_webview_ids().is_empty());
         assert!(replacement.drain_events().is_empty());
@@ -1327,6 +1479,86 @@ mod tests {
             .iter()
             .any(|event| event_mentions_url(event, &first_url)));
         drop(replacement);
+        assert_shared_views_and_final_shutdown();
+    }
+
+    fn assert_shared_views_and_final_shutdown() {
+        let wake = Arc::new(AtomicBool::new(false));
+        let owner = ServoRuntime::new(Box::new(TestEventLoopWaker(wake.clone()))).unwrap();
+        assert!(ServoRuntime::shutdown_retained().is_err());
+        let mut first = owner
+            .create_webview(test_webview_init(
+                "data:text/html,<title>First</title>",
+                PopupRequestPolicy::DefaultDeny,
+                None,
+                test_rendering_context(),
+            ))
+            .unwrap();
+        let mut second = owner
+            .create_webview(test_webview_init(
+                "data:text/html,<title>Second</title>",
+                PopupRequestPolicy::DefaultDeny,
+                None,
+                test_rendering_context(),
+            ))
+            .unwrap();
+        collect_events_until(&mut first, has_complete_load);
+        collect_events_until(&mut second, has_complete_load);
+        first
+            .evaluate_javascript("same-id", "document.title === 'First'")
+            .unwrap();
+        second
+            .evaluate_javascript("same-id", "document.title === 'Second'")
+            .unwrap();
+        for view in [&mut first, &mut second] {
+            let events = collect_events_until(view, |events| {
+                javascript_result(events, "same-id").is_some()
+            });
+            assert!(
+                matches!(javascript_result(&events, "same-id"), Some(HostEvent::JavaScriptEvaluationResult {
+                ok: true, value_json: Some(value), ..
+            }) if value == r#"{"type":"boolean","value":true}"#)
+            );
+        }
+        drop(first);
+        second
+            .evaluate_javascript("survivor", "document.title === 'Second'")
+            .unwrap();
+        let events = collect_events_until(&mut second, |events| {
+            javascript_result(events, "survivor").is_some()
+        });
+        assert!(
+            matches!(javascript_result(&events, "survivor"), Some(HostEvent::JavaScriptEvaluationResult {
+            ok: true, value_json: Some(value), ..
+        }) if value == r#"{"type":"boolean","value":true}"#)
+        );
+        drop(second);
+        owner.perform_updates().unwrap();
+        let mut replacement = owner
+            .create_webview(test_webview_init(
+                "data:text/html,<title>AfterEmpty</title>",
+                PopupRequestPolicy::DefaultDeny,
+                None,
+                test_rendering_context(),
+            ))
+            .unwrap();
+        collect_events_until(&mut replacement, has_complete_load);
+        // Shutdown refuses to invalidate a live sibling's native engine reference.
+        assert!(owner.shutdown().is_err());
+        replacement
+            .evaluate_javascript("still-live", "document.title === 'AfterEmpty'")
+            .unwrap();
+        let events = collect_events_until(&mut replacement, |events| {
+            javascript_result(events, "still-live").is_some()
+        });
+        assert!(
+            matches!(javascript_result(&events, "still-live"), Some(HostEvent::JavaScriptEvaluationResult {
+            ok: true, value_json: Some(value), ..
+        }) if value == r#"{"type":"boolean","value":true}"#)
+        );
+        drop(replacement);
+        ServoRuntime::shutdown_retained().unwrap();
+        assert!(ServoRuntime::new(Box::new(TestEventLoopWaker(wake))).is_err());
     }
 
     fn assert_managed_popup_children_are_retained_routed_and_cleaned_up(

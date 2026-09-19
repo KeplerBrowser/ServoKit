@@ -13,7 +13,7 @@ use servo::{
 };
 use servokit_embedder::{
     ContextMenuAction, Host, HostCall, HostError, HostEvent, HostInputEvent, PopupRequestPolicy,
-    ServoWebView, ServoWebViewInit, SessionHandle, WebViewCommand, WebViewHandle,
+    ServoRuntime, ServoWebView, ServoWebViewInit, SessionHandle, WebViewCommand, WebViewHandle,
 };
 use servokit_host::{
     CpuOffscreenSurface, HostSurface, NativeChildSurface, SurfaceDelegate, SurfaceError,
@@ -348,6 +348,14 @@ struct AttachedSurface {
 }
 
 trait ServoWebViewFactory {
+    fn shutdown(&self) -> Result<(), HostError> {
+        Ok(())
+    }
+
+    fn perform_updates(&self) -> Result<(), HostError> {
+        Ok(())
+    }
+
     fn create(
         &self,
         target: RenderTarget<'_>,
@@ -359,6 +367,22 @@ trait ServoWebViewFactory {
 }
 
 trait ServoWebViewDriver {
+    fn before_update(
+        &mut self,
+        _services: &mut dyn SurfaceHostServices,
+        _webview: WebViewHandle,
+    ) -> Result<(), HostError> {
+        Ok(())
+    }
+
+    fn present_pending(
+        &mut self,
+        services: &mut dyn SurfaceHostServices,
+        webview: WebViewHandle,
+    ) -> Result<Vec<HostEvent>, HostError> {
+        self.perform_updates(services, webview)
+    }
+
     fn attach(
         &mut self,
         target: RenderTarget<'_>,
@@ -556,9 +580,28 @@ fn drop_surface_webview(surface_webview: Box<dyn ServoWebViewDriver>) {
     }
 }
 
-struct SurfaceWebViewFactory;
+#[derive(Default)]
+struct SurfaceWebViewFactory {
+    runtime: RefCell<Option<ServoRuntime>>,
+}
 
 impl ServoWebViewFactory for SurfaceWebViewFactory {
+    fn shutdown(&self) -> Result<(), HostError> {
+        if let Some(runtime) = self.runtime.borrow_mut().take() {
+            runtime.shutdown().map_err(HostError::new)?;
+        } else {
+            ServoRuntime::shutdown_retained().map_err(HostError::new)?;
+        }
+        Ok(())
+    }
+
+    fn perform_updates(&self) -> Result<(), HostError> {
+        if let Some(runtime) = self.runtime.borrow().as_ref() {
+            runtime.perform_updates().map_err(HostError::new)?;
+        }
+        Ok(())
+    }
+
     fn create(
         &self,
         target: RenderTarget<'_>,
@@ -573,6 +616,7 @@ impl ServoWebViewFactory for SurfaceWebViewFactory {
             viewport,
             options,
             initial_url,
+            &self.runtime,
         )?))
     }
 }
@@ -599,7 +643,7 @@ pub struct SurfaceHost<S> {
 impl<S> SurfaceHost<S> {
     /// Creates a Servo surface host with explicit host services and options.
     pub fn new(services: S, options: SurfaceHostOptions) -> Self {
-        Self::with_webview_factory(services, options, Rc::new(SurfaceWebViewFactory))
+        Self::with_webview_factory(services, options, Rc::new(SurfaceWebViewFactory::default()))
     }
 
     fn with_webview_factory(
@@ -652,6 +696,13 @@ impl<S> SurfaceHost<S> {
             return Err(poisoned_webview_error(webview));
         }
         Ok(())
+    }
+}
+
+impl<S> Drop for SurfaceHost<S> {
+    fn drop(&mut self) {
+        // Renderer targets must be detached before host-owned native surface services drop.
+        self.surface_webviews.clear();
     }
 }
 
@@ -758,6 +809,68 @@ impl<S: SurfaceHostServices> SurfaceHost<S> {
 }
 
 impl<S: SurfaceHostServices> Host for SurfaceHost<S> {
+    fn shutdown(&mut self) -> Result<(), HostError> {
+        // Finalization must also retire views left by a failed individual detach.
+        // Drop their renderers while native services still live, then retire the engine.
+        for (_, view) in self.surface_webviews.drain() {
+            drop_surface_webview(view);
+        }
+        self.attached_surfaces.clear();
+        self.pending_commands.clear();
+        self.pending_events.clear();
+        self.poisoned_webviews.clear();
+        self.created_webviews.clear();
+        self.webview_factory.shutdown()
+    }
+
+    fn destroy_webview(&mut self, webview: WebViewHandle) -> Result<(), HostError> {
+        if !self.created_webviews.contains_key(&webview) {
+            return Err(HostError::new(format!(
+                "webview {} is not registered",
+                webview.raw()
+            )));
+        }
+        // Keep the view and its handles valid if detachment fails, so callers can retry.
+        if let Some(view) = self.surface_webviews.get_mut(&webview) {
+            view.detach()?;
+        }
+        self.surface_webviews.remove(&webview);
+        self.attached_surfaces.remove(&webview);
+        self.pending_commands.remove(&webview);
+        self.pending_events.remove(&webview);
+        self.poisoned_webviews.remove(&webview);
+        self.created_webviews.remove(&webview);
+        self.calls.push(HostCall::DestroyWebView { webview });
+        Ok(())
+    }
+
+    fn perform_all_updates(
+        &mut self,
+        webviews: &[WebViewHandle],
+    ) -> Result<Vec<(WebViewHandle, Result<Vec<HostEvent>, HostError>)>, HostError> {
+        let mut results = Vec::with_capacity(webviews.len());
+        for &webview in webviews {
+            let prepared = self.ensure_created_webview(webview).and_then(|()| {
+                match self.surface_webviews.get_mut(&webview) {
+                    Some(view) => view.before_update(&mut self.services, webview),
+                    None => Ok(()),
+                }
+            });
+            results.push((webview, prepared.map(|()| Vec::new())));
+        }
+        self.webview_factory.perform_updates()?;
+        for (webview, result) in &mut results {
+            if result.is_ok() {
+                if let Some(view) = self.surface_webviews.get_mut(webview) {
+                    *result = view.present_pending(&mut self.services, *webview);
+                }
+                self.calls
+                    .push(HostCall::PerformUpdates { webview: *webview });
+            }
+        }
+        Ok(results)
+    }
+
     fn create_webview(
         &mut self,
         session: SessionHandle,
@@ -1240,14 +1353,19 @@ impl ActiveRenderTarget {
     }
 
     fn detach(&self) -> Result<(), HostError> {
-        match self {
-            Self::Native { rendering_context } => rendering_context
-                .take_window()
-                .map_err(|error| HostError::new(format!("{error:?}"))),
-            Self::Offscreen { parent_context, .. } => parent_context
-                .take_window()
-                .map_err(|error| HostError::new(format!("{error:?}"))),
-        }
+        let context = match self {
+            Self::Native { rendering_context } => rendering_context,
+            Self::Offscreen { parent_context, .. } => parent_context,
+        };
+        // Surfman's AppKit unbind temporarily selects this context, then restores the
+        // previous one before take_window destroys its GL objects. Keep this target
+        // current throughout teardown so those deletes cannot affect a sibling.
+        context
+            .make_current()
+            .map_err(|error| HostError::new(format!("{error:?}")))?;
+        context
+            .take_window()
+            .map_err(|error| HostError::new(format!("{error:?}")))
     }
 
     fn resize(&self, target: RenderTarget<'_>, viewport: SurfaceViewport) -> Result<(), HostError> {
@@ -1298,20 +1416,32 @@ impl SurfaceWebView {
         viewport: SurfaceViewport,
         options: &SurfaceHostOptions,
         initial_url: Option<&str>,
+        runtime: &RefCell<Option<ServoRuntime>>,
     ) -> Result<Self, HostError> {
         let refresh_driver = Rc::new(SurfaceRefreshDriver::default());
         let render_target = ActiveRenderTarget::new(target, viewport, refresh_driver.clone())?;
         let rendering_context = render_target.rendering_context();
-        let mut webview = ServoWebView::new(ServoWebViewInit {
-            rendering_context,
-            clipboard_delegate: Rc::new(ServoClipboardAdapter::new(options.clipboard())),
-            event_loop_waker: Box::new(ServoEventLoopWaker::new(options.event_loop_waker.clone())),
-            initial_url: initial_url.map(str::to_owned),
-            density: viewport.scale_factor,
-            popup_policy: PopupRequestPolicy::DefaultDeny,
-            managed_child_rendering_context_factory: None,
-        })
-        .map_err(HostError::new)?;
+        let mut runtime = runtime.borrow_mut();
+        if runtime.is_none() {
+            *runtime = Some(
+                ServoRuntime::new(Box::new(ServoEventLoopWaker::new(
+                    options.event_loop_waker.clone(),
+                )))
+                .map_err(HostError::new)?,
+            );
+        }
+        let mut webview = runtime
+            .as_ref()
+            .expect("runtime was initialized")
+            .create_webview(ServoWebViewInit {
+                rendering_context,
+                clipboard_delegate: Rc::new(ServoClipboardAdapter::new(options.clipboard())),
+                initial_url: initial_url.map(str::to_owned),
+                density: viewport.scale_factor,
+                popup_policy: PopupRequestPolicy::DefaultDeny,
+                managed_child_rendering_context_factory: None,
+            })
+            .map_err(HostError::new)?;
         webview.set_hidpi_scale_factor(viewport.scale_factor);
         webview.resize(viewport.size);
         webview.request_paint();
@@ -1442,11 +1572,32 @@ impl ServoWebViewDriver for SurfaceWebView {
         services: &mut dyn SurfaceHostServices,
         webview: WebViewHandle,
     ) -> Result<Vec<HostEvent>, HostError> {
+        self.before_update(services, webview)?;
+        self.pending_events.extend(
+            self.webview
+                .perform_updates(false, || {}, || {})
+                .map_err(HostError::new)?,
+        );
+        self.present_pending(services, webview)
+    }
+
+    fn before_update(
+        &mut self,
+        services: &mut dyn SurfaceHostServices,
+        webview: WebViewHandle,
+    ) -> Result<(), HostError> {
         services
             .before_update(webview, self.surface.as_ref(), self.viewport)
             .map_err(|error| HostError::new(error.to_string()))?;
+        self.refresh_driver.notify_vsync();
+        Ok(())
+    }
 
-        let refresh_driver = self.refresh_driver.clone();
+    fn present_pending(
+        &mut self,
+        services: &mut dyn SurfaceHostServices,
+        webview: WebViewHandle,
+    ) -> Result<Vec<HostEvent>, HostError> {
         let rendering_context = self.render_target.rendering_context();
         let target_kind = self.render_target.kind();
         let surface_attached = self.surface_attached;
@@ -1455,27 +1606,19 @@ impl ServoWebViewDriver for SurfaceWebView {
         let did_present = Rc::new(Cell::new(false));
         let did_present_for_closure = did_present.clone();
         let mut present_result: Result<(), HostError> = Ok(());
-        let events = self
-            .webview
-            .perform_updates(
-                surface_attached,
-                move || refresh_driver.notify_vsync(),
-                || {
-                    did_present_for_closure.set(true);
-                    let Some(surface) = surface.as_ref() else {
-                        return;
-                    };
-                    let Some(viewport) = viewport else {
-                        return;
-                    };
-                    let mut frame =
-                        SurfaceFrame::new(rendering_context.as_ref(), viewport, target_kind);
-                    present_result = services
-                        .present_frame(webview, surface, &mut frame)
-                        .map_err(|error| HostError::new(error.to_string()));
-                },
-            )
-            .map_err(HostError::new)?;
+        let events = self.webview.present_pending(surface_attached, || {
+            did_present_for_closure.set(true);
+            let Some(surface) = surface.as_ref() else {
+                return;
+            };
+            let Some(viewport) = viewport else {
+                return;
+            };
+            let mut frame = SurfaceFrame::new(rendering_context.as_ref(), viewport, target_kind);
+            present_result = services
+                .present_frame(webview, surface, &mut frame)
+                .map_err(|error| HostError::new(error.to_string()));
+        });
 
         if did_present.get() {
             if let Err(error) = present_result {
@@ -1595,6 +1738,88 @@ mod tests {
         runtime::{Runtime, ServokitError},
         surface::SurfacePoint,
     };
+
+    #[test]
+    fn destroying_a_view_detaches_before_drop_and_keeps_sibling_surface_live() {
+        let log = SharedLog::default();
+        let faults = FakeFaults::default();
+        let mut runtime =
+            fake_runtime_with_faults(log.clone(), Rc::new(Cell::new(false)), faults.clone());
+        let session = runtime.create_session();
+        let first = runtime.create_webview(session).unwrap();
+        let second = runtime.create_webview(session).unwrap();
+        for (view, name) in [(first, "first"), (second, "second")] {
+            runtime
+                .attach_surface(view, HostSurface::new(name), SurfaceSize::new(320, 240))
+                .unwrap();
+        }
+        log.take();
+        runtime.perform_all_updates().unwrap();
+        let updates = log.take();
+        assert_eq!(
+            updates
+                .iter()
+                .filter(|entry| *entry == "engine-update")
+                .count(),
+            1
+        );
+        assert!(updates
+            .iter()
+            .any(|entry| entry.starts_with("present:1:first:")));
+        assert!(updates
+            .iter()
+            .any(|entry| entry.starts_with("present:2:second:")));
+        faults.fail_detach.set(true);
+        assert!(runtime.destroy_webview(first).is_err());
+        assert_eq!(faults.drops.get(), 0);
+        faults.fail_detach.set(false);
+        runtime.destroy_webview(first).unwrap();
+        assert_eq!(log.take(), vec!["detach"]);
+        assert_eq!(faults.drops.get(), 1);
+        runtime.perform_all_updates().unwrap();
+        assert!(log
+            .take()
+            .iter()
+            .any(|entry| entry.starts_with("present:2:second:")));
+        let replacement = runtime.create_webview(session).unwrap();
+        runtime
+            .attach_surface(
+                replacement,
+                HostSurface::new("replacement"),
+                SurfaceSize::new(640, 480),
+            )
+            .unwrap();
+        runtime.destroy_webview(second).unwrap();
+        runtime.perform_all_updates().unwrap();
+        assert_eq!(faults.drops.get(), 2);
+        runtime.destroy_webview(replacement).unwrap();
+        assert_eq!(faults.drops.get(), 3);
+    }
+
+    #[test]
+    fn final_shutdown_retires_all_views_and_engine_after_detach_errors() {
+        let log = SharedLog::default();
+        let faults = FakeFaults::default();
+        let mut runtime =
+            fake_runtime_with_faults(log.clone(), Rc::new(Cell::new(false)), faults.clone());
+        let session = runtime.create_session();
+        for name in ["first", "second"] {
+            let view = runtime.create_webview(session).unwrap();
+            runtime
+                .attach_surface(view, HostSurface::new(name), SurfaceSize::new(320, 240))
+                .unwrap();
+        }
+        log.take();
+        faults.detach_attempts.set(0);
+        faults.fail_detach.set(true);
+        assert_eq!(
+            runtime.shutdown(),
+            Err(ServokitError::Host(HostError::new("detach failed")))
+        );
+        assert_eq!(faults.detach_attempts.get(), 2);
+        assert_eq!(faults.drops.get(), 2);
+        assert_eq!(log.take(), vec!["engine-shutdown:drops=2"]);
+    }
 
     #[derive(Clone, Default)]
     struct SharedLog(Rc<RefCell<Vec<String>>>);
@@ -1737,6 +1962,7 @@ mod tests {
         fail_attach: Rc<Cell<bool>>,
         panic_attach: Rc<Cell<bool>>,
         fail_detach: Rc<Cell<bool>>,
+        detach_attempts: Rc<Cell<usize>>,
         panic_detach: Rc<Cell<bool>>,
         driver_updates: Rc<RefCell<VecDeque<FakeUpdateFault>>>,
         target_updates: Rc<RefCell<VecDeque<FakeUpdateFault>>>,
@@ -1749,6 +1975,17 @@ mod tests {
     }
 
     impl ServoWebViewFactory for FakeFactory {
+        fn shutdown(&self) -> Result<(), HostError> {
+            self.log
+                .push(format!("engine-shutdown:drops={}", self.faults.drops.get()));
+            Ok(())
+        }
+
+        fn perform_updates(&self) -> Result<(), HostError> {
+            self.log.push("engine-update");
+            Ok(())
+        }
+
         fn create(
             &self,
             target: RenderTarget<'_>,
@@ -1835,6 +2072,9 @@ mod tests {
         }
 
         fn detach(&mut self) -> Result<Vec<HostEvent>, HostError> {
+            self.faults
+                .detach_attempts
+                .set(self.faults.detach_attempts.get() + 1);
             if self.faults.panic_detach.get() {
                 panic!("detach panic");
             }

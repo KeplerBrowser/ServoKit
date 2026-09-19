@@ -54,6 +54,48 @@ This example is the AppKit child-view proof path for macOS. The simpler
 [`desktop-winit`](../../docs/desktop-winit.md) example is the whole-window
 native-child proof path; both use the same ServoKit `NativeChildSurface` facade.
 
+## Shutdown regression
+
+The separate `shutdown` example loads a self-contained page, then requests native
+window close or application quit. This single-window test program exits when its
+window closes, so both paths deliberately end the host's use of Servo. That is
+example policy, not a ServoKit requirement: an embedding host that remains alive
+can close a window's views and keep its engine for other or future views.
+
+The example cancels its update task and calls `Runtime::shutdown` while the native
+surface and logging remain alive. Run both paths from the repository root:
+
+```sh
+for exit_path in --close-window --app-quit; do
+  RUST_LOG=warn RUST_BACKTRACE=1 RUSTC_WRAPPER=sccache \
+  CARGO_PROFILE_DEV_DEBUG=0 FREETYPE2_NO_PKG_CONFIG=1 \
+  cargo run --locked --manifest-path examples/desktop-gpui/Cargo.toml \
+    --example shutdown -- "$exit_path"
+done
+```
+
+Each process must exit successfully. Expect output confirming task cancellation,
+runtime finalization with the surface alive, wake-target release, and execution
+of the Rust host destructor. AppKit termination need not return through Rust
+`main`, so a `main-returned` marker is not required.
+
+Repeat each exit path with these options, individually and together:
+
+- `--logger-after-page` initializes tracing/log forwarding after Servo has loaded
+  the page, instead of before application startup. Neither mode emits a deliberate
+  logger warmup event.
+- `--unattached-replacement` drops the original runtime normally, then finalizes a
+  fresh runtime without attaching another surface. This checks retirement of the
+  retained process engine.
+
+`--retain-runtime` is a separate, deliberately failing control: ordinary runtime
+drop leaves final engine destruction to TLS teardown and reproduces the tracing
+`AccessError`. Keep it out of successful smoke gates; do not suppress logs, warm
+up formatter TLS, or bypass destructors to make it pass.
+
+The [surface lifecycle contract](../../docs/surface-modes.md#view-destruction-and-final-shutdown)
+defines the public shutdown behavior and native resource ordering.
+
 ## Notes
 
 - The visible chrome, layout, focus target, and input hooks are GPUI-owned; Servokit owns the Servo webview lifecycle.

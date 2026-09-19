@@ -55,6 +55,9 @@ pub enum HostCall {
         session: SessionHandle,
         webview: WebViewHandle,
     },
+    DestroyWebView {
+        webview: WebViewHandle,
+    },
     AttachSurface {
         webview: WebViewHandle,
         surface: HostSurface,
@@ -157,6 +160,10 @@ pub enum RuntimeError {
     ManagedChildSurfaceNotAttached(WebViewHandle, String),
     InvalidUrl(NavigationError),
     Host(HostError),
+    WebView {
+        webview: WebViewHandle,
+        error: HostError,
+    },
 }
 
 impl fmt::Display for RuntimeError {
@@ -198,6 +205,9 @@ impl fmt::Display for RuntimeError {
             }
             Self::InvalidUrl(error) => write!(formatter, "{error}"),
             Self::Host(error) => write!(formatter, "{error}"),
+            Self::WebView { webview, error } => {
+                write!(formatter, "webview {}: {error}", webview.raw())
+            }
         }
     }
 }
@@ -217,11 +227,45 @@ impl From<HostError> for RuntimeError {
 }
 
 pub trait Host {
+    /// Performs final host shutdown after view destruction has been attempted.
+    ///
+    /// Releases any views whose individual destruction failed before retiring shared
+    /// resources. The runtime calls this even when a view reports a teardown error.
+    /// Servo-backed hosts stop the process engine permanently; ordinary host drop
+    /// instead releases the active owner while retaining the engine for reuse.
+    fn shutdown(&mut self) -> Result<(), HostError> {
+        Ok(())
+    }
+
     fn create_webview(
         &mut self,
         session: SessionHandle,
         webview: WebViewHandle,
     ) -> Result<(), HostError>;
+
+    /// Destroys one view, detaching its renderer before releasing its resources.
+    ///
+    /// Servo-backed hosts close a view by dropping its last `servo::WebView` handle.
+    /// The default rejects destruction so hosts cannot silently retain a removed view.
+    fn destroy_webview(&mut self, _webview: WebViewHandle) -> Result<(), HostError> {
+        Err(HostError::new(
+            "this host does not support destroying individual webviews",
+        ))
+    }
+
+    /// Updates the supplied views, preserving each result's originating handle.
+    ///
+    /// A shared-engine host can pump once and then present/drain every view. The outer
+    /// error belongs to the host/engine; individual failures remain view-scoped.
+    fn perform_all_updates(
+        &mut self,
+        webviews: &[WebViewHandle],
+    ) -> Result<Vec<(WebViewHandle, Result<Vec<HostEvent>, HostError>)>, HostError> {
+        Ok(webviews
+            .iter()
+            .map(|&view| (view, self.perform_updates(view)))
+            .collect())
+    }
 
     fn attach_surface(
         &mut self,
@@ -548,6 +592,40 @@ impl<H: Host> Runtime<H> {
         self.host.create_webview(session, webview)?;
         self.webviews.insert(webview, WebViewState::default());
         Ok(webview)
+    }
+
+    /// Closes one view and invalidates its handle without closing its siblings or session.
+    ///
+    /// The host detaches the renderer before dropping the underlying view. On success,
+    /// queued events for this view are discarded; later commands return `UnknownWebView`.
+    pub fn destroy_webview(&mut self, webview: WebViewHandle) -> Result<(), RuntimeError> {
+        self.webview_state(webview)?;
+        self.host.destroy_webview(webview)?;
+        self.webviews.remove(&webview);
+        self.events.retain(|event| event.webview != webview);
+        Ok(())
+    }
+
+    /// Closes all views and performs final host shutdown, consuming this runtime.
+    ///
+    /// Call at application exit while the owning thread, native surfaces and logging
+    /// remain alive. Servo 0.3 cannot initialize again after final shutdown. Ordinary
+    /// drop closes the views but retains the process engine for subsequent host creation.
+    /// All views and the host receive a cleanup attempt even if one fails; the first
+    /// error is returned after final cleanup.
+    pub fn shutdown(mut self) -> Result<(), RuntimeError> {
+        let mut views: Vec<_> = self.webviews.keys().copied().collect();
+        views.sort_by_key(|view| view.raw());
+        let mut first_error = None;
+        for view in views {
+            if let Err(error) = self.destroy_webview(view) {
+                first_error.get_or_insert(error);
+            }
+        }
+        if let Err(error) = self.host.shutdown() {
+            first_error.get_or_insert(RuntimeError::Host(error));
+        }
+        first_error.map_or(Ok(()), Err)
     }
 
     pub fn attach_surface(
@@ -1045,6 +1123,29 @@ impl<H: Host> Runtime<H> {
         self.record_events(webview, events)
     }
 
+    /// Pumps all live views and records their events using their own handles.
+    ///
+    /// Shared Servo hosts spin the engine once, then present each attached view. A failed
+    /// view does not prevent siblings from updating. Their events remain available even
+    /// when this method returns the first view-scoped error. Host-wide errors have no
+    /// view handle and are returned as `RuntimeError::Host`.
+    pub fn perform_all_updates(&mut self) -> Result<(), RuntimeError> {
+        let mut views: Vec<_> = self.webviews.keys().copied().collect();
+        views.sort_by_key(|view| view.raw());
+        let results = self.host.perform_all_updates(&views)?;
+        let mut first_error = None;
+        for (webview, result) in results {
+            let result = match result {
+                Ok(events) => self.record_events(webview, events),
+                Err(error) => Err(RuntimeError::WebView { webview, error }),
+            };
+            if let Err(error) = result {
+                first_error.get_or_insert(error);
+            }
+        }
+        first_error.map_or(Ok(()), Err)
+    }
+
     pub fn drain_events(&mut self) -> Vec<ServokitEvent> {
         self.events.drain(..).collect()
     }
@@ -1232,6 +1333,18 @@ impl PlaceholderHost {
 }
 
 impl Host for PlaceholderHost {
+    fn destroy_webview(&mut self, webview: WebViewHandle) -> Result<(), HostError> {
+        self.ensure_created_webview(webview)?;
+        self.created_webviews.remove(&webview);
+        self.attached_surfaces.remove(&webview);
+        self.managed_child_surfaces
+            .retain(|(owner, _), _| *owner != webview);
+        self.queued_managed_child_update_events
+            .retain(|(owner, _), _| *owner != webview);
+        self.calls.push(HostCall::DestroyWebView { webview });
+        Ok(())
+    }
+
     fn create_webview(
         &mut self,
         session: SessionHandle,
@@ -1584,6 +1697,98 @@ mod tests {
         KeyboardInputEvent, KeyboardInputKey, KeyboardInputState, PointerInputEvent,
         PopupRequestPolicy,
     };
+
+    #[test]
+    fn destroying_either_view_preserves_sibling_routing_and_allows_replacement() {
+        for close_first in [true, false] {
+            let mut runtime = Runtime::new(PlaceholderHost::default());
+            let session = runtime.create_session();
+            let first = runtime.create_webview(session).unwrap();
+            let second = runtime.create_webview(session).unwrap();
+            let (closed, survivor) = if close_first {
+                (first, second)
+            } else {
+                (second, first)
+            };
+            runtime.load_url(closed, "https://closed.test/").unwrap();
+            runtime
+                .load_url(survivor, "https://survivor.test/")
+                .unwrap();
+            runtime.destroy_webview(closed).unwrap();
+            assert_eq!(
+                runtime.reload(closed),
+                Err(RuntimeError::UnknownWebView(closed))
+            );
+            let events = runtime.drain_events();
+            assert!(events.iter().all(|event| event.webview == survivor));
+            assert!(events.iter().any(|event|
+                matches!(&event.event, HostEvent::UrlChanged { url } if url == "https://survivor.test/")));
+            runtime.reload(survivor).unwrap();
+            let replacement = runtime.create_webview(session).unwrap();
+            assert_ne!(replacement, closed);
+            runtime.reload(replacement).unwrap();
+            runtime.destroy_webview(survivor).unwrap();
+            runtime.destroy_webview(replacement).unwrap();
+            runtime.perform_all_updates().unwrap();
+            assert!(runtime.drain_events().is_empty());
+        }
+    }
+
+    #[test]
+    fn batch_updates_deliver_sibling_events_when_one_view_fails() {
+        struct FailingViewHost {
+            failed_view: Option<WebViewHandle>,
+        }
+        impl Host for FailingViewHost {
+            fn observe_webview_events(
+                &mut self,
+                _: WebViewHandle,
+                _: &[HostEvent],
+            ) -> Result<(), HostError> {
+                Ok(())
+            }
+
+            fn create_webview(
+                &mut self,
+                _: SessionHandle,
+                view: WebViewHandle,
+            ) -> Result<(), HostError> {
+                self.failed_view.get_or_insert(view);
+                Ok(())
+            }
+            fn perform_updates(
+                &mut self,
+                view: WebViewHandle,
+            ) -> Result<Vec<HostEvent>, HostError> {
+                if Some(view) == self.failed_view {
+                    return Err(HostError::new("view failed"));
+                }
+                Ok(vec![HostEvent::PageTitleChanged {
+                    title: Some("survivor".into()),
+                }])
+            }
+        }
+        let mut runtime = Runtime::new(FailingViewHost { failed_view: None });
+        let session = runtime.create_session();
+        let first = runtime.create_webview(session).unwrap();
+        let second = runtime.create_webview(session).unwrap();
+        assert_eq!(
+            runtime.perform_all_updates(),
+            Err(RuntimeError::WebView {
+                webview: first,
+                error: HostError::new("view failed"),
+            })
+        );
+        assert_eq!(
+            runtime.drain_events(),
+            vec![event(
+                second,
+                HostEvent::PageTitleChanged {
+                    title: Some("survivor".into())
+                }
+            )]
+        );
+    }
 
     fn event(webview: WebViewHandle, event: HostEvent) -> ServokitEvent {
         ServokitEvent {

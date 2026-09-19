@@ -355,6 +355,8 @@ test('Windows Fabric component routes ServoView through the desktop host boundar
     '$resolvedRepoRoot.ProviderPath',
     '$env:SERVOKIT_REPO_ROOT = $RepoRoot',
     'servokit-target',
+    '$cargoTargetDir = Join-Path $RepoRoot "target"',
+    '$env:CARGO_TARGET_DIR = $cargoTargetDir',
     'pushd `"$WorkingDirectory`"',
     'core.fsmonitor=false',
     'core.autocrlf=false',

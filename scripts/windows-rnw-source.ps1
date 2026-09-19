@@ -75,8 +75,11 @@ if ([string]::IsNullOrWhiteSpace($cargoTargetDir) -and
     throw "SystemDrive is not set"
   }
   $cargoTargetDir = Join-Path $systemDrive "servokit-target"
-  $env:CARGO_TARGET_DIR = $cargoTargetDir
 }
+if ([string]::IsNullOrWhiteSpace($cargoTargetDir)) {
+  $cargoTargetDir = Join-Path $RepoRoot "target"
+}
+$env:CARGO_TARGET_DIR = $cargoTargetDir
 
 function Resolve-VsDevCmd {
   $existingVsDevCmd = [Environment]::GetEnvironmentVariable("SERVOKIT_VSDEVCMD")
@@ -276,9 +279,6 @@ $env:PYTHON3 = $python3
 $pythonBin = Split-Path -Parent $python3
 if (($env:PATH -split ";") -notcontains $pythonBin) {
   $env:PATH = "$pythonBin;$env:PATH"
-}
-if ([string]::IsNullOrWhiteSpace($cargoTargetDir)) {
-  $cargoTargetDir = Join-Path $RepoRoot "target"
 }
 $desktopHostIncludeDir = Join-Path $RepoRoot "crates/servokit-host-desktop/include"
 $desktopHostProfile = if ($Configuration -eq "Debug") { "debug" } else { "release" }

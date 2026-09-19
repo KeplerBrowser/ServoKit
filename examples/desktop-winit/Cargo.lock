@@ -3666,6 +3666,8 @@ checksum = "298bc7f83d5cca3789e47779e92cda492b75f11e03995bf558475bd9df2f639b"
 dependencies = [
  "bindgen",
  "cc",
+ "gl_generator",
+ "libz-sys",
  "walkdir",
 ]
 
@@ -7004,6 +7006,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "servo",
+ "servo-default-resources",
  "servokit-host",
  "thiserror 2.0.18",
  "url",

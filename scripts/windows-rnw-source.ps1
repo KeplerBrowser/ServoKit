@@ -109,6 +109,28 @@ function Resolve-VsDevCmd {
   return $vsdev
 }
 
+function Resolve-V143ToolsetVersion {
+  param(
+    [Parameter(Mandatory = $true)][string]$VsDevCmd
+  )
+
+  $vsToolsDir = Split-Path -Parent $VsDevCmd
+  $vsInstallDir = [System.IO.Path]::GetFullPath((Join-Path $vsToolsDir "..\.."))
+  $versionFile = Join-Path $vsInstallDir "VC\Auxiliary\Build\Microsoft.VCToolsVersion.v143.default.txt"
+  if (!(Test-Path $versionFile)) {
+    throw "Visual Studio v143 toolset version file was not found at $versionFile"
+  }
+
+  $version = (Get-Content -LiteralPath $versionFile -Raw).Trim()
+  $parsedVersion = $null
+  if (![Version]::TryParse($version, [ref]$parsedVersion) -or
+      $parsedVersion.Major -ne 14) {
+    throw "Visual Studio v143 toolset version file contains an invalid version: $version"
+  }
+
+  return $version
+}
+
 function Resolve-ClangBin {
   $clang = Get-Command "clang-cl.exe" -CommandType Application -ErrorAction SilentlyContinue
   if ($null -ne $clang -and
@@ -272,6 +294,7 @@ process.stdout.write(require.resolve("@react-native-windows/codegen/bin.js", { p
 function Invoke-LoggedDevCommand {
   param(
     [Parameter(Mandatory = $true)][string]$VsDevCmd,
+    [Parameter(Mandatory = $true)][string]$VcVarsVersion,
     [Parameter(Mandatory = $true)][string]$WorkingDirectory,
     [Parameter(Mandatory = $true)][string]$CommandLine,
     [Parameter(Mandatory = $true)][string]$LogPath,
@@ -280,7 +303,7 @@ function Invoke-LoggedDevCommand {
 
   Push-Location ([System.IO.Path]::GetTempPath())
   try {
-    cmd /d /s /c "(pushd `"$WorkingDirectory`" >nul && call `"$VsDevCmd`" -arch=x64 -host_arch=x64 >nul && $CommandLine) > `"$LogPath`" 2>&1"
+    cmd /d /s /c "(pushd `"$WorkingDirectory`" >nul && call `"$VsDevCmd`" -arch=x64 -host_arch=x64 -vcvars_ver=$VcVarsVersion >nul && $CommandLine) > `"$LogPath`" 2>&1"
     $exitCode = $LASTEXITCODE
   } finally {
     Pop-Location
@@ -320,6 +343,7 @@ function Invoke-RepoGit {
 
 $vsdev = Resolve-VsDevCmd
 $env:SERVOKIT_VSDEVCMD = $vsdev
+$vcVarsVersion = Resolve-V143ToolsetVersion -VsDevCmd $vsdev
 $clangBin = Resolve-ClangBin
 if (($env:PATH -split ";") -notcontains $clangBin) {
   $env:PATH = "$clangBin;$env:PATH"
@@ -389,6 +413,7 @@ $cargoBuildCommand = "cargo " + (Join-ProcessArguments -Arguments $cargoBuildArg
   "desktopHostIncludeDir=$desktopHostIncludeDir"
   "desktopHostLibDir=$desktopHostLibDir"
   "vsDevCmd=$vsdev"
+  "vcVarsVersion=$vcVarsVersion"
   "clangBin=$clangBin"
   "cc=$env:CC"
   "cxx=$env:CXX"
@@ -439,6 +464,7 @@ Get-FileHash -Path $sourceFiles `
 
 Invoke-LoggedDevCommand `
   -VsDevCmd $vsdev `
+  -VcVarsVersion $vcVarsVersion `
   -WorkingDirectory $RepoRoot `
   -CommandLine $toolchainCommand `
   -LogPath (Join-Path $EvidenceDir "toolchain.txt") `
@@ -446,6 +472,7 @@ Invoke-LoggedDevCommand `
 
 Invoke-LoggedDevCommand `
   -VsDevCmd $vsdev `
+  -VcVarsVersion $vcVarsVersion `
   -WorkingDirectory $RepoRoot `
   -CommandLine $cargoBuildCommand `
   -LogPath (Join-Path $EvidenceDir "servokit-host-desktop-build.txt") `
@@ -477,6 +504,7 @@ $msbuildCommand = "msbuild " + (Join-ProcessArguments -Arguments @(
 
 @(
   "toolchain=$toolchainCommand"
+  "vcVarsVersion=$vcVarsVersion"
   "desktopHostStaticlib=$cargoBuildCommand"
   "desktopHostLinkProps=$desktopHostLinkProps"
   "rnwAutolinkConfig=$autolinkConfigCommand"
@@ -486,6 +514,7 @@ $msbuildCommand = "msbuild " + (Join-ProcessArguments -Arguments @(
 
 Invoke-LoggedDevCommand `
   -VsDevCmd $vsdev `
+  -VcVarsVersion $vcVarsVersion `
   -WorkingDirectory $RepoRoot `
   -CommandLine $autolinkConfigCommand `
   -LogPath (Join-Path $EvidenceDir "rnw-autolink-config.txt") `
@@ -494,6 +523,7 @@ Invoke-LoggedDevCommand `
 if (!$SkipCodegen) {
   Invoke-LoggedDevCommand `
     -VsDevCmd $vsdev `
+    -VcVarsVersion $vcVarsVersion `
     -WorkingDirectory $PackageRoot `
     -CommandLine $CodegenCommand `
     -LogPath (Join-Path $EvidenceDir "rnw-codegen.txt") `
@@ -506,6 +536,7 @@ if (!$SkipCodegen) {
 
 Invoke-LoggedDevCommand `
   -VsDevCmd $vsdev `
+  -VcVarsVersion $vcVarsVersion `
   -WorkingDirectory $RepoRoot `
   -CommandLine $msbuildCommand `
   -LogPath (Join-Path $EvidenceDir "rnw-msbuild.txt") `
@@ -521,5 +552,6 @@ Invoke-LoggedDevCommand `
   "desktopHostLib=$desktopHostLib"
   "generatedHeader=$generatedHeader"
   "vsDevCmd=$vsdev"
+  "vcVarsVersion=$vcVarsVersion"
 ) | Out-File -Encoding utf8 (Join-Path $EvidenceDir "summary.txt")
 Get-Content (Join-Path $EvidenceDir "summary.txt")

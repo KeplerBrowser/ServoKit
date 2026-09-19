@@ -69,10 +69,14 @@ impl SurfaceDelegate for Surfaces {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Page {
     surface: HostSurface,
     title: String,
     complete: bool,
+    url: String,
+    history: Option<HostEvent>,
+    focused: Option<bool>,
 }
 
 struct Proof {
@@ -139,6 +143,9 @@ impl Proof {
                 surface: surface.clone(),
                 title: String::new(),
                 complete: false,
+                url: String::new(),
+                history: None,
+                focused: None,
             },
         );
         self.runtime.load_url(view, page_url(title)).unwrap();
@@ -208,6 +215,9 @@ impl Proof {
                 HostEvent::LoadStatusChanged { status } => {
                     page.complete = status == LoadStatusKind::Complete
                 }
+                HostEvent::UrlChanged { url } => page.url = url,
+                history @ HostEvent::HistoryChanged { .. } => page.history = Some(history),
+                HostEvent::FocusChanged { is_focused } => page.focused = Some(is_focused),
                 HostEvent::JavaScriptEvaluationResult {
                     evaluation_id,
                     ok,
@@ -248,10 +258,28 @@ impl Proof {
 
     fn loaded(&mut self, view: WebViewHandle, title: &str) {
         self.wait(|this| {
-            this.pages
-                .get(&view)
-                .is_some_and(|page| page.complete && page.title == title)
+            this.pages.get(&view).is_some_and(|page| {
+                page.complete
+                    && page.title == title
+                    && !page.url.is_empty()
+                    && page.history.is_some()
+            })
         });
+    }
+
+    fn assert_history(&self, view: WebViewHandle, url: &str) {
+        let page = &self.pages[&view];
+        assert_eq!(page.url, url, "URL event routed to the wrong view");
+        let Some(HostEvent::HistoryChanged {
+            entries, current, ..
+        }) = &page.history
+        else {
+            panic!("missing history event for view {}", view.raw());
+        };
+        assert_eq!(
+            entries[*current], url,
+            "history event routed to the wrong view"
+        );
     }
 
     fn assert_js(&mut self, view: WebViewHandle, script: &str) {
@@ -299,7 +327,19 @@ impl Proof {
         self.loaded(second, "Second");
         self.assert_js(first, "document.title === 'First'");
         self.assert_js(second, "document.title === 'Second'");
+        let first_url = self.pages[&first].url.clone();
+        let second_url = self.pages[&second].url.clone();
+        assert_ne!(first_url, second_url);
+        self.assert_history(first, &first_url);
+        self.assert_history(second, &second_url);
         self.runtime.focus(first).unwrap();
+        self.wait(|this| this.pages[&first].focused == Some(true));
+        let second_state = self.pages[&second].clone();
+        self.runtime.blur(first).unwrap();
+        self.wait(|this| this.pages[&first].focused == Some(false));
+        assert_eq!(self.pages[&second], second_state);
+        self.runtime.focus(first).unwrap();
+        self.wait(|this| this.pages[&first].focused == Some(true));
         self.runtime
             .dispatch_input_event(
                 first,
@@ -339,20 +379,48 @@ impl Proof {
             .unwrap();
         self.assert_js(first, "window.clicks === 1 && window.keys === 'x'");
         self.assert_js(second, "window.clicks === 0 && window.keys === ''");
+        assert_eq!(self.pages[&second], second_state);
         self.resize(first, 360.0);
         self.assert_js(first, "innerWidth === 360");
         self.assert_js(second, "innerWidth === 440");
         self.runtime.load_url(first, page_url("Navigated")).unwrap();
         self.loaded(first, "Navigated");
+        let navigated_url = self.pages[&first].url.clone();
+        assert_ne!(navigated_url, first_url);
+        self.assert_history(first, &navigated_url);
+        assert!(matches!(
+            self.pages[&first].history,
+            Some(HostEvent::HistoryChanged {
+                can_go_back: true,
+                can_go_forward: false,
+                ..
+            })
+        ));
+        assert_eq!(self.pages[&second], second_state);
         self.runtime.go_back(first).unwrap();
         self.loaded(first, "First");
+        self.assert_history(first, &first_url);
+        assert!(matches!(
+            self.pages[&first].history,
+            Some(HostEvent::HistoryChanged {
+                can_go_forward: true,
+                ..
+            })
+        ));
         self.assert_js(second, "document.title === 'Second'");
+        assert_eq!(self.pages[&second], second_state);
         self.runtime.go_forward(first).unwrap();
         self.loaded(first, "Navigated");
+        self.assert_history(first, &navigated_url);
+        assert_eq!(self.pages[&second], second_state);
         self.assert_js(second, "(window.survived = 1, scrollTo(0, 120), true)");
         self.assert_js(second, "window.survived === 1 && scrollY === 120");
         self.close_view(first);
-        self.assert_js(second, "window.survived === 1 && scrollY === 120");
+        self.assert_js(
+            second,
+            "document.title === 'Second' && window.survived === 1 && scrollY === 120",
+        );
+        assert_eq!(self.pages[&second], second_state);
         self.wake.store(false, Ordering::Release);
         self.assert_js(
             second,
@@ -365,14 +433,14 @@ impl Proof {
         );
         let replacement = self.create_view("Replacement", 20.0);
         self.loaded(replacement, "Replacement");
-        self.assert_js(replacement, "(window.survived = 2, scrollTo(0, 160), true)");
-        self.assert_js(replacement, "window.survived === 2 && scrollY === 160");
-        self.close_view(second); // Now close the later-created sibling first.
+        let survivor_state = self.pages[&second].clone();
+        self.close_view(replacement); // Now close the later-created sibling first.
         self.assert_js(
-            replacement,
-            "document.title === 'Replacement' && window.survived === 2 && scrollY === 160",
+            second,
+            "document.title === 'Awake' && window.survived === 1 && scrollY === 120",
         );
-        self.close_view(replacement);
+        assert_eq!(self.pages[&second], survivor_state);
+        self.close_view(second);
         self.runtime.perform_all_updates().unwrap();
         let after_empty = self.create_view("After empty", 20.0);
         self.loaded(after_empty, "After empty");

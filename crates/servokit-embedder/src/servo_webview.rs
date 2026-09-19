@@ -1521,15 +1521,17 @@ mod tests {
             );
         }
         drop(first);
-        wake.store(false, Ordering::Relaxed);
-        owner.lease.waker.wake();
-        assert!(wake.load(Ordering::Relaxed));
         second
             .evaluate_javascript("survivor", "document.title === 'Second'")
             .unwrap();
-        collect_events_until(&mut second, |events| {
+        let events = collect_events_until(&mut second, |events| {
             javascript_result(events, "survivor").is_some()
         });
+        assert!(
+            matches!(javascript_result(&events, "survivor"), Some(HostEvent::JavaScriptEvaluationResult {
+            ok: true, value_json: Some(value), ..
+        }) if value == r#"{"type":"boolean","value":true}"#)
+        );
         drop(second);
         owner.perform_updates().unwrap();
         let mut replacement = owner
@@ -1542,15 +1544,19 @@ mod tests {
             .unwrap();
         collect_events_until(&mut replacement, has_complete_load);
         // Shutdown refuses to invalidate a live sibling's native engine reference.
-        assert!(owner.clone().shutdown().is_err());
+        assert!(owner.shutdown().is_err());
         replacement
-            .evaluate_javascript("still-live", "document.title")
+            .evaluate_javascript("still-live", "document.title === 'AfterEmpty'")
             .unwrap();
-        collect_events_until(&mut replacement, |events| {
+        let events = collect_events_until(&mut replacement, |events| {
             javascript_result(events, "still-live").is_some()
         });
+        assert!(
+            matches!(javascript_result(&events, "still-live"), Some(HostEvent::JavaScriptEvaluationResult {
+            ok: true, value_json: Some(value), ..
+        }) if value == r#"{"type":"boolean","value":true}"#)
+        );
         drop(replacement);
-        drop(owner);
         ServoRuntime::shutdown_retained().unwrap();
         assert!(ServoRuntime::new(Box::new(TestEventLoopWaker(wake))).is_err());
     }

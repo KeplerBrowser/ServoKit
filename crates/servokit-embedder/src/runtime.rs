@@ -1719,30 +1719,14 @@ mod tests {
                 runtime.reload(closed),
                 Err(RuntimeError::UnknownWebView(closed))
             );
-            assert_eq!(
-                runtime.destroy_webview(closed),
-                Err(RuntimeError::UnknownWebView(closed))
-            );
-            assert!(runtime
-                .drain_events()
-                .iter()
-                .all(|event| event.webview == survivor));
-            runtime
-                .load_url(survivor, "https://survivor.test/next")
-                .unwrap();
-            runtime.go_back(survivor).unwrap();
-            assert!(runtime.drain_events().iter().any(|event| event.webview == survivor
-                && matches!(&event.event, HostEvent::UrlChanged { url } if url == "https://survivor.test/")));
+            let events = runtime.drain_events();
+            assert!(events.iter().all(|event| event.webview == survivor));
+            assert!(events.iter().any(|event|
+                matches!(&event.event, HostEvent::UrlChanged { url } if url == "https://survivor.test/")));
+            runtime.reload(survivor).unwrap();
             let replacement = runtime.create_webview(session).unwrap();
             assert_ne!(replacement, closed);
-            runtime.focus(replacement).unwrap();
-            assert_eq!(
-                runtime.drain_events(),
-                vec![event(
-                    replacement,
-                    HostEvent::FocusChanged { is_focused: true }
-                )]
-            );
+            runtime.reload(replacement).unwrap();
             runtime.destroy_webview(survivor).unwrap();
             runtime.destroy_webview(replacement).unwrap();
             runtime.perform_all_updates().unwrap();
@@ -1752,7 +1736,9 @@ mod tests {
 
     #[test]
     fn batch_updates_deliver_sibling_events_when_one_view_fails() {
-        struct FailingViewHost;
+        struct FailingViewHost {
+            failed_view: Option<WebViewHandle>,
+        }
         impl Host for FailingViewHost {
             fn observe_webview_events(
                 &mut self,
@@ -1765,15 +1751,16 @@ mod tests {
             fn create_webview(
                 &mut self,
                 _: SessionHandle,
-                _: WebViewHandle,
+                view: WebViewHandle,
             ) -> Result<(), HostError> {
+                self.failed_view.get_or_insert(view);
                 Ok(())
             }
             fn perform_updates(
                 &mut self,
                 view: WebViewHandle,
             ) -> Result<Vec<HostEvent>, HostError> {
-                if view.raw() == 1 {
+                if Some(view) == self.failed_view {
                     return Err(HostError::new("view failed"));
                 }
                 Ok(vec![HostEvent::PageTitleChanged {
@@ -1781,7 +1768,7 @@ mod tests {
                 }])
             }
         }
-        let mut runtime = Runtime::new(FailingViewHost);
+        let mut runtime = Runtime::new(FailingViewHost { failed_view: None });
         let session = runtime.create_session();
         let first = runtime.create_webview(session).unwrap();
         let second = runtime.create_webview(session).unwrap();

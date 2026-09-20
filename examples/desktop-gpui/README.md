@@ -52,7 +52,7 @@ focus/input, resize, or error/crash events arrive.
 
 This example is the AppKit child-view proof path for macOS. The simpler
 [`desktop-winit`](../../docs/desktop-winit.md) example is the whole-window
-native-child proof path; both use the same ServoKit `NativeChildSurface` facade.
+native-child proof path; both use the same ServoKit `NativeSurface` facade.
 
 ## Shutdown regression
 

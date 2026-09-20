@@ -262,7 +262,7 @@ docs below. Tactical progress stays in the active tracker.
 | [`react-native-rust-control-seam.md`](./react-native-rust-control-seam.md) | Rust controller command transports for Servo-backed hosts and the portable iOS controller |
 | [`servokit.md`](./servokit.md) | Target Servokit module map for embedder, host, binding, and platform crates |
 | [`readiness-checks.md`](./readiness-checks.md) | Build and smoke-check matrix for Rust, desktop, React Native Android/iOS, and native Android proof paths |
-| [`surface-modes.md`](./surface-modes.md) | Surface vocabulary and lifecycle ADR for native-child, CPU-offscreen, and future GPU-layer modes |
+| [`surface-modes.md`](./surface-modes.md) | Surface vocabulary and lifecycle ADR for native and local/exportable offscreen modes |
 | [`rust-dependency-baseline.md`](./rust-dependency-baseline.md) | Servo 0.3.0 baseline, shared lockfile roots, and dependency update workflow |
 | [`embedded-surface-contract.md`](./embedded-surface-contract.md) | App-owned layout/window embedded-surface contract shared by GPUI, `winit`, React Native Android hosts, and the iOS WKWebView baseline |
 | [`android-build.md`](./android-build.md) | Android prerequisites, local example flow, and build notes |

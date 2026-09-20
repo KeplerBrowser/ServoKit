@@ -14,7 +14,7 @@ shared URL/load/focus/surface events.
 
 On macOS this is the whole-window native-child proof path: `winit` owns the
 native AppKit-backed window, while ServoKit receives borrowed display/window
-handles through `servokit::surface::NativeChildSurface`. The separate
+handles through `servokit::surface::NativeSurface`. The separate
 [`desktop-gpui`](../examples/desktop-gpui/README.md) example proves the AppKit
 child `NSView` layout-slot path through
 `servokit::surface::macos::AppKitChildSurface`; both paths exercise the same
@@ -103,7 +103,7 @@ startup so it does not rely on every app rediscovering rustls' process-default
 provider requirement; apps that need a different provider should call
 `servokit::runtime::install_rustls_crypto_provider(...)` before creating Servo surfaces or webviews. The example-local glue stays thin: it supplies
 borrowed `winit` raw-window handles through
-`servokit::surface::NativeChildSurface`, dispatches `HostInputEvent` values,
+`servokit::surface::NativeSurface`, dispatches `HostInputEvent` values,
 calls `Runtime::perform_updates`, and drains `ServokitEvent` values.
 
 ## Resize reflow smoke

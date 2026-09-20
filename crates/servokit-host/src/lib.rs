@@ -49,11 +49,12 @@ impl SurfacePoint {
     }
 }
 
-/// Physical viewport for an embedded Servo surface.
+/// Viewport and display scale for an embedded Servo surface.
 ///
-/// `origin` is relative to the app-owned parent surface/layout; `size` is the renderable
-/// slot in physical pixels; `scale_factor` is the display density that Servo must receive
-/// before painting that size.
+/// `origin` is relative to the app-owned parent surface/layout. Native and parent-backed local
+/// targets retain their existing physical-pixel `size` convention. A macOS exportable offscreen
+/// target treats `size` as the logical page viewport and allocates physical storage as
+/// `size × scale_factor` exactly once.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SurfaceViewport {
     pub origin: SurfacePoint,
@@ -88,12 +89,12 @@ impl SurfaceViewport {
 
 /// Host-neutral borrowed native handles for an app-owned window, child surface, or parent surface.
 #[derive(Debug, Clone, Copy)]
-pub struct NativeChildSurface<'a> {
+pub struct NativeSurface<'a> {
     display_handle: DisplayHandle<'a>,
     window_handle: WindowHandle<'a>,
 }
 
-impl<'a> NativeChildSurface<'a> {
+impl<'a> NativeSurface<'a> {
     pub fn new(display_handle: DisplayHandle<'a>, window_handle: WindowHandle<'a>) -> Self {
         Self {
             display_handle,
@@ -113,68 +114,91 @@ impl<'a> NativeChildSurface<'a> {
 /// The host-facing rendering mode currently backing a surface attachment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SurfaceMode {
-    NativeChild,
-    CpuOffscreen,
-    GpuLayer,
+    Native,
+    Offscreen,
 }
 
-/// Host-neutral description of a CPU-readback offscreen Servo target composited by the host.
 #[derive(Debug, Clone, Copy)]
-pub struct CpuOffscreenSurface<'a> {
-    parent_surface: NativeChildSurface<'a>,
-    parent_size: SurfaceSize,
+enum OffscreenBacking<'a> {
+    Local {
+        parent_surface: NativeSurface<'a>,
+        parent_size: SurfaceSize,
+    },
+    #[cfg(target_os = "macos")]
+    Exportable,
 }
 
-impl<'a> CpuOffscreenSurface<'a> {
-    pub fn new(parent_surface: NativeChildSurface<'a>, parent_size: SurfaceSize) -> Self {
+/// Host-neutral description of an offscreen Servo target composited by the host.
+#[derive(Debug, Clone, Copy)]
+pub struct OffscreenSurface<'a> {
+    backing: OffscreenBacking<'a>,
+}
+
+impl<'a> OffscreenSurface<'a> {
+    /// Creates the existing parent-backed local framebuffer target.
+    pub fn new(parent_surface: NativeSurface<'a>, parent_size: SurfaceSize) -> Self {
         Self {
-            parent_surface,
-            parent_size,
+            backing: OffscreenBacking::Local {
+                parent_surface,
+                parent_size,
+            },
         }
     }
 
-    pub fn parent_surface(&self) -> NativeChildSurface<'a> {
-        self.parent_surface
+    /// Creates a macOS target whose frames can be exported as retained GPU resources.
+    #[cfg(target_os = "macos")]
+    pub fn exportable() -> Self {
+        Self {
+            backing: OffscreenBacking::Exportable,
+        }
     }
 
-    pub fn parent_size(&self) -> SurfaceSize {
-        self.parent_size
+    #[doc(hidden)]
+    pub fn __local_parent(&self) -> Option<(NativeSurface<'a>, SurfaceSize)> {
+        match self.backing {
+            OffscreenBacking::Local {
+                parent_surface,
+                parent_size,
+            } => Some((parent_surface, parent_size)),
+            #[cfg(target_os = "macos")]
+            OffscreenBacking::Exportable => None,
+        }
     }
 }
 
 /// Host-neutral render target vocabulary shared by facade adapters and hosts.
 #[derive(Debug, Clone, Copy)]
 pub enum SurfaceTarget<'a> {
-    NativeChild(NativeChildSurface<'a>),
-    CpuOffscreen(CpuOffscreenSurface<'a>),
+    Native(NativeSurface<'a>),
+    Offscreen(OffscreenSurface<'a>),
 }
 
 impl<'a> SurfaceTarget<'a> {
-    pub fn native_child(native_surface: NativeChildSurface<'a>) -> Self {
-        Self::NativeChild(native_surface)
+    pub fn native(native_surface: NativeSurface<'a>) -> Self {
+        Self::Native(native_surface)
     }
 
-    pub fn cpu_offscreen(offscreen_surface: CpuOffscreenSurface<'a>) -> Self {
-        Self::CpuOffscreen(offscreen_surface)
+    pub fn offscreen(offscreen_surface: OffscreenSurface<'a>) -> Self {
+        Self::Offscreen(offscreen_surface)
     }
 
     pub fn mode(&self) -> SurfaceMode {
         match self {
-            Self::NativeChild(_) => SurfaceMode::NativeChild,
-            Self::CpuOffscreen(_) => SurfaceMode::CpuOffscreen,
+            Self::Native(_) => SurfaceMode::Native,
+            Self::Offscreen(_) => SurfaceMode::Offscreen,
         }
     }
 }
 
-impl<'a> From<NativeChildSurface<'a>> for SurfaceTarget<'a> {
-    fn from(native_surface: NativeChildSurface<'a>) -> Self {
-        Self::native_child(native_surface)
+impl<'a> From<NativeSurface<'a>> for SurfaceTarget<'a> {
+    fn from(native_surface: NativeSurface<'a>) -> Self {
+        Self::native(native_surface)
     }
 }
 
-impl<'a> From<CpuOffscreenSurface<'a>> for SurfaceTarget<'a> {
-    fn from(offscreen_surface: CpuOffscreenSurface<'a>) -> Self {
-        Self::cpu_offscreen(offscreen_surface)
+impl<'a> From<OffscreenSurface<'a>> for SurfaceTarget<'a> {
+    fn from(offscreen_surface: OffscreenSurface<'a>) -> Self {
+        Self::offscreen(offscreen_surface)
     }
 }
 
@@ -265,5 +289,20 @@ pub trait SurfaceDelegate {
     ) -> Result<(), SurfaceError> {
         frame.present();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn exportable_offscreen_uses_the_offscreen_mode_without_a_native_parent() {
+        let offscreen = OffscreenSurface::exportable();
+        assert_eq!(
+            SurfaceTarget::from(offscreen).mode(),
+            SurfaceMode::Offscreen
+        );
     }
 }

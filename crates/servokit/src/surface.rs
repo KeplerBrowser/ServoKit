@@ -1,9 +1,8 @@
 //! Surface facade exports.
 
 pub use servokit_host::{
-    CpuOffscreenSurface, HostSurface, NativeChildSurface, SurfaceDelegate, SurfaceError,
-    SurfaceFrameInfo, SurfaceFrameLike, SurfaceMode, SurfacePoint, SurfaceSize, SurfaceTarget,
-    SurfaceViewport,
+    HostSurface, NativeSurface, OffscreenSurface, SurfaceDelegate, SurfaceError, SurfaceFrameInfo,
+    SurfaceFrameLike, SurfaceMode, SurfacePoint, SurfaceSize, SurfaceTarget, SurfaceViewport,
 };
 
 #[cfg(all(feature = "servo", target_os = "macos"))]

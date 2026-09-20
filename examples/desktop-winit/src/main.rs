@@ -12,8 +12,8 @@ use std::{
 use servokit::{
     runtime::{ensure_default_rustls_crypto_provider, Runtime},
     surface::{
-        HostSurface, MemoryClipboard, NativeChildSurface, SurfaceDelegate, SurfaceError,
-        SurfaceFrame, SurfaceHost, SurfaceHostOptions, SurfaceSize, SurfaceTarget, SurfaceViewport,
+        HostSurface, MemoryClipboard, NativeSurface, SurfaceDelegate, SurfaceError, SurfaceFrame,
+        SurfaceHost, SurfaceHostOptions, SurfaceSize, SurfaceTarget, SurfaceViewport,
     },
     webview::WebViewHandle,
     HostEvent,
@@ -158,7 +158,7 @@ impl SurfaceDelegate for WinitSurface {
             .window
             .window_handle()
             .map_err(|error| SurfaceError::new(error.to_string()))?;
-        Ok(NativeChildSurface::new(display, window).into())
+        Ok(NativeSurface::new(display, window).into())
     }
 }
 

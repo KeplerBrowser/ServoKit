@@ -8743,11 +8743,20 @@ name = "servokit"
 version = "0.1.0"
 dependencies = [
  "cocoa 0.26.0",
+ "core-foundation 0.10.0",
+ "core-video",
  "dpi",
+ "euclid",
+ "gleam",
+ "glow 0.17.0",
+ "image",
+ "io-surface",
+ "objc2-core-foundation",
  "raw-window-handle",
  "servo",
  "servokit-embedder",
  "servokit-host",
+ "surfman",
  "webrender_api",
 ]
 

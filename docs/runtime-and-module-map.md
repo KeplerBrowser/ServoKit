@@ -109,7 +109,7 @@ Further architecture work should deepen these existing seams rather than add
 new target crate names.
 
 In particular, the public ServoKit surface vocabulary (`SurfaceDelegate`,
-`NativeChildSurface`, `CpuOffscreenSurface`, `SurfaceTarget`, `SurfaceFrame`)
+`NativeSurface`, `OffscreenSurface`, `SurfaceTarget`, `SurfaceFrame`)
 should remain the facade language, while Android remains a separate
 implementation crate rather than being folded into the host-neutral crate.
 

@@ -4,7 +4,7 @@
   "private": true,
   "description": "Servo embedder kit monorepo",
   "license": "MIT",
-  "packageManager": "bun@1.3.13",
+  "packageManager": "bun@1.4.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/KeplerBrowser/ServoKit.git"
@@ -15,5 +15,13 @@
     "examples/react-native-example-app",
     "examples/react-native-app",
     "examples/react-native-macos-app"
-  ]
+  ],
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3"
+  },
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
+    "commitlint": "commitlint"
+  }
 }

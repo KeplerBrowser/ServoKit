@@ -23,7 +23,7 @@
   <a href="./docs/servokit.md">ServoKit docs</a> ·
   <a href="./ARCHITECTURE.md">Architecture</a> ·
   <a href="./docs/react-native-servokit.md">React Native adapter</a> ·
-  <a href="./docs/development.md">Development</a> ·
+  <a href="./CONTRIBUTING.md">Contributing</a> ·
   <a href="./docs/readiness-checks.md">Readiness checks</a> ·
   <a href="./examples">Examples</a>
 </p>
@@ -143,18 +143,17 @@ front door.
 | Doc | Use it for |
 | --- | --- |
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Canonical architecture front door and fast system mental model |
-| [`docs/development.md`](./docs/development.md) | Change ownership, anti-churn rules, and narrow validation routing |
+| [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Propose an outcome and steer agent-led development |
 | [`docs/servokit.md`](./docs/servokit.md) | Target ServoKit module responsibilities and design rules |
 | [`docs/react-native-servokit.md`](./docs/react-native-servokit.md) | React Native adapter API, Android Servo-backed status, iOS WKWebView path, deferred Servo-on-iOS work, and host boundary |
 | [`docs/readiness-checks.md`](./docs/readiness-checks.md) | Build and smoke-check matrix for repo-local proof surfaces |
 | [`docs/feature-coverage.md`](./docs/feature-coverage.md) | Current embedder-control coverage and deferred features |
-| [GitHub Wiki](https://github.com/KeplerBrowser/ServoKit/wiki) | Project workflow, integration recipes, and troubleshooting; repository documentation remains canonical |
+| [GitHub Wiki](https://github.com/KeplerBrowser/ServoKit/wiki) | Integration recipes and troubleshooting; repository guidance remains canonical |
 
 ## Contributing
 
-Use [`docs/development.md`](./docs/development.md) before changing code or docs.
-It routes each change to the owning layer and the narrowest useful validation
-check.
+Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md): raise an RFC, discuss the
+outcome, and explicitly invoke an agent after acceptance.
 
 ## License
 

@@ -1,0 +1,7 @@
+{
+  "extends": ["@commitlint/config-conventional"],
+  "defaultIgnores": false,
+  "rules": {
+    "trailer-exists": [2, "always", "Co-authored-by:"]
+  }
+}

@@ -1,56 +1,28 @@
-name: Change proposal
-description: Propose an independently reviewable ServoKit outcome.
+name: Feature request
+description: Suggest an improvement to ServoKit.
+labels: [enhancement, rfc]
 body:
-  - type: markdown
-    attributes:
-      value: Use a concise sentence-case title that names the outcome. Put mechanisms and acceptance details below.
   - type: textarea
-    id: outcome
+    id: problem
     attributes:
-      label: Outcome
-      description: What observable result should this issue deliver?
+      label: Problem
+      description: What problem would you like to solve?
     validations:
       required: true
   - type: textarea
-    id: why
+    id: solution
     attributes:
-      label: Why this is needed
-      description: What user, product, or engineering problem does this solve?
+      label: Proposed solution
+      description: Describe the behavior you would like.
     validations:
       required: true
   - type: textarea
-    id: scope
+    id: alternatives
     attributes:
-      label: Scope
-      description: Which behavior and owning layers are included?
-    validations:
-      required: true
+      label: Alternatives considered
+      description: Describe any alternatives you have considered.
   - type: textarea
-    id: acceptance
+    id: context
     attributes:
-      label: Acceptance
-      description: What concrete evidence will prove the outcome is complete?
-    validations:
-      required: true
-  - type: textarea
-    id: non-goals
-    attributes:
-      label: Non-goals
-      description: Which nearby behavior remains unchanged or deferred?
-    validations:
-      required: true
-  - type: textarea
-    id: dependencies
-    attributes:
-      label: Dependencies
-      description: List prerequisites or blocked relationships, or write None.
-  - type: textarea
-    id: references
-    attributes:
-      label: References
-      description: Link durable upstream APIs, documentation, or prior decisions.
-  - type: textarea
-    id: provenance
-    attributes:
-      label: Provenance
-      description: For public APIs or host-control surfaces, identify each name or behavior as Servo-derived, ServoKit-owned, or platform-adapter-only.
+      label: Additional context
+      description: Add any other context or screenshots here.

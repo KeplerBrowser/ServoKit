@@ -160,18 +160,8 @@ for context. Servo-on-iOS is deferred.
 
 ## Development And Validation
 
-Use the narrowest validation slice for the touched layer:
-
-- JavaScript/TypeScript package work uses `bun`.
-- Rust workspace commands usually target `crates/Cargo.toml`.
-- React Native Android changes should validate the package, Android example, and
-  shared Android host consumers when the shared host module changes.
-- React Native macOS changes should validate package checks first, then the
-  source-backed framework and macOS example on a prepared native host.
-- React Native iOS changes should validate package checks, the packaged
-  Servo-free Rust controller, and the WKWebView adapter without introducing a
-  Servo engine dependency.
-- Docs-only changes should run stale-link checks and `git diff --check`.
+Build and runtime evidence for each platform is maintained in the
+[readiness matrix](docs/readiness-checks.md).
 
 Fixture pages prove smoke behavior for current proof surfaces. A fixture load is
 not by itself a claim that ServoKit owns native defaults, customization hooks, or

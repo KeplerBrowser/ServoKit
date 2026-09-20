@@ -1,169 +1,66 @@
 # Contributing
 
-Contributions are welcome, no matter how large or small. Keep discussion
-friendly and respectful.
+ServoKit uses agent-led development. Contributors describe problems, discuss
+tradeoffs, and approve designs; agents investigate, implement, test, review, and merge.
+You do not need to write code or prepare a pull request to contribute.
+Keep discussion friendly, focused, and constructive.
 
-Keep contributions focused and constructive. Start with the repository guide
-in [`README.md`](./README.md), then use
-[`ARCHITECTURE.md`](./ARCHITECTURE.md) and
-[`docs/development.md`](./docs/development.md) to identify the owning layer and
-the smallest relevant validation slice.
+## Start with an issue
 
-## Planning work
+Use the feature request form for a feature, refactor, or architectural proposal.
+Describe the desired outcome and why it matters. Start with `rfc`; an
+agent helps develop scope, alternatives, non-goals, and acceptance evidence in
+the issue. You do not need an architectural plan before starting the discussion.
+Discussion depth should match the change's consequences.
 
-ServoKit uses these public planning terms:
+Report reproducible failures with the bug form. Small typos and obvious,
+behavior-preserving corrections can proceed under standing authorization without
+a manufactured proposal. Significant fixes still need agreement on their scope.
 
-- A **milestone** is a descriptive, goal-based body of related work: the public
-  sprint goal. It may span several working sessions and need not be named after
-  a release version. Examples include `Initial release`, `macOS support`,
-  `Windows support`, and `GPU surface`.
-- An **issue** is an independently acceptable outcome.
-- A **Wayfinder ticket** is an issue that resolves one decision or investigation
-  for maintainers planning a larger change.
-- A **pull request** is a reviewable delivery that may complete an issue or one
-  meaningful slice.
-- A **commit** is one coherent implementation step.
+## Discuss, accept, then invoke
 
-Every milestone description states its **Outcome**, **Done when**, and **Not
-included** boundaries. Issue titles use concise sentence case and name a
-concrete deliverable or outcome; mechanisms and acceptance details belong in
-the body. Avoid artificial prefixes and vague titles such as `Implement
-support`, `Improve`, or `Investigate` when a stronger outcome exists.
-
-A release is separate from a milestone. A version may appear in a milestone
-description without becoming its title.
-
-Maintainers may use Wayfinder when the route through a large change is unclear.
-Contributors do not need Wayfinder or any local planning tools to report a bug,
-propose a change, or work from an approved issue.
-
-An issue may produce zero, one, or many commits. Its body should make the
-outcome, motivation, scope, acceptance evidence, and non-goals clear, adding
-dependencies, durable references, and public-surface provenance when relevant.
-Split work only when ownership, sequencing, infrastructure, or failure domain
-genuinely differs.
-
-Small fixes, documentation, and obvious bugs may go directly to a pull request.
-Public API, architecture, platform support, and distribution changes require an
-approved issue before implementation. Keep required tests, documentation, and
-validation with the implementation unless they are independently deliverable.
-Reference related issues without implying closure; use a closing keyword only
-when the pull request genuinely completes the issue. Routine planning,
-editorial maintenance, and tiny supporting changes do not need manufactured
-issues.
-
-## Development workflow
-
-This project is a Servo embedding workspace. Its main contributor surfaces are:
-
-- ServoKit Rust crates in `crates/`.
-- The React Native package in `packages/react-native-servokit/` and its
-  package-owned contract example in `packages/react-native-servokit/example/`.
-- The shared Android/iOS React Native app in `examples/react-native-app/`.
-- The React Native macOS verification app in
-  `examples/react-native-macos-app/`, which exercises the experimental,
-  unsupported AppKit/private-C/Rust path.
-- Native Android and Rust desktop examples in `examples/`.
-
-To get started with the project, install a current [Node.js](https://nodejs.org/) release compatible with the checked-in Bun/React Native workspace.
-
-Run `bun install` in the root directory to install the required JavaScript
-dependencies:
-
-```sh
-bun install
+```text
+rfc -> discussion and human approval -> accepted -> explicit agent invocation
+                                                   -> PR and independent review -> merge
 ```
 
-Use the example that owns the platform path you changed. The
-[shared React Native app](./examples/react-native-app/) covers Android and the
-packaged iOS WKWebView baseline. The
-[React Native macOS app](./examples/react-native-macos-app/) is its separate
-runtime verification surface.
+A proposal is ready for acceptance when its scope and acceptance evidence are
+concrete and architectural findings are resolved; a clean agent review does not
+replace human approval. A maintainer approves the proposal in the discussion. The agent records
+that decision and replaces `rfc` with `accepted`. Acceptance permits that scope;
+it does not automatically launch development. Explicitly ask an agent to
+implement the accepted issue when you want work to start.
 
-Before changing native Servo integration, look upstream first:
+Agents choose implementation details within the agreement. Foundational changes
+receive an independent architectural review before approval. New tradeoffs,
+expanded scope, unresolved review concerns, and missing required validation
+return to the same issue, where humans steer the next step.
 
-1. `ports/servoshell` in the `servo/servo` repository for the closest supported embedding example.
-2. The Servo repository itself for current platform behavior, build logic, and runtime conventions.
-3. The published `servo` crate docs and crates.io metadata for API-level expectations.
+Use familiar labels for the kind of contribution: `bug`, `enhancement`,
+`documentation`, or `question`. `help wanted` and `good first issue` can invite
+reproduction, investigation, or design participation as well as implementation.
+Closed issues and linked PRs provide completion and delivery status.
 
-On Servo-backed Android and macOS paths, Rust owns controller/browser semantics
-while the native adapters own platform views, handles, geometry, input, and
-scheduling. On iOS, the portable Rust controller owns command validation,
-request identity, pending semantics, fallback policy, and response validation;
-Objective-C++ owns WKWebView, native completion/timer objects, KVO/recycling,
-effect execution, and main-thread scheduling. Keep the public Fabric
-`ServoView` interface shared across those engine-specific paths.
+## Keep work meaningful
 
-The React Native example is configured to use the local package, so changes you
-make under `packages/react-native-servokit` are reflected in the example app.
-JavaScript changes are reflected without a native rebuild, but native code
-changes require rebuilding the example app.
+An issue represents an independently acceptable feature or engineering outcome.
+Tests, file edits, and reviewer corrections are part of that outcome, not separate
+administrative tickets. Split only when another outcome can be accepted or deferred
+independently. A PR delivers a feature across whichever layers it requires.
 
-If you want to use Android Studio to edit the native code, open
-`examples/react-native-app/android` and find the package sources
-under `react-native-servokit`.
+Milestones describe shared sprint goals, with Outcome, Done when, and Not included
+boundaries. They can span working sessions and are separate from releases.
+Investigate unresolved design questions in the issue; contributors need no
+special planning tools.
 
-You can use various commands from the root directory to work with the project.
+## Implementation and merge
 
-To start the packager:
+Once invoked, the implementing agent owns the change through PR submission, independent review,
+and merge. Agents verify the agreed acceptance criteria, resolve review findings,
+and pass required checks before merging; no final human sign-off is required.
+The PR records the result and evidence. Humans return to the discussion when
+scope or design decisions change or a concern cannot be resolved within the
+agreement. Release workflow design remains open and separate from this authorization.
 
-```sh
-bun run --cwd examples/react-native-app start
-```
-
-To run the example app on Android:
-
-```sh
-bun run --cwd examples/react-native-app android
-```
-
-To confirm that the app is running with the new architecture, you can check the Metro logs for a message like this:
-
-```sh
-Running "ServoExample" with {"fabric":true,"initialProps":{"concurrentRoot":true},"rootTag":1}
-```
-
-Note the `"fabric":true` and `"concurrentRoot":true` properties.
-
-For React Native package changes, run the focused tests for the changed contract
-and these package checks:
-
-```sh
-bun test packages/react-native-servokit/src/__tests__/<focused-test>.test.ts
-bun run --cwd packages/react-native-servokit typecheck
-bun run --cwd packages/react-native-servokit prepare
-```
-
-For Rust changes, target the owning package instead of defaulting to the whole
-workspace:
-
-```sh
-cargo test --manifest-path crates/Cargo.toml -p <package> --locked
-```
-
-Run a native build or runtime gate only for the platform path you changed. The
-current commands and prerequisites live in
-[`docs/readiness-checks.md`](./docs/readiness-checks.md).
-
-### Scripts
-
-The `package.json` file contains various scripts for common tasks:
-
-- `bun install`: set up the project dependencies.
-- `bun run --cwd packages/react-native-servokit typecheck`: type-check package files with TypeScript.
-- `bun run --cwd packages/react-native-servokit prepare`: build the package output.
-- `bun run --cwd examples/react-native-app start`: start the Metro server for the example app.
-- `bun run --cwd examples/react-native-app android`: run the example app on Android.
-
-### Sending a pull request
-
-> **Working on your first pull request?** You can learn how from this _free_ series: [How to Contribute to an Open Source Project on GitHub](https://app.egghead.io/playlists/how-to-contribute-to-an-open-source-project-on-github).
-
-When you're sending a pull request:
-
-- Prefer small pull requests focused on one change.
-- Verify that linters and tests are passing.
-- Review the documentation to make sure it looks good.
-- Follow the pull request template when opening a pull request.
-- Public API or architecture changes require maintainer agreement and an
-  approved issue before implementation.
+Agents follow [AGENTS.md](AGENTS.md) and the repository development skill.
+[ARCHITECTURE.md](ARCHITECTURE.md) explains the technical ownership model.

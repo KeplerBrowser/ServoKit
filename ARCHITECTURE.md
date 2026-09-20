@@ -113,6 +113,12 @@ selection, layout, and presentation. Servo owns internal IPC,
 networking/storage infrastructure, and engine coordination. Existing
 `SessionHandle`s identify logical groups; they do not provide storage partitions.
 
+Native hosts may set one process-wide `SurfaceHostOptions::config_directory`
+before Servo is first initialized. ServoKit passes it directly to upstream
+`Opts::config_dir`, so Servo owns cookie, authentication, HSTS, and web-storage
+persistence. A retained engine accepts only the same configured directory;
+changing profiles requires a new application process.
+
 Each view selects a `Native` or `Offscreen` target through the existing surface
 delegate. On macOS, exportable offscreen targets use a ServoKit-owned concrete
 Servo `RenderingContext` and bounded surfman IOSurface pool; consumers receive

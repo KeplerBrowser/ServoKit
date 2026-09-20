@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::mem;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -361,11 +362,12 @@ impl SurfaceClipboard for MemoryClipboard {
 /// Thread-safe callback used to wake the host event loop for Servo work.
 pub type SurfaceEventLoopWaker = Arc<dyn Fn() + Send + Sync + 'static>;
 
-/// Event-loop and clipboard services supplied to [`SurfaceHost`].
+/// Event-loop, clipboard, and process-engine options supplied to [`SurfaceHost`].
 #[derive(Clone)]
 pub struct SurfaceHostOptions {
     event_loop_waker: SurfaceEventLoopWaker,
     clipboard: Rc<dyn SurfaceClipboard>,
+    config_directory: Option<PathBuf>,
 }
 
 impl SurfaceHostOptions {
@@ -377,7 +379,17 @@ impl SurfaceHostOptions {
         Self {
             event_loop_waker,
             clipboard,
+            config_directory: None,
         }
+    }
+
+    /// Sets Servo's process-wide config directory for persistent website data.
+    ///
+    /// The first initialized Servo engine fixes this directory for the process.
+    /// Later hosts must request the same value.
+    pub fn with_config_directory(mut self, config_directory: impl Into<PathBuf>) -> Self {
+        self.config_directory = Some(config_directory.into());
+        self
     }
 
     /// Borrows the event-loop wake callback.
@@ -388,6 +400,11 @@ impl SurfaceHostOptions {
     /// Clones the reference-counted clipboard service.
     pub fn clipboard(&self) -> Rc<dyn SurfaceClipboard> {
         self.clipboard.clone()
+    }
+
+    /// Returns Servo's configured process-wide config directory, if any.
+    pub fn config_directory(&self) -> Option<&Path> {
+        self.config_directory.as_deref()
     }
 }
 
@@ -1591,10 +1608,16 @@ impl SurfaceWebView {
         let webview_size = render_target.webview_size(viewport)?;
         let mut runtime = runtime.borrow_mut();
         if runtime.is_none() {
+            let event_loop_waker =
+                Box::new(ServoEventLoopWaker::new(options.event_loop_waker.clone()));
             *runtime = Some(
-                ServoRuntime::new(Box::new(ServoEventLoopWaker::new(
-                    options.event_loop_waker.clone(),
-                )))
+                match options.config_directory() {
+                    Some(config_directory) => ServoRuntime::with_config_directory(
+                        event_loop_waker,
+                        config_directory.to_owned(),
+                    ),
+                    None => ServoRuntime::new(event_loop_waker),
+                }
                 .map_err(HostError::new)?,
             );
         }
@@ -1934,6 +1957,15 @@ mod tests {
         runtime::{Runtime, ServokitError},
         surface::SurfacePoint,
     };
+
+    #[test]
+    fn host_options_expose_the_process_config_directory() {
+        let directory = PathBuf::from("browser-profile");
+        let options = SurfaceHostOptions::default().with_config_directory(directory.clone());
+
+        assert_eq!(options.config_directory(), Some(directory.as_path()));
+        assert_eq!(SurfaceHostOptions::default().config_directory(), None);
+    }
 
     #[cfg(target_os = "macos")]
     #[test]

@@ -1,5 +1,4 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use dpi::PhysicalSize;
 use euclid::Scale;
@@ -629,8 +628,29 @@ impl ServoRuntime {
 
     /// Acquires the process engine on its owning UI thread.
     pub fn new(event_loop_waker: Box<dyn EventLoopWaker>) -> Result<Self, String> {
+        Self::new_with_config_directory(event_loop_waker, None)
+    }
+
+    /// Acquires the process engine with Servo's process-wide config directory.
+    ///
+    /// The first initialization fixes this value for the process. Later owners must
+    /// request the same directory, including whether one was configured at all.
+    pub fn with_config_directory(
+        event_loop_waker: Box<dyn EventLoopWaker>,
+        config_directory: impl Into<PathBuf>,
+    ) -> Result<Self, String> {
+        Self::new_with_config_directory(event_loop_waker, Some(config_directory.into()))
+    }
+
+    fn new_with_config_directory(
+        event_loop_waker: Box<dyn EventLoopWaker>,
+        config_directory: Option<PathBuf>,
+    ) -> Result<Self, String> {
         Ok(Self {
-            lease: Rc::new(acquire_process_servo_runtime(event_loop_waker)?),
+            lease: Rc::new(acquire_process_servo_runtime(
+                event_loop_waker,
+                config_directory,
+            )?),
         })
     }
 
@@ -709,10 +729,14 @@ struct ProcessServoRuntime {
     servo: Servo,
     waker: RoutedEventLoopWaker,
     errors: Rc<RefCell<Vec<String>>>,
+    config_directory: Option<PathBuf>,
 }
 
 impl ProcessServoRuntime {
-    fn new(event_loop_waker: Box<dyn EventLoopWaker>) -> (Self, ProcessServoRuntimeLease) {
+    fn new(
+        event_loop_waker: Box<dyn EventLoopWaker>,
+        config_directory: Option<PathBuf>,
+    ) -> Result<(Self, ProcessServoRuntimeLease), String> {
         // Keep the inventory-only default reader reachable from native static-library consumers.
         std::hint::black_box(
             &servo_default_resources::DefaultResourceReader
@@ -728,7 +752,20 @@ impl ProcessServoRuntime {
         preferences.dom_geolocation_enabled = true;
         preferences.dom_notification_enabled = true;
 
+        if let Some(config_directory) = &config_directory {
+            std::fs::create_dir_all(config_directory).map_err(|error| {
+                format!(
+                    "could not create Servo config directory {}: {error}",
+                    config_directory.display()
+                )
+            })?;
+        }
+        let opts = servo::Opts {
+            config_dir: config_directory.clone(),
+            ..Default::default()
+        };
         let servo = ServoBuilder::default()
+            .opts(opts)
             .preferences(preferences)
             .event_loop_waker(Box::new(waker.clone()))
             .build();
@@ -739,20 +776,29 @@ impl ProcessServoRuntime {
             waker: waker.clone(),
             errors: errors.clone(),
         };
-        (
+        Ok((
             Self {
                 servo,
                 waker,
                 errors,
+                config_directory,
             },
             lease,
-        )
+        ))
     }
 
     fn acquire(
         &mut self,
         event_loop_waker: Box<dyn EventLoopWaker>,
+        config_directory: Option<&std::path::Path>,
     ) -> Result<ProcessServoRuntimeLease, String> {
+        if self.config_directory.as_deref() != config_directory {
+            return Err(format!(
+                "ServoKit process config directory is already fixed to {:?}; requested {:?}",
+                self.config_directory.as_deref(),
+                config_directory
+            ));
+        }
         if self.waker.is_active() {
             return Err("ServoKit supports one live Servo runtime owner per process; create sibling views through that owner".into());
         }
@@ -795,6 +841,7 @@ thread_local! {
 
 fn acquire_process_servo_runtime(
     event_loop_waker: Box<dyn EventLoopWaker>,
+    config_directory: Option<PathBuf>,
 ) -> Result<ProcessServoRuntimeLease, String> {
     if PROCESS_SERVO_SHUT_DOWN.load(std::sync::atomic::Ordering::Acquire) {
         return Err(
@@ -811,9 +858,10 @@ fn acquire_process_servo_runtime(
     PROCESS_SERVO_RUNTIME.with(|runtime| {
         let mut runtime = runtime.borrow_mut();
         if let Some(runtime) = runtime.as_mut() {
-            return runtime.acquire(event_loop_waker);
+            return runtime.acquire(event_loop_waker, config_directory.as_deref());
         }
-        let (process_runtime, lease) = ProcessServoRuntime::new(event_loop_waker);
+        let (process_runtime, lease) =
+            ProcessServoRuntime::new(event_loop_waker, config_directory)?;
         *runtime = Some(process_runtime);
         Ok(lease)
     })
@@ -881,6 +929,9 @@ mod tests {
     use crate::{LoadStatusKind, PopupRequestPolicy};
     use servo::{SoftwareRenderingContext, StringRequest};
     use std::cell::Cell;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::process::Command;
     use std::rc::Rc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
@@ -1124,6 +1175,123 @@ mod tests {
             }
             _ => false,
         }
+    }
+
+    #[test]
+    fn persistent_config_directory_survives_process_restart() {
+        const DIRECTORY_ENV: &str = "SERVOKIT_TEST_CONFIG_DIRECTORY";
+        const URL_ENV: &str = "SERVOKIT_TEST_PROFILE_URL";
+
+        if let (Some(config_directory), Ok(url)) =
+            (std::env::var_os(DIRECTORY_ENV), std::env::var(URL_ENV))
+        {
+            let config_directory = PathBuf::from(config_directory);
+            let wake = Arc::new(AtomicBool::new(false));
+            let owner = ServoRuntime::with_config_directory(
+                Box::new(TestEventLoopWaker(wake.clone())),
+                &config_directory,
+            )
+            .unwrap();
+            let mut webview = owner
+                .create_webview(test_webview_init(
+                    &url,
+                    PopupRequestPolicy::DefaultDeny,
+                    None,
+                    test_rendering_context(),
+                ))
+                .unwrap();
+            collect_events_until(&mut webview, has_complete_load);
+            drop(webview);
+            drop(owner);
+
+            let reused = ServoRuntime::with_config_directory(
+                Box::new(TestEventLoopWaker(wake.clone())),
+                &config_directory,
+            )
+            .expect("the retained process engine should accept the same directory");
+            let mismatch = ServoRuntime::with_config_directory(
+                Box::new(TestEventLoopWaker(wake)),
+                config_directory.join("different"),
+            )
+            .err()
+            .expect("a different directory should be rejected");
+            assert!(mismatch.contains("already fixed"), "{mismatch}");
+            assert!(
+                ServoRuntime::new(Box::new(TestEventLoopWaker(Arc::new(AtomicBool::new(
+                    false
+                )))))
+                .err()
+                .is_some_and(|error| error.contains("already fixed"))
+            );
+            reused.shutdown().unwrap();
+            return;
+        }
+
+        let config_directory =
+            std::env::temp_dir().join(format!("servokit-profile-restart-{}", std::process::id()));
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = listener.local_addr().unwrap();
+        let cookie_seen = Arc::new(AtomicBool::new(false));
+        let stop = Arc::new(AtomicBool::new(false));
+        let server = {
+            let cookie_seen = cookie_seen.clone();
+            let stop = stop.clone();
+            thread::spawn(move || {
+                while !stop.load(Ordering::Acquire) {
+                    let Ok((mut stream, _)) = listener.accept() else {
+                        thread::sleep(Duration::from_millis(1));
+                        continue;
+                    };
+                    stream.set_nonblocking(false).unwrap();
+                    let mut request = [0; 4096];
+                    let count = stream.read(&mut request).unwrap();
+                    let request = String::from_utf8_lossy(&request[..count]);
+                    let set_cookie = request.starts_with("GET /set ");
+                    if request.starts_with("GET /check ")
+                        && request.lines().any(|line| {
+                            line.to_ascii_lowercase().starts_with("cookie:")
+                                && line.contains("servokit_profile=persisted")
+                        })
+                    {
+                        cookie_seen.store(true, Ordering::Release);
+                    }
+                    let cookie = if set_cookie {
+                        "Set-Cookie: servokit_profile=persisted; Path=/; SameSite=Lax\r\n"
+                    } else {
+                        ""
+                    };
+                    let body = "<!doctype html><title>profile</title>";
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\n{}Connection: close\r\n\r\n{}",
+                        body.len(), cookie, body
+                    );
+                    stream.write_all(response.as_bytes()).unwrap();
+                }
+            })
+        };
+
+        for route in ["set", "check"] {
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "servo_webview::tests::persistent_config_directory_survives_process_restart",
+                    "--nocapture",
+                ])
+                .env(DIRECTORY_ENV, &config_directory)
+                .env(URL_ENV, format!("http://{address}/{route}"))
+                .status()
+                .unwrap();
+            assert!(status.success(), "profile {route} process failed");
+        }
+
+        stop.store(true, Ordering::Release);
+        server.join().unwrap();
+        assert!(
+            cookie_seen.load(Ordering::Acquire),
+            "the second process did not load the persisted cookie"
+        );
+        std::fs::remove_dir_all(config_directory).unwrap();
     }
 
     #[test]

@@ -113,6 +113,12 @@ selection, layout, and presentation. Servo owns internal IPC,
 networking/storage infrastructure, and engine coordination. Existing
 `SessionHandle`s identify logical groups; they do not provide storage partitions.
 
+Each view selects a `Native` or `Offscreen` target through the existing surface
+delegate. On macOS, exportable offscreen targets use a ServoKit-owned concrete
+Servo `RenderingContext` and bounded surfman IOSurface pool; consumers receive
+platform-specific `GpuFrame` values and explicitly complete them after their
+last GPU sample. This does not make the product scene renderer part of ServoKit.
+
 View destruction and ordinary host disposal preserve the process engine for
 reuse. Explicit `Runtime::shutdown` is terminal because Servo 0.3 cannot initialize
 twice in one process. The [surface contract](docs/surface-modes.md) defines update
@@ -183,7 +189,7 @@ complete support for a capability.
 | [`docs/runtime-and-module-map.md`](./docs/runtime-and-module-map.md) | Detailed runtime flow, ownership split, and module map. |
 | [`docs/host-control-capabilities.md`](./docs/host-control-capabilities.md) | Android Servo-backed vs iOS WKWebView/WebKit-backed host-control capability matrix. |
 | [`docs/servokit.md`](./docs/servokit.md) | Target module responsibilities and design rules. |
-| [`docs/surface-modes.md`](./docs/surface-modes.md) | Current native-child and CPU-offscreen surface contract. |
+| [`docs/surface-modes.md`](./docs/surface-modes.md) | Current native and local/exportable offscreen surface contract. |
 | [`docs/embedded-surface-contract.md`](./docs/embedded-surface-contract.md) | App-owned window and layout embedding contract. |
 | [`docs/controller-seam.md`](./docs/controller-seam.md) | Controller identity, command envelope ownership, and response rules. |
 | [`docs/react-native-rust-control-seam.md`](./docs/react-native-rust-control-seam.md) | Rust controller-command transports for Servo-backed hosts and the portable iOS controller. |

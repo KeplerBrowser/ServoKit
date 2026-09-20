@@ -13,9 +13,18 @@ required-features = ["servo"]
 default = []
 servo = [
     "dep:cocoa",
+    "dep:core-foundation",
+    "dep:core-video",
     "dep:dpi",
+    "dep:euclid",
+    "dep:gleam",
+    "dep:glow",
+    "dep:image",
+    "dep:io-surface",
+    "dep:objc2-core-foundation",
     "dep:raw-window-handle",
     "dep:servo",
+    "dep:surfman",
     "dep:webrender_api",
     "servokit-embedder/servo",
 ]
@@ -32,3 +41,12 @@ webrender_api = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = { workspace = true, optional = true }
+core-foundation = { workspace = true, optional = true }
+core-video = { workspace = true, optional = true }
+euclid = { workspace = true, optional = true }
+gleam = { workspace = true, optional = true }
+glow = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+io-surface = { workspace = true, optional = true }
+objc2-core-foundation = { workspace = true, optional = true }
+surfman = { workspace = true, optional = true }

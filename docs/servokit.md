@@ -148,7 +148,7 @@ main-thread execution.
 | --- | --- |
 | `crates/servokit` | Public Rust facade prototype reexporting the embedder-owned runtime/session/webview handles, baseline browser commands, host update pumping, and event draining for native Rust callers |
 | `crates/servokit-embedder` | Shared Servo-shaped embedder vocabulary, runtime/webview command and host-input paths, host events, navigation values, policy payloads, pure adapter state, reusable Servo delegate/webview helpers, and event bridge encoding |
-| `crates/servokit-host` | Host-neutral platform value types and surface seams. `HostSurface`, `SurfacePoint`, `SurfaceSize`, `SurfaceViewport`, `NativeChildSurface`, `CpuOffscreenSurface`, `SurfaceTarget`, `SurfaceMode`, `SurfaceError`, and the host-neutral `SurfaceDelegate` trait live here, with shared geometry reexported by `servokit-embedder` for event payload and runtime compatibility; the runtime `Host` trait currently lives in `servokit-embedder` |
+| `crates/servokit-host` | Host-neutral platform value types and surface seams. `HostSurface`, `SurfacePoint`, `SurfaceSize`, `SurfaceViewport`, `NativeSurface`, `OffscreenSurface`, `SurfaceTarget`, `SurfaceMode`, `SurfaceError`, and the host-neutral `SurfaceDelegate` trait live here, with shared geometry reexported by `servokit-embedder` for event payload and runtime compatibility; the runtime `Host` trait currently lives in `servokit-embedder` |
 | `crates/servokit-host-android/android` | Crate-owned repo-local reusable Android Gradle module that builds/packages `libservokit_host_android.so` and owns the first shared Kotlin/JNI host wrapper and typed event bridge below adapters |
 | `crates/servokit-host-android` | Android host implementation, direct JNI bridge, Android native-window/render backend, clipboard, input, and fallback UI. Its Cargo package is `servokit-host-android`; its native library is `servokit_host_android` |
 | `crates/servokit-host-desktop` | Package-private bounded C boundary used by the React Native macOS adapter to drive a Rust ServoKit host |
@@ -176,24 +176,27 @@ Servokit owns the Servo webview/delegate/embedder-control/render integration. A
 host creates a `servokit::runtime::Runtime<servokit::surface::SurfaceHost<_>>`,
 implements the host-neutral `servokit::surface::SurfaceDelegate`, and attaches a
 `HostSurface` plus `SurfaceViewport` to an app-owned native or
-offscreen/composited surface. The facade reexports `NativeChildSurface`,
-`CpuOffscreenSurface`, `SurfaceTarget`, `SurfaceMode`, and `SurfaceError` from
+offscreen/composited surface. The facade reexports `NativeSurface`,
+`OffscreenSurface`, `SurfaceTarget`, `SurfaceMode`, and `SurfaceError` from
 `servokit-host` while keeping Servo rendering-context adaptation in `servokit`.
 On macOS, `servokit::surface::macos::AppKitChildSurface` provides the CEF-like
 native child-view helper for app-owned AppKit parents: hosts supply the parent
 handle, logical bounds, and scale factor; Servokit keeps the child `NSView` and
-borrowed handles aligned for `NativeChildSurface`. Browser commands, host
-input, update pumping, viewport changes, and event draining stay on the public
-runtime facade path.
+borrowed handles aligned for `NativeSurface`. The same module exposes
+consumer-independent `GpuFrame`, `GpuFrameInfo`, and `GpuFrameCompletion` values
+for `OffscreenSurface::exportable()`; its concrete resource is a retained opaque
+32BGRA `CVPixelBuffer`. Browser commands, host input, update pumping, viewport
+changes, and event draining stay on the public runtime facade path.
 
 The public surface vocabulary is now `SurfaceHost`, `SurfaceHostOptions`,
-`SurfaceDelegate`, `NativeChildSurface`, `CpuOffscreenSurface`,
+`SurfaceDelegate`, `NativeSurface`, `OffscreenSurface`,
 `SurfaceTarget`, `SurfaceFrame`, and `SurfaceError`. The old pre-release facade
 names are gone rather than kept as migration aliases.
-Native child/window surfaces are the initial CEF-like path; CPU offscreen
-surfaces are useful for screenshots/debug/tests; future GPU layer surfaces remain
-separate strategic work. See [`surface-modes.md`](./surface-modes.md) for the
-current mode taxonomy and lifecycle rules.
+Native surfaces are the CEF-like child/window path. Parent-backed offscreen
+surfaces support optional CPU readback; macOS exportable offscreen surfaces use
+bounded GPU storage and explicit consumer completion. See
+[`surface-modes.md`](./surface-modes.md) for the current mode taxonomy and
+lifecycle rules.
 
 The surface facade must not expose `winit`, GPUI, React Native, Android
 framework, generated binding, or raw Servo rendering types. Hosts provide

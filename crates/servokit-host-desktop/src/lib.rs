@@ -31,8 +31,9 @@ use servokit::input::{
 };
 use servokit::runtime::{ensure_default_rustls_crypto_provider, Runtime, RuntimeError};
 use servokit::surface::{
-    HostSurface, MemoryClipboard, NativeChildSurface, SurfaceDelegate, SurfaceError, SurfaceFrame,
-    SurfaceHost, SurfaceHostOptions, SurfacePoint, SurfaceSize, SurfaceTarget, SurfaceViewport,
+    HostSurface, MemoryClipboard, NativeSurface as ServoNativeSurface, SurfaceDelegate,
+    SurfaceError, SurfaceFrame, SurfaceHost, SurfaceHostOptions, SurfacePoint, SurfaceSize,
+    SurfaceTarget, SurfaceViewport,
 };
 use servokit::webview::{WebViewCommand, WebViewHandle};
 use servokit_embedder::{encode_host_event_bridge, ControllerCommand};
@@ -274,7 +275,7 @@ impl SurfaceDelegate for DesktopSurface {
 }
 
 #[cfg(target_os = "macos")]
-fn native_child_surface(native: &NativeSurface) -> Result<NativeChildSurface<'_>, SurfaceError> {
+fn native_child_surface(native: &NativeSurface) -> Result<ServoNativeSurface<'_>, SurfaceError> {
     let display =
         unsafe { DisplayHandle::borrow_raw(RawDisplayHandle::AppKit(AppKitDisplayHandle::new())) };
     let window = unsafe {
@@ -282,11 +283,11 @@ fn native_child_surface(native: &NativeSurface) -> Result<NativeChildSurface<'_>
             native.window,
         )))
     };
-    Ok(NativeChildSurface::new(display, window))
+    Ok(ServoNativeSurface::new(display, window))
 }
 
 #[cfg(target_os = "windows")]
-fn native_child_surface(native: &NativeSurface) -> Result<NativeChildSurface<'_>, SurfaceError> {
+fn native_child_surface(native: &NativeSurface) -> Result<ServoNativeSurface<'_>, SurfaceError> {
     let hwnd = NonZeroIsize::new(native.window.as_ptr() as isize)
         .ok_or_else(|| SurfaceError::new("Win32 child HWND must not be null"))?;
     let mut raw_window = Win32WindowHandle::new(hwnd);
@@ -295,7 +296,7 @@ fn native_child_surface(native: &NativeSurface) -> Result<NativeChildSurface<'_>
         DisplayHandle::borrow_raw(RawDisplayHandle::Windows(WindowsDisplayHandle::new()))
     };
     let window = unsafe { WindowHandle::borrow_raw(RawWindowHandle::Win32(raw_window)) };
-    Ok(NativeChildSurface::new(display, window))
+    Ok(ServoNativeSurface::new(display, window))
 }
 
 struct CallbackGate {

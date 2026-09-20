@@ -11,7 +11,12 @@ use raw_window_handle::{
     AppKitWindowHandle, DisplayHandle, RawDisplayHandle, RawWindowHandle, WindowHandle,
 };
 
-use super::{NativeChildSurface, SurfaceError, SurfaceSize, SurfaceViewport};
+use super::{NativeSurface, SurfaceError, SurfaceSize, SurfaceViewport};
+
+mod exportable;
+
+pub(crate) use exportable::ExportableRenderingContext;
+pub use exportable::{CVPixelBuffer, GpuFrame, GpuFrameCompletion, GpuFrameInfo};
 
 /// Logical AppKit bounds, in points, for an embedded child surface.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -41,7 +46,7 @@ impl AppKitChildViewBounds {
 /// Borrowed-handle snapshot for an AppKit child surface refreshed by `AppKitChildSurface`.
 ///
 /// This type is copyable so callers can move it out of their own state/borrows before converting
-/// the raw handles into borrowed `DisplayHandle`, `WindowHandle`, or `NativeChildSurface` values.
+/// the raw handles into borrowed `DisplayHandle`, `WindowHandle`, or `NativeSurface` values.
 /// The underlying app-owned display and AppKit views must remain valid for the duration of any
 /// borrow created from this snapshot.
 #[derive(Debug, Clone, Copy)]
@@ -66,8 +71,8 @@ impl AppKitChildSurfaceHandles {
     }
 
     /// Converts the captured handles into a ServoKit native-child surface.
-    pub fn native_surface<'a>(self) -> NativeChildSurface<'a> {
-        NativeChildSurface::new(self.display_handle(), self.window_handle())
+    pub fn native_surface<'a>(self) -> NativeSurface<'a> {
+        NativeSurface::new(self.display_handle(), self.window_handle())
     }
 }
 
@@ -76,7 +81,7 @@ impl AppKitChildSurfaceHandles {
 /// The host app or framework keeps ownership of its window, parent `NSView`, layout bounds, and
 /// event loop. Servokit keeps track of the browser child `NSView` that it creates under that
 /// parent, updates the child view's frame from logical AppKit bounds plus scale factor, and
-/// exposes copyable raw-handle snapshots suitable for `NativeChildSurface`.
+/// exposes copyable raw-handle snapshots suitable for `NativeSurface`.
 ///
 /// `update` must be called with live parent/display handles from the host before attaching or
 /// refreshing the embedded surface. Handles returned by `handles` assume the underlying app-owned

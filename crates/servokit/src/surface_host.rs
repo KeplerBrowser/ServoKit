@@ -16,15 +16,18 @@ use servokit_embedder::{
     ServoRuntime, ServoWebView, ServoWebViewInit, SessionHandle, WebViewCommand, WebViewHandle,
 };
 use servokit_host::{
-    CpuOffscreenSurface, HostSurface, NativeChildSurface, SurfaceDelegate, SurfaceError,
-    SurfaceFrameInfo, SurfaceFrameLike, SurfaceMode, SurfaceSize, SurfaceTarget, SurfaceViewport,
+    HostSurface, NativeSurface, OffscreenSurface, SurfaceDelegate, SurfaceError, SurfaceFrameInfo,
+    SurfaceFrameLike, SurfaceMode, SurfaceSize, SurfaceTarget, SurfaceViewport,
 };
 use webrender_api::units::{DeviceIntPoint, DeviceIntRect, DeviceIntSize};
 
+#[cfg(target_os = "macos")]
+use crate::surface::macos::{ExportableRenderingContext, GpuFrame};
+
 #[derive(Debug, Clone, Copy)]
 enum RenderTarget<'a> {
-    Native(NativeChildSurface<'a>),
-    Offscreen(CpuOffscreenSurface<'a>),
+    Native(NativeSurface<'a>),
+    Offscreen(OffscreenSurface<'a>),
     #[cfg(test)]
     Test(SurfaceMode),
 }
@@ -32,8 +35,8 @@ enum RenderTarget<'a> {
 impl<'a> From<SurfaceTarget<'a>> for RenderTarget<'a> {
     fn from(target: SurfaceTarget<'a>) -> Self {
         match target {
-            SurfaceTarget::NativeChild(native_surface) => Self::Native(native_surface),
-            SurfaceTarget::CpuOffscreen(offscreen_target) => Self::Offscreen(offscreen_target),
+            SurfaceTarget::Native(native_surface) => Self::Native(native_surface),
+            SurfaceTarget::Offscreen(offscreen_target) => Self::Offscreen(offscreen_target),
         }
     }
 }
@@ -41,8 +44,8 @@ impl<'a> From<SurfaceTarget<'a>> for RenderTarget<'a> {
 impl RenderTarget<'_> {
     fn mode(&self) -> SurfaceMode {
         match self {
-            Self::Native(_) => SurfaceMode::NativeChild,
-            Self::Offscreen(_) => SurfaceMode::CpuOffscreen,
+            Self::Native(_) => SurfaceMode::Native,
+            Self::Offscreen(_) => SurfaceMode::Offscreen,
             #[cfg(test)]
             Self::Test(mode) => *mode,
         }
@@ -85,24 +88,39 @@ impl SurfaceFrameImage {
 
 /// A painted Servo frame handed to host present/composite code.
 ///
-/// Hosts can call [`SurfaceFrame::present`] for native-surface swap/present behavior, or use
-/// [`SurfaceFrame::read_rgba`] to composite a CPU offscreen target into an app-owned layout tree.
+/// Hosts can call [`SurfaceFrame::present`] for native-surface swap/present behavior, use
+/// [`SurfaceFrame::read_rgba`] when an offscreen target supports CPU access, or take an exported
+/// macOS GPU frame from an exportable offscreen target.
 pub struct SurfaceFrame<'a> {
     rendering_context: Option<&'a dyn RenderingContext>,
     info: SurfaceFrameInfo,
     did_present: bool,
+    #[cfg(target_os = "macos")]
+    webview: Option<WebViewHandle>,
+    #[cfg(target_os = "macos")]
+    exportable_context: Option<&'a ExportableRenderingContext>,
+    #[cfg(target_os = "macos")]
+    gpu_frame_taken: bool,
 }
 
 impl<'a> SurfaceFrame<'a> {
     fn new(
+        webview: WebViewHandle,
         rendering_context: &'a dyn RenderingContext,
         viewport: SurfaceViewport,
         mode: SurfaceMode,
+        #[cfg(target_os = "macos")] exportable_context: Option<&'a ExportableRenderingContext>,
     ) -> Self {
         Self {
             rendering_context: Some(rendering_context),
             info: SurfaceFrameInfo::new(viewport, mode),
             did_present: false,
+            #[cfg(target_os = "macos")]
+            webview: Some(webview),
+            #[cfg(target_os = "macos")]
+            exportable_context,
+            #[cfg(target_os = "macos")]
+            gpu_frame_taken: false,
         }
     }
 
@@ -112,6 +130,12 @@ impl<'a> SurfaceFrame<'a> {
             rendering_context: None,
             info: SurfaceFrameInfo::new(viewport, mode),
             did_present: false,
+            #[cfg(target_os = "macos")]
+            webview: None,
+            #[cfg(target_os = "macos")]
+            exportable_context: None,
+            #[cfg(target_os = "macos")]
+            gpu_frame_taken: false,
         }
     }
 
@@ -137,9 +161,9 @@ impl<'a> SurfaceFrame<'a> {
 
     /// Run Servokit's default present operation for this target.
     ///
-    /// For native targets this swaps/presents the native rendering surface. For CPU offscreen
-    /// targets, Servo's current offscreen context has no default swap operation; hosts normally
-    /// composite via [`SurfaceFrame::read_rgba`] instead.
+    /// For native targets this swaps/presents the native rendering surface. Servo's local
+    /// offscreen context has no default swap operation; hosts normally composite it via
+    /// [`SurfaceFrame::read_rgba`] instead.
     pub fn present(&mut self) {
         if let Some(rendering_context) = self.rendering_context {
             rendering_context.present();
@@ -163,6 +187,38 @@ impl<'a> SurfaceFrame<'a> {
             height: image.height(),
             rgba: image.into_raw(),
         })
+    }
+
+    /// Takes the macOS GPU resource painted for this frame, when the attached offscreen target is
+    /// exportable. The returned completion token must be completed after the consumer's final GPU
+    /// sample. Calling this more than once for one frame is an error.
+    #[cfg(target_os = "macos")]
+    pub fn take_gpu_frame(&mut self) -> Result<Option<GpuFrame>, SurfaceError> {
+        let Some(context) = self.exportable_context else {
+            return Ok(None);
+        };
+        if self.gpu_frame_taken {
+            return Err(SurfaceError::new(
+                "the exportable GPU frame has already been taken",
+            ));
+        }
+        let webview = self
+            .webview
+            .expect("real exportable frames always carry webview identity");
+        let frame = context.take_gpu_frame(webview)?;
+        self.gpu_frame_taken = true;
+        Ok(Some(frame))
+    }
+}
+
+impl Drop for SurfaceFrame<'_> {
+    fn drop(&mut self) {
+        #[cfg(target_os = "macos")]
+        if !self.gpu_frame_taken {
+            if let Some(context) = self.exportable_context {
+                let _ = context.recycle_unpublished();
+            }
+        }
     }
 }
 
@@ -1236,9 +1292,13 @@ enum ActiveRenderTarget {
     Native {
         rendering_context: Rc<WindowRenderingContext>,
     },
-    Offscreen {
+    LocalOffscreen {
         parent_context: Rc<WindowRenderingContext>,
         rendering_context: Rc<OffscreenRenderingContext>,
+    },
+    #[cfg(target_os = "macos")]
+    ExportableOffscreen {
+        rendering_context: Rc<ExportableRenderingContext>,
     },
 }
 
@@ -1247,6 +1307,7 @@ impl ActiveRenderTarget {
         target: RenderTarget<'_>,
         viewport: SurfaceViewport,
         refresh_driver: Rc<SurfaceRefreshDriver>,
+        options: &SurfaceHostOptions,
     ) -> Result<Self, HostError> {
         match target {
             RenderTarget::Native(native_surface) => {
@@ -1258,17 +1319,37 @@ impl ActiveRenderTarget {
                 Ok(Self::Native { rendering_context })
             }
             RenderTarget::Offscreen(offscreen_target) => {
-                let parent_context = Rc::new(create_rendering_context(
-                    offscreen_target.parent_surface(),
-                    offscreen_target.parent_size(),
-                    refresh_driver,
-                )?);
-                let rendering_context =
-                    Rc::new(parent_context.offscreen_context(physical_size(viewport.size)));
-                Ok(Self::Offscreen {
-                    parent_context,
-                    rendering_context,
-                })
+                if let Some((parent_surface, parent_size)) = offscreen_target.__local_parent() {
+                    let parent_context = Rc::new(create_rendering_context(
+                        parent_surface,
+                        parent_size,
+                        refresh_driver,
+                    )?);
+                    let rendering_context =
+                        Rc::new(parent_context.offscreen_context(physical_size(viewport.size)));
+                    return Ok(Self::LocalOffscreen {
+                        parent_context,
+                        rendering_context,
+                    });
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    let rendering_context = Rc::new(
+                        ExportableRenderingContext::new(
+                            exportable_physical_size(viewport)?,
+                            options.event_loop_waker.clone(),
+                            refresh_driver,
+                        )
+                        .map_err(|error| HostError::new(error.to_string()))?,
+                    );
+                    Ok(Self::ExportableOffscreen { rendering_context })
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    Err(HostError::new(
+                        "exportable offscreen surfaces are only supported on macOS",
+                    ))
+                }
             }
             #[cfg(test)]
             RenderTarget::Test(_) => Err(HostError::new(
@@ -1279,8 +1360,10 @@ impl ActiveRenderTarget {
 
     fn kind(&self) -> SurfaceMode {
         match self {
-            Self::Native { .. } => SurfaceMode::NativeChild,
-            Self::Offscreen { .. } => SurfaceMode::CpuOffscreen,
+            Self::Native { .. } => SurfaceMode::Native,
+            Self::LocalOffscreen { .. } => SurfaceMode::Offscreen,
+            #[cfg(target_os = "macos")]
+            Self::ExportableOffscreen { .. } => SurfaceMode::Offscreen,
         }
     }
 
@@ -1290,12 +1373,43 @@ impl ActiveRenderTarget {
                 let context: Rc<dyn RenderingContext> = rendering_context.clone();
                 context
             }
-            Self::Offscreen {
+            Self::LocalOffscreen {
                 rendering_context, ..
             } => {
                 let context: Rc<dyn RenderingContext> = rendering_context.clone();
                 context
             }
+            #[cfg(target_os = "macos")]
+            Self::ExportableOffscreen { rendering_context } => {
+                let context: Rc<dyn RenderingContext> = rendering_context.clone();
+                context
+            }
+        }
+    }
+
+    fn webview_size(&self, viewport: SurfaceViewport) -> Result<SurfaceSize, HostError> {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::ExportableOffscreen { .. } => exportable_physical_size(viewport),
+            _ => Ok(viewport.size),
+        }
+    }
+
+    fn can_paint(&self) -> Result<bool, HostError> {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::ExportableOffscreen { rendering_context } => rendering_context
+                .can_paint()
+                .map_err(|error| HostError::new(error.to_string())),
+            _ => Ok(true),
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn exportable_context(&self) -> Option<&ExportableRenderingContext> {
+        match self {
+            Self::ExportableOffscreen { rendering_context } => Some(rendering_context),
+            _ => None,
         }
     }
 
@@ -1317,30 +1431,39 @@ impl ActiveRenderTarget {
                 Ok(())
             }
             (
-                Self::Offscreen {
+                Self::LocalOffscreen {
                     parent_context,
                     rendering_context: _,
                 },
                 RenderTarget::Offscreen(offscreen_target),
             ) => {
-                let parent_size = physical_size(offscreen_target.parent_size());
+                let Some((parent_surface, parent_size)) = offscreen_target.__local_parent() else {
+                    return Err(HostError::new(
+                        "cannot change a local offscreen target to exportable storage",
+                    ));
+                };
+                let parent_size = physical_size(parent_size);
                 if !was_attached {
                     parent_context
-                        .set_window(
-                            offscreen_target.parent_surface().window_handle(),
-                            parent_size,
-                        )
+                        .set_window(parent_surface.window_handle(), parent_size)
                         .map_err(|error| HostError::new(format!("{error:?}")))?;
                 }
                 parent_context.resize(parent_size);
                 if parent_context.size() != parent_size {
                     parent_context
-                        .set_window(
-                            offscreen_target.parent_surface().window_handle(),
-                            parent_size,
-                        )
+                        .set_window(parent_surface.window_handle(), parent_size)
                         .map_err(|error| HostError::new(format!("{error:?}")))?;
                     parent_context.resize(parent_size);
+                }
+                Ok(())
+            }
+            #[cfg(target_os = "macos")]
+            (
+                Self::ExportableOffscreen { rendering_context },
+                RenderTarget::Offscreen(offscreen_target),
+            ) if offscreen_target.__local_parent().is_none() => {
+                if !was_attached {
+                    rendering_context.attach();
                 }
                 Ok(())
             }
@@ -1355,7 +1478,13 @@ impl ActiveRenderTarget {
     fn detach(&self) -> Result<(), HostError> {
         let context = match self {
             Self::Native { rendering_context } => rendering_context,
-            Self::Offscreen { parent_context, .. } => parent_context,
+            Self::LocalOffscreen { parent_context, .. } => parent_context,
+            #[cfg(target_os = "macos")]
+            Self::ExportableOffscreen { rendering_context } => {
+                return rendering_context
+                    .detach()
+                    .map_err(|error| HostError::new(error.to_string()));
+            }
         };
         // Surfman's AppKit unbind temporarily selects this context, then restores the
         // previous one before take_window destroys its GL objects. Keep this target
@@ -1366,6 +1495,31 @@ impl ActiveRenderTarget {
         context
             .take_window()
             .map_err(|error| HostError::new(format!("{error:?}")))
+    }
+
+    fn prepare_resize(
+        &self,
+        target: RenderTarget<'_>,
+        viewport: SurfaceViewport,
+    ) -> Result<(), HostError> {
+        #[cfg(not(target_os = "macos"))]
+        let _ = (target, viewport);
+        #[cfg(target_os = "macos")]
+        if let (
+            Self::ExportableOffscreen { rendering_context },
+            RenderTarget::Offscreen(offscreen_target),
+        ) = (self, target)
+        {
+            if offscreen_target.__local_parent().is_some() {
+                return Err(HostError::new(
+                    "cannot resize exportable storage as a local offscreen target",
+                ));
+            }
+            rendering_context
+                .prepare_resize_to(exportable_physical_size(viewport)?)
+                .map_err(|error| HostError::new(error.to_string()))?;
+        }
+        Ok(())
     }
 
     fn resize(&self, target: RenderTarget<'_>, viewport: SurfaceViewport) -> Result<(), HostError> {
@@ -1382,14 +1536,26 @@ impl ActiveRenderTarget {
                 Ok(())
             }
             (
-                Self::Offscreen {
+                Self::LocalOffscreen {
                     rendering_context, ..
                 },
-                RenderTarget::Offscreen(_),
+                RenderTarget::Offscreen(offscreen_target),
             ) => {
+                if offscreen_target.__local_parent().is_none() {
+                    return Err(HostError::new(
+                        "cannot resize a local offscreen target as exportable storage",
+                    ));
+                }
                 rendering_context.resize(physical_size(viewport.size));
                 Ok(())
             }
+            #[cfg(target_os = "macos")]
+            (
+                Self::ExportableOffscreen { rendering_context },
+                RenderTarget::Offscreen(offscreen_target),
+            ) if offscreen_target.__local_parent().is_none() => rendering_context
+                .finish_resize_to(exportable_physical_size(viewport)?)
+                .map_err(|error| HostError::new(error.to_string())),
             (_, mismatched) => Err(HostError::new(format!(
                 "cannot resize Servo render target from {:?} with {:?}",
                 current_kind,
@@ -1419,8 +1585,10 @@ impl SurfaceWebView {
         runtime: &RefCell<Option<ServoRuntime>>,
     ) -> Result<Self, HostError> {
         let refresh_driver = Rc::new(SurfaceRefreshDriver::default());
-        let render_target = ActiveRenderTarget::new(target, viewport, refresh_driver.clone())?;
+        let render_target =
+            ActiveRenderTarget::new(target, viewport, refresh_driver.clone(), options)?;
         let rendering_context = render_target.rendering_context();
+        let webview_size = render_target.webview_size(viewport)?;
         let mut runtime = runtime.borrow_mut();
         if runtime.is_none() {
             *runtime = Some(
@@ -1443,7 +1611,7 @@ impl SurfaceWebView {
             })
             .map_err(HostError::new)?;
         webview.set_hidpi_scale_factor(viewport.scale_factor);
-        webview.resize(viewport.size);
+        webview.resize(webview_size);
         webview.request_paint();
 
         Ok(Self {
@@ -1462,10 +1630,12 @@ impl SurfaceWebView {
         target: RenderTarget<'_>,
         viewport: SurfaceViewport,
     ) -> Result<(), HostError> {
+        let webview_size = self.render_target.webview_size(viewport)?;
+        self.render_target.prepare_resize(target, viewport)?;
         self.webview.set_hidpi_scale_factor(viewport.scale_factor);
         // Servo skips its layout/window-size update if the rendering context
         // already has this size before WebView::resize runs.
-        self.webview.resize(viewport.size);
+        self.webview.resize(webview_size);
         self.render_target.resize(target, viewport)?;
         self.webview.request_paint();
         self.viewport = Some(viewport);
@@ -1600,7 +1770,7 @@ impl ServoWebViewDriver for SurfaceWebView {
     ) -> Result<Vec<HostEvent>, HostError> {
         let rendering_context = self.render_target.rendering_context();
         let target_kind = self.render_target.kind();
-        let surface_attached = self.surface_attached;
+        let surface_attached = self.surface_attached && self.render_target.can_paint()?;
         let surface = self.surface.clone();
         let viewport = self.viewport;
         let did_present = Rc::new(Cell::new(false));
@@ -1614,7 +1784,14 @@ impl ServoWebViewDriver for SurfaceWebView {
             let Some(viewport) = viewport else {
                 return;
             };
-            let mut frame = SurfaceFrame::new(rendering_context.as_ref(), viewport, target_kind);
+            let mut frame = SurfaceFrame::new(
+                webview,
+                rendering_context.as_ref(),
+                viewport,
+                target_kind,
+                #[cfg(target_os = "macos")]
+                self.render_target.exportable_context(),
+            );
             present_result = services
                 .present_frame(webview, surface, &mut frame)
                 .map_err(|error| HostError::new(error.to_string()));
@@ -1643,7 +1820,7 @@ impl Drop for SurfaceWebView {
 }
 
 fn create_rendering_context(
-    native_surface: NativeChildSurface<'_>,
+    native_surface: NativeSurface<'_>,
     size: SurfaceSize,
     refresh_driver: Rc<SurfaceRefreshDriver>,
 ) -> Result<WindowRenderingContext, HostError> {
@@ -1658,6 +1835,25 @@ fn create_rendering_context(
 
 fn physical_size(size: SurfaceSize) -> PhysicalSize<u32> {
     PhysicalSize::new(size.width, size.height)
+}
+
+#[cfg(target_os = "macos")]
+fn exportable_physical_size(viewport: SurfaceViewport) -> Result<SurfaceSize, HostError> {
+    if !viewport.scale_factor.is_finite() || viewport.scale_factor <= 0.0 {
+        return Err(HostError::new(format!(
+            "display scale must be finite and positive, got {}",
+            viewport.scale_factor
+        )));
+    }
+    let width = (viewport.size.width as f64 * viewport.scale_factor as f64).round();
+    let height = (viewport.size.height as f64 * viewport.scale_factor as f64).round();
+    if !(1.0..=u32::MAX as f64).contains(&width) || !(1.0..=u32::MAX as f64).contains(&height) {
+        return Err(HostError::new(format!(
+            "logical viewport {}x{} at scale {} has an invalid physical extent",
+            viewport.size.width, viewport.size.height, viewport.scale_factor
+        )));
+    }
+    Ok(SurfaceSize::new(width as u32, height as u32))
 }
 
 #[derive(Clone)]
@@ -1738,6 +1934,23 @@ mod tests {
         runtime::{Runtime, ServokitError},
         surface::SurfacePoint,
     };
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn exportable_offscreen_scales_logical_viewport_exactly_once() {
+        let viewport = SurfaceViewport::with_origin(
+            SurfacePoint::new(40, 20),
+            SurfaceSize::new(480, 300),
+            2.0,
+        );
+
+        assert_eq!(
+            exportable_physical_size(viewport).unwrap(),
+            SurfaceSize::new(960, 600)
+        );
+        assert_eq!(viewport.size, SurfaceSize::new(480, 300));
+        assert!(exportable_physical_size(viewport.with_scale_factor(0.0)).is_err());
+    }
 
     #[test]
     fn destroying_a_view_detaches_before_drop_and_keeps_sibling_surface_live() {
@@ -1851,7 +2064,7 @@ mod tests {
                 log,
                 fail_present,
                 update_faults,
-                target_kind: SurfaceMode::CpuOffscreen,
+                target_kind: SurfaceMode::Offscreen,
             }
         }
     }
@@ -2235,8 +2448,10 @@ mod tests {
             .unwrap();
 
         let log = log.take();
-        assert!(log.iter().any(|entry| entry
-            == "create:CpuOffscreen:gpui-slot:320x240@2:Some(\"https://example.com/\")"));
+        assert!(log
+            .iter()
+            .any(|entry| entry
+                == "create:Offscreen:gpui-slot:320x240@2:Some(\"https://example.com/\")"));
         assert!(!log
             .iter()
             .any(|entry| entry == "command:load:https://example.com/"));
@@ -2268,7 +2483,7 @@ mod tests {
         assert_eq!(
             lifecycle,
             vec![
-                "create:CpuOffscreen:loads-slot:320x240@2:Some(\"https://initial.test/\")",
+                "create:Offscreen:loads-slot:320x240@2:Some(\"https://initial.test/\")",
                 "driver-update:320x240@2+0,0",
                 "command:load:https://later.test/",
                 "driver-update:320x240@2+0,0",
@@ -2686,10 +2901,10 @@ mod tests {
             log.take(),
             vec![
                 "target:gpui-slot:320x240@2.5+12,34",
-                "create:CpuOffscreen:gpui-slot:320x240@2.5:None",
+                "create:Offscreen:gpui-slot:320x240@2.5:None",
                 "driver-update:320x240@2.5+12,34",
                 "before:1:gpui-slot:320x240@2.5",
-                "present:1:gpui-slot:320x240@2.5:CpuOffscreen",
+                "present:1:gpui-slot:320x240@2.5:Offscreen",
             ]
         );
     }
@@ -2726,19 +2941,19 @@ mod tests {
                 "resolve-navigation:navigation-1:true",
                 "driver-update:320x240@2+0,0",
                 "before:1:layout-slot:320x240@2",
-                "present:1:layout-slot:320x240@2:CpuOffscreen",
+                "present:1:layout-slot:320x240@2:Offscreen",
                 "resolve-dialog:dialog-1:true:Some(\"Servo\")",
                 "driver-update:320x240@2+0,0",
                 "before:1:layout-slot:320x240@2",
-                "present:1:layout-slot:320x240@2:CpuOffscreen",
+                "present:1:layout-slot:320x240@2:Offscreen",
                 "resolve-context-menu:context-menu-1:copy-link",
                 "driver-update:320x240@2+0,0",
                 "before:1:layout-slot:320x240@2",
-                "present:1:layout-slot:320x240@2:CpuOffscreen",
+                "present:1:layout-slot:320x240@2:Offscreen",
                 "dismiss-context-menu:context-menu-2",
                 "driver-update:320x240@2+0,0",
                 "before:1:layout-slot:320x240@2",
-                "present:1:layout-slot:320x240@2:CpuOffscreen",
+                "present:1:layout-slot:320x240@2:Offscreen",
             ]
         );
     }
@@ -2773,7 +2988,7 @@ mod tests {
                 "update:640x480@3+0,0",
                 "driver-update:640x480@3+0,0",
                 "before:1:layout-slot:640x480@3",
-                "present:1:layout-slot:640x480@3:CpuOffscreen",
+                "present:1:layout-slot:640x480@3:Offscreen",
                 "target-update:layout-slot:320x240@2+0,0",
                 "update:320x240@2+0,0",
             ]

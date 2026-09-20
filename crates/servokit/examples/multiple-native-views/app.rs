@@ -32,8 +32,8 @@ use servokit::{
     },
     runtime::{Runtime, SessionHandle},
     surface::{
-        HostSurface, MemoryClipboard, NativeChildSurface, SurfaceDelegate, SurfaceError,
-        SurfaceFrame, SurfaceHost, SurfaceHostOptions, SurfaceSize, SurfaceTarget, SurfaceViewport,
+        HostSurface, MemoryClipboard, NativeSurface, SurfaceDelegate, SurfaceError, SurfaceFrame,
+        SurfaceHost, SurfaceHostOptions, SurfaceSize, SurfaceTarget, SurfaceViewport,
     },
     webview::WebViewHandle,
 };
@@ -58,7 +58,7 @@ impl SurfaceDelegate for Surfaces {
         // SAFETY: the example's window owns this child until close_view first destroys
         // the Servo view. All calls occur on the AppKit main thread.
         unsafe {
-            Ok(NativeChildSurface::new(
+            Ok(NativeSurface::new(
                 DisplayHandle::borrow_raw(RawDisplayHandle::AppKit(AppKitDisplayHandle::new())),
                 WindowHandle::borrow_raw(RawWindowHandle::AppKit(AppKitWindowHandle::new(
                     NonNull::new(child.cast()).unwrap(),

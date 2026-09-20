@@ -39,28 +39,27 @@ integration; each desktop host owns only unavoidable native window/view/event
 loop glue. Treat macOS, Windows, Linux, Android, and React Native as proof
 surfaces for one architecture, not as separate architectures.
 
-The supported initial desktop surface path is `NativeChildSurface`: the host app
+The supported native desktop surface path is `NativeSurface`: the host app
 or framework owns the native window or layout slot, then lends ServoKit borrowed
 `raw-window-handle` display/window handles through the public surface facade.
-`GpuLayerSurface` remains future, experimental, and upstream-dependent; desktop
-readiness checks below must not claim IOSurface, shared-D3D, `dmabuf`, or other
-exported-GPU-layer support until Servo exports a supported host-consumable GPU
-surface contract and ServoKit implements it.
+macOS also has an exportable `OffscreenSurface` path through Servo's public
+`RenderingContext`: it publishes retained 32BGRA `CVPixelBuffer` frames backed
+by IOSurface. Shared-D3D and dma-buf payloads remain unimplemented platform work.
 
 | Desktop platform | Automation-friendly readiness signals | Manual smoke signals | Surface posture | Current limits |
 | --- | --- | --- | --- | --- |
-| macOS | `cargo check --manifest-path examples/desktop-winit/Cargo.toml --locked` on a macOS desktop Rust host.<br>`RUSTC_WRAPPER=sccache CARGO_TARGET_DIR=/tmp/servokit-gpui-target CARGO_PROFILE_DEV_DEBUG=0 cargo check --manifest-path examples/desktop-gpui/Cargo.toml --locked` for the GPUI/AppKit proof. | Start the fixture server, then run `examples/desktop-winit` and `examples/desktop-gpui` against `http://127.0.0.1:8481/smoke/index.html`. Confirm the visible `Smoke fixtures ready` marker, resize behavior, focus/input flow, and event output for each example. | `NativeChildSurface` for the whole-window `winit` path and for the GPUI/AppKit child `NSView` layout slot. The AppKit helper lives in `servokit::surface::macos` and produces borrowed native-child handles for the same facade. | Requires an interactive macOS/AppKit session for GUI smoke. The GPUI path is a proof surface, not a stable `servokit-gpui` product crate. `GpuLayerSurface` / IOSurface export is not implemented. |
-| Windows | `cargo check --manifest-path examples/desktop-winit/Cargo.toml --locked` on a prepared Windows Rust/Servo workstation or runner. | Start the fixture server, run `examples/desktop-winit`, and confirm a native Windows window renders the smoke fixture while resize, focus, URL/load, and close/detach events appear in stdout. | `NativeChildSurface` through the `winit` / `raw-window-handle` path. Keep any Windows-specific details target-gated and expressed through existing ServoKit facade vocabulary. | No Windows framework adapter is claimed yet. GUI smoke requires an interactive desktop session. `GpuLayerSurface` / shared-D3D export is not implemented. |
-| Linux | `cargo check --manifest-path examples/desktop-winit/Cargo.toml --locked` on a selected X11 and/or Wayland baseline. | Under the selected X11/Wayland session, start the fixture server, run `examples/desktop-winit`, and confirm the smoke fixture, resize/focus behavior, URL/load events, and close/detach events. | `NativeChildSurface` through the selected `winit` / `raw-window-handle` display path. Native-child readiness is separate from future `dmabuf` or exported-layer work. | The initial Linux compositor baseline remains undecided, so no cross-compositor parity is claimed. `GpuLayerSurface` / `dmabuf` export is not implemented. |
+| macOS | `cargo check --manifest-path examples/desktop-winit/Cargo.toml --locked` on a macOS desktop Rust host.<br>`RUSTC_WRAPPER=sccache CARGO_TARGET_DIR=/tmp/servokit-gpui-target CARGO_PROFILE_DEV_DEBUG=0 cargo check --manifest-path examples/desktop-gpui/Cargo.toml --locked` for the GPUI/AppKit native proof.<br>`cargo test --manifest-path crates/Cargo.toml -p servokit --features servo --lib` for the owning facade semantics. | Run the native examples for existing child-surface smoke. For exportable offscreen, consume two independent live pages, verify 32BGRA orientation/physical extent, exhaust and release the bounded pool, resize across scale generations, and close either view while its sibling remains responsive. | `NativeSurface` supports whole-window and AppKit-child paths. `OffscreenSurface::exportable()` publishes macOS `GpuFrame`/`CVPixelBuffer` resources with exact-frame completion. | Requires an interactive macOS session for live import/consume evidence. No GPUI dependency or supported `servokit-gpui` adapter is introduced. |
+| Windows | `cargo check --manifest-path examples/desktop-winit/Cargo.toml --locked` on a prepared Windows Rust/Servo workstation or runner. | Start the fixture server, run `examples/desktop-winit`, and confirm a native Windows window renders the smoke fixture while resize, focus, URL/load, and close/detach events appear in stdout. | `NativeSurface` through the `winit` / `raw-window-handle` path. Keep any Windows-specific details target-gated and expressed through existing ServoKit facade vocabulary. | No Windows framework adapter or shared-D3D export is claimed yet. GUI smoke requires an interactive desktop session. |
+| Linux | `cargo check --manifest-path examples/desktop-winit/Cargo.toml --locked` on a selected X11 and/or Wayland baseline. | Under the selected X11/Wayland session, start the fixture server, run `examples/desktop-winit`, and confirm the smoke fixture, resize/focus behavior, URL/load events, and close/detach events. | `NativeSurface` through the selected `winit` / `raw-window-handle` display path. Native readiness is separate from future dma-buf work. | The initial Linux compositor baseline remains undecided, so no cross-compositor parity or dma-buf export is claimed. |
 
 ### macOS native-child proof paths
 
 macOS currently has two source-built proof paths for the same ServoKit
-`NativeChildSurface` contract:
+`NativeSurface` contract:
 
 1. `examples/desktop-winit` is the whole-window native-child proof. The app owns
    the `winit` window/event loop, lends borrowed `raw-window-handle` display and
-   window handles through `servokit::surface::NativeChildSurface`, pumps
+   window handles through `servokit::surface::NativeSurface`, pumps
    `Runtime::perform_updates`, and prints URL/load/focus/surface events to
    stdout.
 2. `examples/desktop-gpui` is the AppKit child-view proof. GPUI owns the window,
@@ -100,7 +99,8 @@ Confirm that GPUI chrome surrounds the Servo region, the child `NSView` shows
 `Smoke fixtures ready`, resizing the GPUI window keeps the child view aligned to
 the browser slot, and the GPUI footer reports URL/load/title/status event output
 from `ServokitEvent` values. This validates macOS native-child embedding only;
-IOSurface / `GpuLayerSurface` export remains future upstream-dependent work.
+exportable IOSurface rendering
+uses the separate `OffscreenSurface::exportable()` acceptance path above.
 
 ## Multiple native views on macOS
 
@@ -120,7 +120,8 @@ It uses data URLs and needs no fixture server. Omit `--smoke` to leave both page
 visible for inspection; the minimal native host does not implement browser chrome
 or general keyboard/IME event translation.
 
-Clipping, overlap, native hide/reveal, and GPU surface export are not covered.
+This native-view proof does not cover clipping, overlap, native hide/reveal, or
+GPU surface export.
 
 Focused regression commands:
 
@@ -205,7 +206,7 @@ fixture/API to validate:
   deny/no-op, and host handling of a surfaced popup/navigation URL in the
   current app-owned UI.
 - Areas such as custom schemes, secure web-content IPC, preload/user scripts,
-  and GPU layer surfaces should gain matrix rows only after concrete APIs and
+  and Windows/Linux GPU export should gain matrix rows only after concrete APIs and
   fixtures exist. Publication/CI and release promotion remain separate from the
   proven local prebuilt package path.
 

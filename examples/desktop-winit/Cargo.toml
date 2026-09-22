@@ -3,9 +3,17 @@ name = "desktop-winit"
 version = "0.1.0"
 edition = "2021"
 publish = false
+default-run = "desktop-winit"
+
+[[bin]]
+name = "profile-branch-proof"
+path = "src/bin/profile-branch-proof.rs"
 
 [dependencies]
+servo = "=0.3.0"
 servokit = { path = "../../crates/servokit", features = ["servo"] }
+servokit-embedder = { path = "../../crates/servokit-embedder", features = ["servo"] }
+sha2 = "0.10"
 winit = "0.30"
 
 [patch.crates-io]

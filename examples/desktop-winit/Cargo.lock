@@ -1408,7 +1408,10 @@ dependencies = [
 name = "desktop-winit"
 version = "0.1.0"
 dependencies = [
+ "servo",
  "servokit",
+ "servokit-embedder",
+ "sha2",
  "winit",
 ]
 

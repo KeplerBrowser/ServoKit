@@ -19,6 +19,8 @@ scope or design decisions back to the issue discussion.
 Before merging, verify:
 
 - The approved outcome and acceptance criteria are met; documentation matches.
+- Tracked proof artifacts satisfy [CONTRIBUTING's](../../../../CONTRIBUTING.md) retention rule; one-time
+  machinery is removed after its evidence is recorded.
 - Relevant local validation and required PR checks pass for the final revision.
 - Independent review is complete and blockers are resolved.
 - Commitlint passes; review confirms meaningful commit scope and truthful attribution.

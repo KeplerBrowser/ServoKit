@@ -48,6 +48,21 @@ Tests, file edits, and reviewer corrections are part of that outcome, not separa
 administrative tickets. Split only when another outcome can be accepted or deferred
 independently. A PR delivers a feature across whichever layers it requires.
 
+State the supported behavior or engineering guarantee that becomes true. Cleanup,
+investigation steps, evidence collection, and file operations are delivery work,
+not outcomes. Fold them into the nearest active feature or fix. When no active
+outcome owns necessary maintenance, a maintainer may authorize one scoped change
+directly; create an issue only when the maintenance itself needs an independent
+decision or can be deferred independently.
+
+One-time research and feasibility tooling is ephemeral by default. Record its
+revision, commands, results, and limitations in the issue or PR, then remove the
+machinery before merge. Track a proof harness or readiness check only when the
+accepted scope names the supported guarantee it protects, its owning layer, and
+the event that requires it to run again. When a later outcome supersedes tracked
+proof machinery, remove it as part of that outcome while preserving the historical
+evidence.
+
 Milestones describe shared sprint goals, with Outcome, Done when, and Not included
 boundaries. They can span working sessions and are separate from releases.
 Investigate unresolved design questions in the issue; contributors need no

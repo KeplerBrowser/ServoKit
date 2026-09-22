@@ -11,6 +11,12 @@ platform support changes. Add a document only for a durable topic with no existi
 home. Internal refactors that preserve documented behavior need no documentation
 change; investigation and progress belong in the issue or PR.
 
+Apply [CONTRIBUTING's](../../../../CONTRIBUTING.md) proof-artifact retention rule before adding a tracked
+executable, fixture, or readiness check. For a one-time proof, preserve the
+evidence in the issue or PR and remove its machinery before merge. A durable
+artifact must protect the accepted guarantee at its owning layer and have an
+explicit rerun trigger.
+
 Use [readiness checks](../../../../docs/readiness-checks.md) for platform commands.
 Choose evidence for the changed behavior:
 

@@ -10,12 +10,24 @@ body:
     validations:
       required: true
   - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What supported behavior or engineering guarantee becomes true? Cleanup, file edits, and evidence collection are delivery work, not the outcome.
+    validations:
+      required: true
+  - type: textarea
     id: solution
     attributes:
       label: Proposed solution
       description: Describe the behavior you would like.
     validations:
       required: true
+  - type: textarea
+    id: proof-artifacts
+    attributes:
+      label: Tracked proof artifacts
+      description: If this adds a harness or readiness check, name the supported guarantee, owning layer, and rerun trigger. Leave blank for one-time evidence, which belongs in the issue or PR.
   - type: textarea
     id: alternatives
     attributes:

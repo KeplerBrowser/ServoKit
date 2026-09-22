@@ -12,7 +12,8 @@ Before implementing public ServoKit methods, props, events, commands, or host-co
 
 Public docs describe validated architecture and APIs. Keep private planning and scratch work local; `.gitignore` owns the excluded paths.
 
-Use [CONTRIBUTING.md](CONTRIBUTING.md) for RFCs, labels, and milestone conventions.
+Use [CONTRIBUTING.md](CONTRIBUTING.md) for RFCs, labels, milestone conventions,
+issue granularity, and proof-artifact retention.
 
 Investigate unresolved design questions before implementation. Keep investigation in the feature issue unless it has an independently useful outcome. Repository guidance is authoritative; the Wiki provides supplementary recipes and troubleshooting.
 

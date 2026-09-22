@@ -7,6 +7,9 @@ and [ARCHITECTURE.md](../../../../ARCHITECTURE.md).
 
 Assess the outcome, scope, changed guarantees, compatibility, failure modes,
 alternatives, and whether acceptance evidence tests the owning layers.
+Apply [CONTRIBUTING's](../../../../CONTRIBUTING.md) issue-granularity and proof-artifact retention rules:
+administrative work belongs to its owning outcome, and every proposed tracked
+proof must protect a supported guarantee with an owner and rerun trigger.
 Return one of these outcomes to the agent handling the issue, or to the user
 when directly assigned a review:
 

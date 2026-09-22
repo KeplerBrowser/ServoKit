@@ -582,10 +582,11 @@ impl ExportableRenderingContext {
             Err(error) => {
                 drop(native_surface);
                 let mut surface = surface;
-                let _ = self
-                    .device
-                    .borrow()
-                    .destroy_surface(&mut self.context.borrow_mut(), &mut surface);
+                let _ = destroy_surface_in_owning_context(
+                    &self.device.borrow(),
+                    &mut self.context.borrow_mut(),
+                    &mut surface,
+                );
                 return Err(error);
             }
         };
@@ -699,7 +700,7 @@ impl ExportableRenderingContext {
         let mut context = self.context.borrow_mut();
         for mut slot in slots {
             if let Some(mut surface) = slot.surface.take() {
-                let _ = device.destroy_surface(&mut context, &mut surface);
+                let _ = destroy_surface_in_owning_context(&device, &mut context, &mut surface);
             }
         }
     }
@@ -842,7 +843,7 @@ impl Drop for ExportableRenderingContext {
         }
         for slot in &mut self.state.get_mut().slots {
             if let Some(mut surface) = slot.surface.take() {
-                let _ = device.destroy_surface(context, &mut surface);
+                let _ = destroy_surface_in_owning_context(device, context, &mut surface);
             }
         }
         let _ = device.destroy_context(context);
@@ -890,11 +891,47 @@ fn surface_error(error: surfman::Error) -> SurfaceError {
     SurfaceError::new(format!("{error:?}"))
 }
 
+fn destroy_surface_in_owning_context(
+    device: &Device,
+    context: &mut Context,
+    surface: &mut Surface,
+) -> Result<(), surfman::Error> {
+    device.make_context_current(context)?;
+    device.destroy_surface(context, surface)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use servokit_embedder::{PlaceholderHost, Runtime};
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct TestRefreshDriver;
+
+    impl RefreshDriver for TestRefreshDriver {
+        fn observe_next_frame(&self, _start_frame_callback: Box<dyn Fn() + Send + 'static>) {}
+    }
+
+    fn exportable_context(size: SurfaceSize) -> ExportableRenderingContext {
+        ExportableRenderingContext::new(size, Arc::new(|| {}), Rc::new(TestRefreshDriver)).unwrap()
+    }
+
+    fn live_framebuffer(context: &ExportableRenderingContext) -> u32 {
+        context.make_current().unwrap();
+        let framebuffer = context.framebuffer();
+        assert_ne!(framebuffer, 0);
+        assert_ne!(context.gleam_gl.is_framebuffer(framebuffer), 0);
+        framebuffer
+    }
+
+    fn assert_framebuffer_is_live(context: &ExportableRenderingContext, framebuffer: u32) {
+        context.make_current().unwrap();
+        assert_ne!(
+            context.gleam_gl.is_framebuffer(framebuffer),
+            0,
+            "another context deleted the sibling framebuffer"
+        );
+    }
 
     fn webview() -> WebViewHandle {
         let mut runtime = Runtime::new(PlaceholderHost::default());
@@ -907,6 +944,46 @@ mod tests {
     #[test]
     fn completion_is_send() {
         assert_send::<GpuFrameCompletion>();
+    }
+
+    #[test]
+    fn resizing_one_context_preserves_a_current_sibling_framebuffer() {
+        let first = exportable_context(SurfaceSize::new(64, 64));
+        let second = exportable_context(SurfaceSize::new(64, 64));
+        let second_framebuffer = live_framebuffer(&second);
+
+        first.prepare_resize_to(SurfaceSize::new(96, 96)).unwrap();
+
+        assert_framebuffer_is_live(&second, second_framebuffer);
+    }
+
+    #[test]
+    fn deferred_completion_preserves_a_current_sibling_framebuffer() {
+        let first = exportable_context(SurfaceSize::new(64, 64));
+        let second = exportable_context(SurfaceSize::new(64, 64));
+        first.make_current().unwrap();
+        first.prepare_for_rendering();
+        let frame = first.take_gpu_frame(webview()).unwrap();
+        first.prepare_resize_to(SurfaceSize::new(96, 96)).unwrap();
+        let second_framebuffer = live_framebuffer(&second);
+
+        let (pixel_buffer, completion) = frame.into_parts();
+        drop(pixel_buffer);
+        completion.complete();
+        first.can_paint().unwrap();
+
+        assert_framebuffer_is_live(&second, second_framebuffer);
+    }
+
+    #[test]
+    fn dropping_one_context_preserves_a_current_sibling_framebuffer() {
+        let first = exportable_context(SurfaceSize::new(64, 64));
+        let second = exportable_context(SurfaceSize::new(64, 64));
+        let second_framebuffer = live_framebuffer(&second);
+
+        drop(first);
+
+        assert_framebuffer_is_live(&second, second_framebuffer);
     }
 
     #[test]

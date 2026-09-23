@@ -147,6 +147,7 @@ front door.
 | [`docs/servokit.md`](./docs/servokit.md) | Target ServoKit module responsibilities and design rules |
 | [`docs/react-native-servokit.md`](./docs/react-native-servokit.md) | React Native adapter API, Android Servo-backed status, iOS WKWebView path, deferred Servo-on-iOS work, and host boundary |
 | [`docs/readiness-checks.md`](./docs/readiness-checks.md) | Build and smoke-check matrix for repo-local proof surfaces |
+| [`docs/rust-dependency-baseline.md`](./docs/rust-dependency-baseline.md) | Servo pin, Cargo build environment, lockfile, and patch ownership |
 | [`docs/feature-coverage.md`](./docs/feature-coverage.md) | Current embedder-control coverage and deferred features |
 | [GitHub Wiki](https://github.com/KeplerBrowser/ServoKit/wiki) | Integration recipes and troubleshooting; repository guidance remains canonical |
 

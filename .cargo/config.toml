@@ -1,0 +1,2 @@
+[env]
+SERVO_STYLE_THREAD_STACK_SIZE_KB = { value = "8192", force = false }

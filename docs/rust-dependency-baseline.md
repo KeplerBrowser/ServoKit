@@ -25,6 +25,29 @@ That means:
 Changing the Servo baseline is an explicit follow-up decision, not a routine
 lockfile refresh.
 
+## Cargo build environment
+
+Servo's own build tooling compiles Stylo worker threads with an 8192 KiB stack,
+but the published Servo 0.3.0 dependency does not propagate that compile-time
+setting to Cargo consumers. ServoKit's repository Cargo configuration supplies
+the same value for builds run from this repository while preserving an explicit
+caller override.
+
+Downstream source consumers must apply the setting in their own Cargo workspace
+`.cargo/config.toml` before compiling Servo or ServoKit:
+
+```toml
+[env]
+SERVO_STYLE_THREAD_STACK_SIZE_KB = { value = "8192", force = false }
+```
+
+This is a compile-time Stylo setting; exporting it only when launching the
+application does not change an existing binary. Cargo tracks the value as an
+environment dependency, so changing the build environment recompiles Stylo
+without requiring a manual clean. This workaround can be removed after the
+upstream Stylo default is fixed and included in ServoKit's pinned Servo graph;
+see [servo/stylo#464](https://github.com/servo/stylo/issues/464).
+
 ## Where direct pins live
 
 Shared direct dependency pins for Servokit crates live in the crate workspace

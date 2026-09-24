@@ -168,6 +168,34 @@ impl JavaScriptEvaluationErrorKind {
     }
 }
 
+/// Servo favicon pixel formats preserved without conversion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaviconPixelFormat {
+    /// Luminance channel only.
+    K8,
+    /// Luminance and alpha channels.
+    KA8,
+    /// Red, green, and blue channels.
+    RGB8,
+    /// Red, green, blue, and alpha channels.
+    RGBA8,
+    /// Blue, green, red, and alpha channels.
+    BGRA8,
+}
+
+/// An owned copy of Servo's first favicon image frame.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FaviconImage {
+    /// Image width in pixels.
+    pub width: u32,
+    /// Image height in pixels.
+    pub height: u32,
+    /// Pixel layout used by [`Self::bytes`].
+    pub format: FaviconPixelFormat,
+    /// Unmodified bytes from Servo's first image frame.
+    pub bytes: Vec<u8>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostEvent {
     NavigationRequested {
@@ -194,6 +222,11 @@ pub enum HostEvent {
     },
     PageTitleChanged {
         title: Option<String>,
+    },
+    /// Servo reported a new favicon value for this event's webview.
+    FaviconChanged {
+        /// The current first-frame image, or `None` when Servo reports no favicon.
+        favicon: Option<FaviconImage>,
     },
     StatusTextChanged {
         status: Option<String>,

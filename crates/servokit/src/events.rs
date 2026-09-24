@@ -1,3 +1,5 @@
 //! Event facade exports.
 
-pub use servokit_embedder::{HostEvent, LoadStatusKind, PopupRequestPolicy, ServokitEvent};
+pub use servokit_embedder::{
+    FaviconImage, FaviconPixelFormat, HostEvent, LoadStatusKind, PopupRequestPolicy, ServokitEvent,
+};

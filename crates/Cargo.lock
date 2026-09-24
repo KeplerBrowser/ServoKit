@@ -6604,6 +6604,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "servo",
+ "servo-base",
  "servo-default-resources",
  "servokit-host",
  "thiserror 2.0.18",

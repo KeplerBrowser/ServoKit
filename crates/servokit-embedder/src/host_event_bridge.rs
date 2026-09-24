@@ -1,6 +1,6 @@
 use crate::{
-    ContextMenuElementInformation, ContextMenuItem, HostEvent, SelectElementOption,
-    SelectElementOptionOrOptgroup,
+    ContextMenuElementInformation, ContextMenuItem, FaviconImage, FaviconPixelFormat, HostEvent,
+    SelectElementOption, SelectElementOptionOrOptgroup,
 };
 use std::fmt::Write;
 
@@ -25,6 +25,7 @@ fn event_name(event: &HostEvent) -> &'static str {
         HostEvent::PopupCreated { .. } => "popupCreated",
         HostEvent::UrlChanged { .. } => "urlChanged",
         HostEvent::PageTitleChanged { .. } => "pageTitleChanged",
+        HostEvent::FaviconChanged { .. } => "faviconChanged",
         HostEvent::StatusTextChanged { .. } => "statusTextChanged",
         HostEvent::LoadStatusChanged { .. } => "loadStatusChanged",
         HostEvent::HistoryChanged { .. } => "historyChanged",
@@ -104,6 +105,11 @@ fn write_payload(output: &mut String, event: &HostEvent) {
         }
         HostEvent::PageTitleChanged { title } => {
             write_optional_string_field(output, &mut first, "title", title.as_deref());
+        }
+        HostEvent::FaviconChanged { favicon } => {
+            write_value_field(output, &mut first, "favicon", |output| {
+                write_optional_favicon(output, favicon.as_ref());
+            });
         }
         HostEvent::StatusTextChanged { status } => {
             write_optional_string_field(output, &mut first, "status", status.as_deref());
@@ -290,6 +296,34 @@ fn write_payload(output: &mut String, event: &HostEvent) {
     output.push('}');
 }
 
+fn write_optional_favicon(output: &mut String, favicon: Option<&FaviconImage>) {
+    let Some(favicon) = favicon else {
+        output.push_str("null");
+        return;
+    };
+
+    output.push('{');
+    let mut first = true;
+    write_u32_field(output, &mut first, "width", favicon.width);
+    write_u32_field(output, &mut first, "height", favicon.height);
+    write_string_field(
+        output,
+        &mut first,
+        "format",
+        match favicon.format {
+            FaviconPixelFormat::K8 => "K8",
+            FaviconPixelFormat::KA8 => "KA8",
+            FaviconPixelFormat::RGB8 => "RGB8",
+            FaviconPixelFormat::RGBA8 => "RGBA8",
+            FaviconPixelFormat::BGRA8 => "BGRA8",
+        },
+    );
+    write_value_field(output, &mut first, "bytes", |output| {
+        write_u8_array(output, &favicon.bytes);
+    });
+    output.push('}');
+}
+
 fn write_context_menu_element_info(
     output: &mut String,
     element_info: &ContextMenuElementInformation,
@@ -431,6 +465,17 @@ fn write_usize_array(output: &mut String, values: &[usize]) {
     output.push(']');
 }
 
+fn write_u8_array(output: &mut String, values: &[u8]) {
+    output.push('[');
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            output.push(',');
+        }
+        write!(output, "{value}").expect("writing to String should not fail");
+    }
+    output.push(']');
+}
+
 fn write_string_field(output: &mut String, first: &mut bool, name: &str, value: &str) {
     write_field_name(output, first, name);
     write_json_string(output, value);
@@ -525,6 +570,25 @@ mod tests {
         InputMethodKind, JavaScriptEvaluationErrorKind, LoadStatusKind, PopupRequestPolicy,
         SelectElementOption, SelectElementOptionOrOptgroup, SimpleDialogKind, SurfaceSize,
     };
+
+    #[test]
+    fn encodes_owned_favicon_payloads() {
+        assert_eq!(
+            encode_host_event_bridge(&HostEvent::FaviconChanged {
+                favicon: Some(FaviconImage {
+                    width: 2,
+                    height: 1,
+                    format: FaviconPixelFormat::BGRA8,
+                    bytes: vec![3, 2, 1, 255],
+                }),
+            }),
+            r#"{"name":"faviconChanged","payload":{"favicon":{"width":2,"height":1,"format":"BGRA8","bytes":[3,2,1,255]}}}"#
+        );
+        assert_eq!(
+            encode_host_event_bridge(&HostEvent::FaviconChanged { favicon: None }),
+            r#"{"name":"faviconChanged","payload":{"favicon":null}}"#
+        );
+    }
 
     #[test]
     fn encodes_context_menu_requested_as_a_bridge_envelope() {

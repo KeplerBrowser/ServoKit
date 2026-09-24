@@ -335,7 +335,12 @@ pub unsafe extern "C" fn servo_host_take_next_event_bridge_json_len(
     host: *mut HostHandle,
 ) -> usize {
     with_live_host_mut(host, |handle| {
-        handle.last_event = handle.events.pop_front();
+        handle.last_event = loop {
+            match handle.events.pop_front() {
+                Some(HostEvent::FaviconChanged { .. }) => continue,
+                event => break event,
+            }
+        };
         handle.last_event_bridge_json = handle.last_event.as_ref().map(encode_host_event_bridge);
         handle
             .last_event_bridge_json
@@ -893,8 +898,9 @@ mod tests {
     use crate::*;
     use servokit_embedder::{
         encode_host_event_bridge, ContextMenuAction, ContextMenuElementInformation,
-        ContextMenuItem, HostEvent, NavigationRequest, PopupRequestPolicy, SelectElementOption,
-        SelectElementOptionOrOptgroup, SimpleDialogKind, TouchEventKind, WebViewCommand,
+        ContextMenuItem, FaviconImage, FaviconPixelFormat, HostEvent, NavigationRequest,
+        PopupRequestPolicy, SelectElementOption, SelectElementOptionOrOptgroup, SimpleDialogKind,
+        TouchEventKind, WebViewCommand,
     };
     use std::ffi::{c_char, CString};
     use std::mem;
@@ -1089,6 +1095,35 @@ mod tests {
             }),
             ""
         );
+
+        unsafe { servo_host_free(host) };
+    }
+
+    #[test]
+    fn bridge_json_skips_native_only_favicon_events() {
+        let host = servo_host_new(0);
+        unsafe {
+            let handle = &mut *host;
+            handle.events.push_back(HostEvent::FaviconChanged {
+                favicon: Some(FaviconImage {
+                    width: 1,
+                    height: 1,
+                    format: FaviconPixelFormat::RGBA8,
+                    bytes: vec![1, 2, 3, 4],
+                }),
+            });
+            handle.events.push_back(HostEvent::UrlChanged {
+                url: "https://example.com/".to_owned(),
+            });
+        }
+
+        assert_next_event(
+            host,
+            HostEvent::UrlChanged {
+                url: "https://example.com/".to_owned(),
+            },
+        );
+        assert_no_event(host);
 
         unsafe { servo_host_free(host) };
     }

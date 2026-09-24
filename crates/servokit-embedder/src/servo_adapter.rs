@@ -1,7 +1,7 @@
 use std::collections::{HashSet, VecDeque};
 
 use crate::{
-    ContextMenuElementInformation, ContextMenuItem, HostEvent, InputMethodKind,
+    ContextMenuElementInformation, ContextMenuItem, FaviconImage, HostEvent, InputMethodKind,
     JavaScriptEvaluationErrorKind, LoadStatusKind, PopupRequestPolicy,
     SelectElementOptionOrOptgroup, SimpleDialogKind,
 };
@@ -143,6 +143,10 @@ impl ServoAdapterState {
 
     pub fn notify_page_title_changed(&mut self, title: Option<String>) {
         self.events.push_back(HostEvent::PageTitleChanged { title });
+    }
+
+    pub fn notify_favicon_changed(&mut self, favicon: Option<FaviconImage>) {
+        self.events.push_back(HostEvent::FaviconChanged { favicon });
     }
 
     pub fn notify_status_text_changed(&mut self, status: Option<String>) {
@@ -531,6 +535,31 @@ mod tests {
                 HostEvent::Closed,
             ]
         );
+    }
+
+    #[test]
+    fn forwards_favicon_values_without_navigation_state() {
+        let mut state = ServoAdapterState::default();
+        let favicon = FaviconImage {
+            width: 1,
+            height: 1,
+            format: crate::FaviconPixelFormat::RGBA8,
+            bytes: vec![1, 2, 3, 4],
+        };
+
+        state.notify_favicon_changed(Some(favicon.clone()));
+        state.notify_favicon_changed(None);
+
+        assert_eq!(
+            state.drain_events(),
+            vec![
+                HostEvent::FaviconChanged {
+                    favicon: Some(favicon),
+                },
+                HostEvent::FaviconChanged { favicon: None },
+            ]
+        );
+        assert_eq!(state.current_url(), None);
     }
 
     #[test]

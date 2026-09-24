@@ -36,7 +36,7 @@ pub(crate) fn push_runtime_error(
         | RuntimeError::SurfaceNotAttached(_)
         | RuntimeError::ManagedChildSurfaceAlreadyAttached(_, _)
         | RuntimeError::ManagedChildSurfaceNotAttached(_, _) => {}
-        RuntimeError::Host(error) => {
+        RuntimeError::Host(error) | RuntimeError::WebView { error, .. } => {
             handle.push_backend_error(diagnostic_url, error.message().to_owned());
         }
         RuntimeError::UnknownSession(_) | RuntimeError::UnknownWebView(_) => {

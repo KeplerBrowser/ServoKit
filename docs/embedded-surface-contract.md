@@ -64,7 +64,7 @@ Current Servo APIs already expose the primitives needed for this contract:
 - `servo::Servo::spin_event_loop()` lets the host pump Servo from the app's
   frame/event loop.
 - `servo::WebViewDelegate` exposes the event and policy surface Servokit is
-  already translating: new-frame-ready, URL/title/status/load/history/focus,
+  already translating: new-frame-ready, URL/title/favicon/status/load/history/focus,
   cursor, fullscreen, crash, navigation policy, permissions, and embedder
   controls. Popup/new-window intent maps to `request_create_new`; main-frame
   and iframe navigation allow/deny maps to `request_navigation`;

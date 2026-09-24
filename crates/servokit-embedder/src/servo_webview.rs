@@ -926,7 +926,7 @@ fn hidpi_scale_factor(density: f32) -> Scale<f32, DeviceIndependentPixel, Device
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LoadStatusKind, PopupRequestPolicy};
+    use crate::{FaviconImage, LoadStatusKind, PopupRequestPolicy};
     use servo::{SoftwareRenderingContext, StringRequest};
     use std::cell::Cell;
     use std::io::{Read, Write};
@@ -1040,6 +1040,17 @@ mod tests {
                 HostEvent::LoadStatusChanged {
                     status: LoadStatusKind::Complete,
                     ..
+                }
+            )
+        })
+    }
+
+    fn has_routed_complete_load(events: &[ServoWebViewEvent]) -> bool {
+        events.iter().any(|event| {
+            matches!(
+                event.event,
+                HostEvent::LoadStatusChanged {
+                    status: LoadStatusKind::Complete,
                 }
             )
         })
@@ -1651,12 +1662,28 @@ mod tests {
     }
 
     fn assert_shared_views_and_final_shutdown() {
+        const FIRST_URL: &str = concat!(
+            "data:text/html,<title>First</title><link rel='icon' href='data:image/png;base64,",
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEX/AAAZ4gk3AAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg==",
+            "'>"
+        );
+        const SECOND_URL: &str = concat!(
+            "data:text/html,<title>Second</title><link rel='icon' href='data:image/png;base64,",
+            "iVBORw0KGgoAAAANSUhEUgAAAAIAAAABAQMAAADO7O3JAAAAA1BMVEUAAP+KeNJXAAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg==",
+            "'>"
+        );
+        const REPLACEMENT_URL: &str = concat!(
+            "data:text/html,<title>First replacement</title><link rel='icon' href='data:image/png;base64,",
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAACAQMAAACjTyRkAAAAA1BMVEUAgACc+aWRAAAADElEQVQI12NgYGAAAAAEAAEnNCcKAAAAAElFTkSuQmCC",
+            "'>"
+        );
+
         let wake = Arc::new(AtomicBool::new(false));
         let owner = ServoRuntime::new(Box::new(TestEventLoopWaker(wake.clone()))).unwrap();
         assert!(ServoRuntime::shutdown_retained().is_err());
         let mut first = owner
             .create_webview(test_webview_init(
-                "data:text/html,<title>First</title>",
+                FIRST_URL,
                 PopupRequestPolicy::DefaultDeny,
                 None,
                 test_rendering_context(),
@@ -1664,16 +1691,73 @@ mod tests {
             .unwrap();
         let mut second = owner
             .create_webview(test_webview_init(
-                "data:text/html,<title>Second</title>",
+                SECOND_URL,
                 PopupRequestPolicy::DefaultDeny,
                 None,
                 test_rendering_context(),
             ))
             .unwrap();
-        collect_events_until(&mut first, has_complete_load);
-        collect_events_until(&mut second, has_complete_load);
+        let first_events = collect_webview_events_until(&mut first, |events| {
+            has_routed_complete_load(events)
+                && events.iter().any(|event| {
+                    matches!(
+                        event.event,
+                        HostEvent::FaviconChanged {
+                            favicon: Some(FaviconImage {
+                                width: 1,
+                                height: 1,
+                                ..
+                            })
+                        }
+                    )
+                })
+        });
+        let second_events = collect_webview_events_until(&mut second, |events| {
+            has_routed_complete_load(events)
+                && events.iter().any(|event| {
+                    matches!(
+                        event.event,
+                        HostEvent::FaviconChanged {
+                            favicon: Some(FaviconImage {
+                                width: 2,
+                                height: 1,
+                                ..
+                            })
+                        }
+                    )
+                })
+        });
+        let first_webview_id = first_events[0].webview_id.clone();
+        let second_webview_id = second_events[0].webview_id.clone();
+        assert_ne!(first_webview_id, second_webview_id);
+        assert!(first_events
+            .iter()
+            .all(|event| event.webview_id == first_webview_id));
+        assert!(second_events
+            .iter()
+            .all(|event| event.webview_id == second_webview_id));
+
+        first.load_url(REPLACEMENT_URL).unwrap();
+        let replacement_events = collect_webview_events_until(&mut first, |events| {
+            has_routed_complete_load(events)
+                && events.iter().any(|event| {
+                    matches!(
+                        event.event,
+                        HostEvent::FaviconChanged {
+                            favicon: Some(FaviconImage {
+                                width: 1,
+                                height: 2,
+                                ..
+                            })
+                        }
+                    )
+                })
+        });
+        assert!(replacement_events
+            .iter()
+            .all(|event| event.webview_id == first_webview_id));
         first
-            .evaluate_javascript("same-id", "document.title === 'First'")
+            .evaluate_javascript("same-id", "document.title === 'First replacement'")
             .unwrap();
         second
             .evaluate_javascript("same-id", "document.title === 'Second'")

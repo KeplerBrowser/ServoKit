@@ -26,7 +26,7 @@ pub mod runtime;
 pub mod surface;
 pub mod webview;
 
-pub use events::{HostEvent, LoadStatusKind, ServokitEvent};
+pub use events::{FaviconImage, FaviconPixelFormat, HostEvent, LoadStatusKind, ServokitEvent};
 pub use input::HostInputEvent;
 pub use runtime::{Runtime, ServokitError, SessionHandle};
 pub use surface::{HostSurface, SurfacePoint, SurfaceSize, SurfaceViewport};

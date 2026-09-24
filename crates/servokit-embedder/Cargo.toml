@@ -20,6 +20,9 @@ servokit-host = { path = "../servokit-host" }
 thiserror = "2.0"
 url = "2.5"
 
+[dev-dependencies]
+servo-base = "=0.3.0"
+
 [target.'cfg(target_os = "android")'.dependencies]
 dpi = { workspace = true, optional = true }
 euclid = { workspace = true, optional = true }

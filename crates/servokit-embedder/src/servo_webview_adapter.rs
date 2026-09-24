@@ -8,10 +8,10 @@ use euclid::Scale;
 
 use crate::{
     host_event_from_javascript_evaluation_result, ContextMenuAction, ContextMenuBounds,
-    ContextMenuElementInformation, ContextMenuItem, ContextMenuRequest, FilePickerRequest,
-    HiddenEmbedderControl, HostEvent, InputMethodKind, InputMethodRequest, LoadStatusKind,
-    PopupCreated, PopupRequest, PopupRequestPolicy, SelectElementRequest, ServoAdapterState,
-    SimpleDialogKind, SimpleDialogRequest,
+    ContextMenuElementInformation, ContextMenuItem, ContextMenuRequest, FaviconImage,
+    FaviconPixelFormat, FilePickerRequest, HiddenEmbedderControl, HostEvent, InputMethodKind,
+    InputMethodRequest, LoadStatusKind, PopupCreated, PopupRequest, PopupRequestPolicy,
+    SelectElementRequest, ServoAdapterState, SimpleDialogKind, SimpleDialogRequest,
 };
 use servo::{
     DeviceIndependentPixel, DevicePixel, InputMethodType, LoadStatus, RenderingContext,
@@ -1169,6 +1169,15 @@ impl servo::WebViewDelegate for ServoWebViewDelegate {
             .update_state_for_webview(&webview_id, |state| state.notify_page_title_changed(title));
     }
 
+    fn notify_favicon_changed(&self, webview: WebView) {
+        let webview_id = webview_key(&webview);
+        let favicon = webview.favicon().as_deref().map(favicon_image);
+        self.shared
+            .manager
+            .borrow_mut()
+            .update_state_for_webview(&webview_id, |state| state.notify_favicon_changed(favicon));
+    }
+
     fn notify_status_text_changed(&self, webview: WebView, status: Option<String>) {
         let webview_id = webview_key(&webview);
         self.shared
@@ -1610,6 +1619,21 @@ fn cursor_value(cursor: servo::Cursor) -> &'static str {
     }
 }
 
+fn favicon_image(image: &servo::Image) -> FaviconImage {
+    FaviconImage {
+        width: image.width,
+        height: image.height,
+        format: match image.format {
+            servo::PixelFormat::K8 => FaviconPixelFormat::K8,
+            servo::PixelFormat::KA8 => FaviconPixelFormat::KA8,
+            servo::PixelFormat::RGB8 => FaviconPixelFormat::RGB8,
+            servo::PixelFormat::RGBA8 => FaviconPixelFormat::RGBA8,
+            servo::PixelFormat::BGRA8 => FaviconPixelFormat::BGRA8,
+        },
+        bytes: image.data().to_vec(),
+    }
+}
+
 fn permission_feature_name(permission: servo::PermissionFeature) -> String {
     // Convert PermissionFeature to kebab-case web-facing permission name.
     // Uses Debug formatting with CamelCase->kebab-case normalization.
@@ -1738,5 +1762,43 @@ fn convert_context_menu_action(action: ContextMenuAction) -> servo::ContextMenuA
         ContextMenuAction::Copy => servo::ContextMenuAction::Copy,
         ContextMenuAction::Paste => servo::ContextMenuAction::Paste,
         ContextMenuAction::SelectAll => servo::ContextMenuAction::SelectAll,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use servo_base::generic_channel::GenericSharedMemory;
+    use std::sync::Arc;
+
+    #[test]
+    fn favicon_copy_preserves_every_servo_format_and_owns_the_bytes() {
+        for (servo_format, format) in [
+            (servo::PixelFormat::K8, FaviconPixelFormat::K8),
+            (servo::PixelFormat::KA8, FaviconPixelFormat::KA8),
+            (servo::PixelFormat::RGB8, FaviconPixelFormat::RGB8),
+            (servo::PixelFormat::RGBA8, FaviconPixelFormat::RGBA8),
+            (servo::PixelFormat::BGRA8, FaviconPixelFormat::BGRA8),
+        ] {
+            let image = servo::Image::new(
+                2,
+                3,
+                Arc::new(GenericSharedMemory::from_bytes(&[9, 1, 2, 3, 4, 8])),
+                1..5,
+                servo_format,
+            );
+            let favicon = favicon_image(&image);
+            drop(image);
+
+            assert_eq!(
+                favicon,
+                FaviconImage {
+                    width: 2,
+                    height: 3,
+                    format,
+                    bytes: vec![1, 2, 3, 4],
+                }
+            );
+        }
     }
 }

@@ -421,7 +421,10 @@ impl BridgeEvents {
             .runtime
             .drain_events()
             .into_iter()
-            .filter(|event| event.webview == controller.webview)
+            .filter(|event| {
+                event.webview == controller.webview
+                    && !matches!(event.event, HostEvent::FaviconChanged { .. })
+            })
         {
             let attachment_generation = match &event.event {
                 // Runtime synthesizes only these events from surface operations. Every other
@@ -1409,6 +1412,14 @@ mod tests {
     fn lifecycle_routes_facade_input_and_translated_events() {
         let input = Rc::new(Cell::new(false));
         let updates = Rc::new(RefCell::new(vec![
+            HostEvent::FaviconChanged {
+                favicon: Some(servokit::FaviconImage {
+                    width: 1,
+                    height: 1,
+                    format: servokit::FaviconPixelFormat::RGBA8,
+                    bytes: vec![1, 2, 3, 4],
+                }),
+            },
             HostEvent::Error {
                 url: Some("https://error.test/".into()),
                 code: -1,
@@ -1478,6 +1489,9 @@ mod tests {
             let event_name = format!("\"name\":\"{name}\"");
             assert!(events.iter().any(|(_, event)| event.contains(&event_name)));
         }
+        assert!(events
+            .iter()
+            .all(|(_, event)| !event.contains("\"name\":\"faviconChanged\"")));
     }
 
     #[test]

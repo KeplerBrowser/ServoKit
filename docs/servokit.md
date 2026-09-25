@@ -146,7 +146,7 @@ main-thread execution.
 
 | Area | Responsibility |
 | --- | --- |
-| `crates/servokit` | Public Rust facade prototype reexporting the embedder-owned runtime/session/webview handles, baseline browser commands, host update pumping, and event draining for native Rust callers |
+| `crates/servokit` | Public Rust facade prototype reexporting the embedder-owned runtime/session/webview handles, baseline browser commands, host update pumping, event draining, and the macOS native Servo-or-WRY view host |
 | `crates/servokit-embedder` | Shared Servo-shaped embedder vocabulary, runtime/webview command and host-input paths, host events, navigation values, policy payloads, pure adapter state, reusable Servo delegate/webview helpers, and event bridge encoding |
 | `crates/servokit-host` | Host-neutral platform value types and surface seams. `HostSurface`, `SurfacePoint`, `SurfaceSize`, `SurfaceViewport`, `NativeSurface`, `OffscreenSurface`, `SurfaceTarget`, `SurfaceMode`, `SurfaceError`, and the host-neutral `SurfaceDelegate` trait live here, with shared geometry reexported by `servokit-embedder` for event payload and runtime compatibility; the runtime `Host` trait currently lives in `servokit-embedder` |
 | `crates/servokit-host-android/android` | Crate-owned repo-local reusable Android Gradle module that builds/packages `libservokit_host_android.so` and owns the first shared Kotlin/JNI host wrapper and typed event bridge below adapters |
@@ -187,6 +187,19 @@ consumer-independent `GpuFrame`, `GpuFrameInfo`, and `GpuFrameCompletion` values
 for `OffscreenSurface::exportable()`; its concrete resource is a retained opaque
 32BGRA `CVPixelBuffer`. Browser commands, host input, update pumping, viewport
 changes, and event draining stay on the public runtime facade path.
+
+Native Rust macOS hosts that need a system-engine fallback use the
+`macos-system-webview` feature and
+`servokit::webview::macos::MacOsViewHost`. `Runtime` continues to own handles
+and lifetimes; `MacOsWebViewOptions` selects a concrete Servo or WRY/`WKWebView`
+child at creation time. The app still owns its window, slot, chrome, and
+selection policy. System views take native AppKit input and use a WebKit-only
+`WebKitDataStoreIdentifier`; they do not share Servo storage, authentication,
+autofill, passkeys, or credentials. Detach removes the ServoKit-owned container
+view from its app parent while retaining the WRY browser identity; reattach may
+place that container under a different live app-owned parent. Destroy and
+ordinary host drop remove system children before app-parent services are
+released. Windows and the React Native macOS adapter are outside this surface.
 
 The public surface vocabulary is now `SurfaceHost`, `SurfaceHostOptions`,
 `SurfaceDelegate`, `NativeSurface`, `OffscreenSurface`,

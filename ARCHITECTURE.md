@@ -103,8 +103,8 @@ React Native macOS
 ## Servo runtime ownership
 
 Servo-backed paths use one process engine and one active owner on its UI thread.
-The native Rust `Runtime<SurfaceHost<_>>` can create multiple independent live
-webviews under that owner. Each view keeps its own Servo `WebView`, delegate,
+The native Rust `Runtime` can create multiple independent live webviews under
+that owner. Each Servo view keeps its own `WebView`, delegate,
 controller/pending state, event queue, and rendering target. The host retains the
 engine connection independently of its views, including while no views exist.
 
@@ -118,6 +118,17 @@ before Servo is first initialized. ServoKit passes it directly to upstream
 `Opts::config_dir`, so Servo owns cookie, authentication, HSTS, and web-storage
 persistence. A retained engine accepts only the same configured directory;
 changing profiles requires a new application process.
+
+On macOS, a native Rust host may use `MacOsViewHost` and choose `Servo` or
+`SystemWebView` when each runtime view is created. This is a concrete host
+creation option, not an app-visible browser/window model: `Runtime` still owns
+view membership and lifetime, while the app owns its window, layout slot, and
+selection policy. System views are WRY-owned child `WKWebView`s, receive native
+AppKit input, and use a WebKit-only stable data-store identifier. A retained
+ServoKit-owned container `NSView` keeps WRY independent of the app parent:
+detach removes that container from the old parent, and reattach can place the
+same browser view under another app-owned parent. Servo and WebKit storage and
+credentials are not shared. The React Native macOS adapter remains Servo-backed.
 
 Each view selects a `Native` or `Offscreen` target through the existing surface
 delegate. On macOS, exportable offscreen targets use a ServoKit-owned concrete
@@ -161,8 +172,8 @@ second, and deny-by-default for risk-sensitive capabilities.
 | --- | --- |
 | Android | Servo-backed experimental path through the Rust ServoKit runtime and shared Android host module. |
 | iOS | Packaged WKWebView/WebKit-backed React Native `ServoView` above the Servo-free portable Rust controller; Servo-on-iOS is deferred. |
-| macOS | Experimental Servo-backed React Native implementation through AppKit and the package-private desktop C boundary; not a supported or distributed runtime contract. |
-| Native desktop | Rust facade proof paths for app-owned native windows/layout slots. |
+| macOS | Native Rust hosts can create Servo or WRY/WKWebView child views in app-owned AppKit slots. The experimental React Native macOS adapter remains Servo-backed and is not a supported or distributed runtime contract. |
+| Native desktop | Rust facade proof paths for app-owned native windows/layout slots; the system-view option is macOS-only. |
 | Windows React Native | Runtime adapter, package integration, and distribution are deferred. |
 
 iOS defaults to WebKit because iOS browser-engine policy, artifact supply, and

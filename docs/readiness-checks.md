@@ -102,6 +102,24 @@ from `ServokitEvent` values. This validates macOS native-child embedding only;
 exportable IOSurface rendering
 uses the separate `OffscreenSurface::exportable()` acceptance path above.
 
+For the native Rust system-view option, validate `MacOsViewHost` in an
+interactive AppKit host. In one app-owned slot, create and destroy both `Servo`
+and `SystemWebView` handles while a sibling Servo view remains responsive. The
+system view must resize with the slot, accept native pointer/scroll/focus/text
+and composing-IME input, execute load/reload/back/forward, emit URL/load/title/
+crash/navigation-state events, reject forwarded `HostInputEvent`, and deny new
+windows and downloads. Recreate the system view and restart the process with
+the same `WebKitDataStoreIdentifier` to confirm WebKit cookie, local-storage,
+and IndexedDB persistence; use a different identifier to confirm isolation.
+Also load the named fallback page,
+`https://www.youtube.com/watch?v=aqz-KE-bpKQ`. The validated macOS 26.5.1
+failure condition is Servo showing YouTube's "Your browser can't play this
+video" state at `0:00`, while the system view plays the video. Record the final
+URL/title and on-page scroll, click, text, composing-IME, focus-handoff, and
+navigation results in the implementation PR. Keep this evidence macOS-only: it
+does not validate Windows or change the Servo-backed React Native macOS
+adapter.
+
 ## Multiple native views on macOS
 
 Run the standalone public-facade proof on an interactive AppKit host:

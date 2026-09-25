@@ -21,12 +21,15 @@ image = { version = "0.25.10", default-features = false }
 io-surface = "0.16.1"
 jni = "0.21"
 objc2-core-foundation = "0.3.2"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSView"] }
+objc2 = "0.6.4"
 raw-window-handle = "0.6.2"
 rustls = { version = "0.23.40", default-features = false, features = ["aws_lc_rs"] }
 servo = { version = "=0.3.0" }
 servo-default-resources = { version = "=0.3.0" }
 surfman = "0.12.3"
 webrender_api = "0.68.0"
+wry = { version = "=0.57.0", default-features = false, features = ["os-webview"] }
 
 [patch.crates-io]
 tikv-jemalloc-sys = { path = "vendor/tikv-jemalloc-sys" }

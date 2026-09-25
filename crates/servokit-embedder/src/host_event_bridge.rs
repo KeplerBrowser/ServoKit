@@ -29,6 +29,7 @@ fn event_name(event: &HostEvent) -> &'static str {
         HostEvent::StatusTextChanged { .. } => "statusTextChanged",
         HostEvent::LoadStatusChanged { .. } => "loadStatusChanged",
         HostEvent::HistoryChanged { .. } => "historyChanged",
+        HostEvent::NavigationStateChanged { .. } => "navigationStateChanged",
         HostEvent::Closed => "closed",
         HostEvent::Crashed { .. } => "crashed",
         HostEvent::Error { .. } => "error",
@@ -127,6 +128,13 @@ fn write_payload(output: &mut String, event: &HostEvent) {
                 write_string_array(output, entries);
             });
             write_usize_field(output, &mut first, "current", *current);
+            write_bool_field(output, &mut first, "canGoBack", *can_go_back);
+            write_bool_field(output, &mut first, "canGoForward", *can_go_forward);
+        }
+        HostEvent::NavigationStateChanged {
+            can_go_back,
+            can_go_forward,
+        } => {
             write_bool_field(output, &mut first, "canGoBack", *can_go_back);
             write_bool_field(output, &mut first, "canGoForward", *can_go_forward);
         }
@@ -751,6 +759,13 @@ mod tests {
                 can_go_forward: false,
             }),
             r#"{"name":"historyChanged","payload":{"entries":["https://a.example/","https://b.example/"],"current":1,"canGoBack":true,"canGoForward":false}}"#
+        );
+        assert_eq!(
+            encode_host_event_bridge(&HostEvent::NavigationStateChanged {
+                can_go_back: true,
+                can_go_forward: false,
+            }),
+            r#"{"name":"navigationStateChanged","payload":{"canGoBack":true,"canGoForward":false}}"#
         );
         assert_eq!(
             encode_host_event_bridge(&HostEvent::Closed),

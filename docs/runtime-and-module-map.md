@@ -16,6 +16,7 @@ Native-centered stack. The main runtime paths are:
 
 ```text
 Native Rust shell/examples -> servokit -> servokit-embedder + servokit-host -> Servo
+Native Rust macOS host -> servokit MacOsViewHost -> Servo or WRY/WKWebView
 React Native Android -> react-native-servokit -> crates/servokit-host-android/android -> servokit-host-android -> servokit-embedder -> Servo
 Kotlin/native Android examples -> crates/servokit-host-android/android -> servokit-host-android -> servokit-embedder -> Servo
 React Native macOS -> react-native-servokit -> AppKit adapter -> package-private desktop C boundary -> servokit-embedder -> Servo
@@ -38,7 +39,7 @@ configuration.
 
 | Layer | Implementation | Responsibility |
 | --- | --- | --- |
-| Native Rust runtime and surface host | `servokit::Runtime`, `SurfaceHost`; `servokit-embedder::ServoRuntime`, `ServoWebView` | `Runtime` owns membership and handle routing; `SurfaceHost` retains the shared engine connection, passes its optional process config directory to Servo, and adapts render targets; `ServoRuntime` shares the engine lease and rejects profile changes after initialization; each `ServoWebView` owns its delegate and pending controls. |
+| Native Rust runtime and view hosts | `servokit::Runtime`, `SurfaceHost`, macOS `MacOsViewHost`; `servokit-embedder::ServoRuntime`, `ServoWebView` | `Runtime` owns membership and handle routing. `SurfaceHost` retains the shared Servo engine connection and adapts render targets. `MacOsViewHost` routes each create-time choice to that Servo host or to a WRY-owned child `WKWebView`, without introducing app-owned tabs or windows. |
 | JS/Fabric surface | `packages/react-native-servokit/src/ServoView.tsx`, `packages/react-native-servokit/src/index.tsx` | Public `ServoView` API and generated Fabric surface contract, with callback names aligned to Servo delegate notifications plus optional RN-owned dialog, context-menu, and navigation-policy handling |
 | Android view host | `packages/react-native-servokit/android/src/main/java/org/servo/servokit/reactnative/ServoView.kt`, `ServoViewManager.kt`, `ServoViewportInsetsController.kt` | Own the React Native `ServoView`, mounted Fabric event dispatch, focus, frame scheduling via `Choreographer`, and RN-specific bridge ergonomics |
 | Portable controller | `crates/servokit-embedder/src/portable_controller.rs`, `crates/servokit-controller-ffi` | Owns Servo-free command validation, request identity, pending semantics, fallback policy, response validation, and the bounded C boundary packaged for iOS |
@@ -74,6 +75,16 @@ but ownership follows the selected native engine.
 On Android and macOS, Rust owns Servo controller identity, command validation,
 pending Servo requests, fallback policy, and response validation. Their native
 adapters own platform views/handles, input, presentation, and scheduling.
+
+A native Rust macOS app can instead select `SystemWebView` for an individual
+runtime handle. ServoKit owns that child view's lifetime and routes the shared
+load, reload, back, forward, focus, URL, load, title, crash, and navigation-state
+surface. AppKit delivers input directly. WebKit applies its native defaults for
+ordinary navigation and permissions; new windows and downloads are denied.
+WRY is parented to a ServoKit-owned container `NSView`, so detach releases the
+app-owned parent without discarding the browser view and reattach can move that
+container to a different parent. This does not change the Servo-backed React
+Native macOS path.
 
 On iOS, the portable Rust controller owns request identity, pending semantics,
 fallback policy, and response validation. The WKWebView adapter owns native

@@ -65,8 +65,8 @@ pub use portable_controller::{
     PortableController, PortableControllerError, PortableControllerResult,
 };
 pub use runtime::{
-    Host, HostCall, HostError, MockHost, PlaceholderHost, Runtime, RuntimeError, ServokitEvent,
-    SessionHandle, WebViewCommand, WebViewHandle,
+    ConfigurableHost, Host, HostCall, HostError, MockHost, PlaceholderHost, Runtime, RuntimeError,
+    ServokitEvent, SessionHandle, WebViewCommand, WebViewHandle,
 };
 #[cfg(all(
     feature = "servo",
@@ -237,6 +237,10 @@ pub enum HostEvent {
     HistoryChanged {
         entries: Vec<String>,
         current: usize,
+        can_go_back: bool,
+        can_go_forward: bool,
+    },
+    NavigationStateChanged {
         can_go_back: bool,
         can_go_forward: bool,
     },

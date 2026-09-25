@@ -73,6 +73,11 @@ the affected IOSurface until process exit rather than risking use-after-free.
   offscreen targets keep their existing physical-size convention until #16.
 - Detach removes the render target while preserving browser/controller state
   for later reattachment.
+- `MacOsViewHost` system views retain a ServoKit-owned container while detached,
+  not the old app parent. Reattach moves that container and its existing WRY
+  browser view to the supplied live AppKit parent. Focus and blur requested
+  while detached replay after reattachment. Ordinary host drop removes the
+  system children before dropping the parent-view delegate.
 
 ## Multiple Native Views
 

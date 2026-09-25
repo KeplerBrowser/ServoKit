@@ -504,6 +504,24 @@ pub trait Host {
     }
 }
 
+/// Host extension for view implementations that require create-time options.
+///
+/// The base [`Host`] contract and [`Runtime::create_webview`] stay unchanged for
+/// existing hosts. Concrete hosts expose only their own option type through this
+/// seam rather than a global engine or profile abstraction.
+pub trait ConfigurableHost: Host {
+    /// Create-time options understood by this concrete host.
+    type WebViewOptions;
+
+    /// Creates one view with host-specific options for the allocated handle.
+    fn create_webview_with_options(
+        &mut self,
+        session: SessionHandle,
+        webview: WebViewHandle,
+        options: Self::WebViewOptions,
+    ) -> Result<(), HostError>;
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct AttachedSurface {
     surface: HostSurface,
@@ -590,6 +608,30 @@ impl<H: Host> Runtime<H> {
         self.next_webview_id = self.next_webview_id.wrapping_add(1);
         let webview = WebViewHandle(self.next_webview_id);
         self.host.create_webview(session, webview)?;
+        self.webviews.insert(webview, WebViewState::default());
+        Ok(webview)
+    }
+
+    /// Creates one view through a concrete host's create-time option seam.
+    ///
+    /// Existing hosts continue to use [`Self::create_webview`]. The options are
+    /// owned by the concrete host and do not imply a global engine selection API.
+    pub fn create_webview_with_options(
+        &mut self,
+        session: SessionHandle,
+        options: <H as ConfigurableHost>::WebViewOptions,
+    ) -> Result<WebViewHandle, RuntimeError>
+    where
+        H: ConfigurableHost,
+    {
+        if !self.sessions.contains(&session) {
+            return Err(RuntimeError::UnknownSession(session));
+        }
+
+        self.next_webview_id = self.next_webview_id.wrapping_add(1);
+        let webview = WebViewHandle(self.next_webview_id);
+        self.host
+            .create_webview_with_options(session, webview, options)?;
         self.webviews.insert(webview, WebViewState::default());
         Ok(webview)
     }
@@ -1898,6 +1940,43 @@ mod tests {
                 }));
             Ok(())
         }
+    }
+
+    impl ConfigurableHost for InputRecordingHost {
+        type WebViewOptions = bool;
+
+        fn create_webview_with_options(
+            &mut self,
+            session: SessionHandle,
+            webview: WebViewHandle,
+            allowed: Self::WebViewOptions,
+        ) -> Result<(), HostError> {
+            if !allowed {
+                return Err(HostError::new("create option rejected"));
+            }
+            self.create_webview(session, webview)
+        }
+    }
+
+    #[test]
+    fn configurable_host_owns_create_options_without_changing_runtime_handles() {
+        let mut runtime = Runtime::new(InputRecordingHost::default());
+        let unknown_session = SessionHandle(99);
+        assert_eq!(
+            runtime.create_webview_with_options(unknown_session, true),
+            Err(RuntimeError::UnknownSession(unknown_session))
+        );
+
+        let session = runtime.create_session();
+        assert!(matches!(
+            runtime.create_webview_with_options(session, false),
+            Err(RuntimeError::Host(_))
+        ));
+        let webview = runtime.create_webview_with_options(session, true).unwrap();
+        assert_eq!(webview.raw(), 2);
+        runtime
+            .dispatch_input_event(webview, HostInputEvent::Focus { is_focused: true })
+            .unwrap();
     }
 
     #[test]

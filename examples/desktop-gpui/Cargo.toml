@@ -17,10 +17,8 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 zed_gpui = { package = "gpui", version = "0.2.2", features = ["runtime_shaders"] }
 raw-window-handle = "0.6.2"
 servokit = { path = "../../crates/servokit", features = ["servo"] }
-# GPUI enables codespan-reporting's termcolor support through its shader stack. Servo's
-# wgpu path also builds naga 26, so enable naga's matching feature to keep cfgs aligned.
-naga = { version = "26.0.0", features = ["termcolor"] }
 
 [patch.crates-io]
 tikv-jemalloc-sys = { path = "../../crates/vendor/tikv-jemalloc-sys" }
-stylo_derive = { path = "../../patches/stylo_derive-0.18.0" }
+stylo_derive = { path = "../../patches/stylo_derive-0.21.0" }
+zed-font-kit = { path = "../../patches/zed-font-kit-0.14.1-zed" }

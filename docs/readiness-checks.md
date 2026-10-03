@@ -225,9 +225,9 @@ lockfiles now live next to the Cargo root that owns each graph:
 - `examples/desktop-gpui/Cargo.lock` for the desktop GPUI example manifest
 
 There is no shared `examples/Cargo.toml` workspace or shared
-`examples/Cargo.lock`. The temporary `stylo_derive` patch is scoped to the GPUI
-example root only; core crates and non-GPUI examples do not use it. The
-canonical Servo 0.3.0 baseline, patch locations, and lock/update workflow live
+`examples/Cargo.lock`. The temporary `stylo_derive` and `zed-font-kit` patches
+are scoped to the GPUI example root only; core crates and non-GPUI examples do
+not use them. The canonical Servo baseline, patch locations, and lock/update workflow live
 in [`rust-dependency-baseline.md`](./rust-dependency-baseline.md).
 
 ## Local fixture smoke recipe

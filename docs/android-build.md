@@ -55,9 +55,9 @@ Native TurboModule library is linked. The repository-local Cargo patch strategy
 for the Servo graph lives in one place:
 [`rust-dependency-baseline.md`](./rust-dependency-baseline.md).
 
-That baseline doc is the canonical place to track the current Servo 0.3.0 pin,
+That baseline doc is the canonical place to track the current Servo pin,
 shared Rustls provider expectations, the `tikv-jemalloc-sys` Android toolchain
-workaround, and the temporary GPUI-only `stylo_derive` 0.18.0 patch.
+workaround, and the temporary GPUI-only compatibility patches.
 
 ## Local React Native example app
 

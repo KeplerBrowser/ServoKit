@@ -82,7 +82,7 @@ Important non-baseline gaps remain:
 
 ## Servo baseline note
 
-This coverage document describes the current crates.io `servo` `=0.3.0`
+This coverage document describes the current crates.io `servo` `=0.6.0`
 baseline. Popup/new-window intent language maps to Servo
 `WebViewDelegate::request_create_new`: content asks for a new `WebView`, such
 as `window.open`; ignored requests open nothing, and embedders that create a

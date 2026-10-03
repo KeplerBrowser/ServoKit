@@ -651,7 +651,7 @@ impl<H: Host> Runtime<H> {
     /// Closes all views and performs final host shutdown, consuming this runtime.
     ///
     /// Call at application exit while the owning thread, native surfaces and logging
-    /// remain alive. Servo 0.3 cannot initialize again after final shutdown. Ordinary
+    /// remain alive. Servo cannot initialize again after final shutdown. Ordinary
     /// drop closes the views but retains the process engine for subsequent host creation.
     /// All views and the host receive a cleanup attempt even if one fails; the first
     /// error is returned after final cleanup.

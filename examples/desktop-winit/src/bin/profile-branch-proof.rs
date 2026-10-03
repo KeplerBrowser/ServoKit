@@ -161,7 +161,7 @@ fn prove_in(root: &Path) -> ProofResult<()> {
     println!("platform={} arch={}", env::consts::OS, env::consts::ARCH);
     println!("servokit_revision={}", git_revision()?);
     println!(
-        "servo_dependency=0.3.0 source=registry+https://github.com/rust-lang/crates.io-index checksum=586b1f633dabd1ceb0b1d92965f526dbb8c418fc277fccb79bd506170900f8ff lockfile=examples/desktop-winit/Cargo.lock"
+        "servo_dependency=0.6.0 source=registry+https://github.com/rust-lang/crates.io-index checksum=dd165177ea5703d413842fbfd06707b567ba09d37552187a0309b660b0fef8b8 lockfile=examples/desktop-winit/Cargo.lock"
     );
 
     let mut seed_children = vec![spawn_runner(

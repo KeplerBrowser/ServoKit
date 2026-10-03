@@ -11,6 +11,7 @@ servo = [
     "dep:euclid",
     "dep:rustls",
     "dep:servo",
+    "dep:servo-allocator",
     "dep:servo-default-resources",
 ]
 
@@ -21,13 +22,14 @@ thiserror = "2.0"
 url = "2.5"
 
 [dev-dependencies]
-servo-base = "=0.3.0"
+servo-base = "=0.6.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
 dpi = { workspace = true, optional = true }
 euclid = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true, features = ["ring"] }
 servo = { workspace = true, optional = true }
+servo-allocator = { workspace = true, optional = true }
 servo-default-resources = { workspace = true, optional = true }
 
 [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
@@ -35,4 +37,5 @@ dpi = { workspace = true, optional = true }
 euclid = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 servo = { workspace = true, optional = true }
+servo-allocator = { workspace = true, optional = true }
 servo-default-resources = { workspace = true, optional = true }

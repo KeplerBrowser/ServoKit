@@ -2,7 +2,7 @@
 
 ## Intent
 
-This document defines the Servo 0.3-aligned embedded-surface contract: layout
+This document defines the Servo-aligned embedded-surface contract: layout
 hosts can embed a Servo surface through the `servokit` facade while keeping
 ownership of their app windows and layout trees. The current surface modes and
 lifecycle rules for `NativeSurface` and `OffscreenSurface` live in

@@ -25,10 +25,11 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std"
 objc2 = "0.6.4"
 raw-window-handle = "0.6.2"
 rustls = { version = "0.23.40", default-features = false, features = ["aws_lc_rs"] }
-servo = { version = "=0.3.0" }
-servo-default-resources = { version = "=0.3.0" }
-surfman = "0.12.3"
-webrender_api = "0.68.0"
+servo = { version = "=0.6.0", features = ["webgl", "webcrypto"] }
+servo-allocator = { version = "=0.6.0", features = ["use-jemalloc"] }
+servo-default-resources = { version = "=0.6.0" }
+surfman = "0.13.0"
+webrender_api = "0.70.0"
 wry = { version = "=0.57.0", default-features = false, features = ["os-webview"] }
 
 [patch.crates-io]

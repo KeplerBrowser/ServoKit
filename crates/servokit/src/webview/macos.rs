@@ -1,7 +1,7 @@
 //! macOS host adapter for create-time Servo or system-WebView selection.
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use std::rc::Rc;
@@ -14,7 +14,8 @@ use raw_window_handle::{
 };
 use servokit_embedder::{
     ConfigurableHost, ContextMenuAction, Host, HostError, HostEvent, HostInputEvent,
-    LoadStatusKind, PopupRequestPolicy, SessionHandle, WebViewCommand, WebViewHandle,
+    JavaScriptEvaluationErrorKind, LoadStatusKind, PopupRequestPolicy, SessionHandle,
+    WebViewCommand, WebViewHandle,
 };
 use servokit_host::{
     HostSurface, NativeSurface, SurfaceDelegate, SurfaceError, SurfaceSize, SurfaceViewport,
@@ -25,6 +26,10 @@ use wry::{
 };
 
 use crate::surface::{SurfaceFrame, SurfaceHost, SurfaceHostOptions};
+
+mod javascript;
+
+use javascript::{evaluation_event, NativeEvaluationError};
 
 /// Stable WKWebView website-data store identity supplied by the host.
 ///
@@ -93,8 +98,23 @@ type CallbackTarget = (u64, u64);
 
 #[derive(Default)]
 struct SystemCallbacks {
-    live: HashSet<CallbackTarget>,
-    events: HashMap<CallbackTarget, VecDeque<HostEvent>>,
+    views: HashMap<CallbackTarget, SystemCallbackState>,
+}
+
+#[derive(Default)]
+struct SystemCallbackState {
+    events: VecDeque<HostEvent>,
+    document_ready: bool,
+    next_request: u64,
+    pending: HashMap<String, u64>,
+}
+
+impl SystemCallbackState {
+    fn retire_evaluations(&mut self, error: JavaScriptEvaluationErrorKind) {
+        for (id, _) in self.pending.drain() {
+            self.events.push_back(evaluation_event(id, Err(error)));
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -110,10 +130,7 @@ impl SystemCallbackSink {
         generation: u64,
     ) -> Self {
         let target = (webview.raw(), generation);
-        let mut state = callbacks.borrow_mut();
-        state.live.insert(target);
-        state.events.entry(target).or_default();
-        drop(state);
+        callbacks.borrow_mut().views.entry(target).or_default();
         Self { target, callbacks }
     }
 
@@ -124,43 +141,125 @@ impl SystemCallbackSink {
         generation: u64,
     ) -> Self {
         let target = (webview, generation);
-        let mut state = callbacks.borrow_mut();
-        state.live.insert(target);
-        state.events.entry(target).or_default();
-        drop(state);
+        callbacks.borrow_mut().views.entry(target).or_default();
         Self { target, callbacks }
     }
 
     fn push(&self, event: HostEvent) {
         let mut callbacks = self.callbacks.borrow_mut();
-        if callbacks.live.contains(&self.target) {
-            callbacks
-                .events
-                .entry(self.target)
-                .or_default()
-                .push_back(event);
+        if let Some(state) = callbacks.views.get_mut(&self.target) {
+            state.events.push_back(event);
+        }
+    }
+
+    fn document_committed(&self) {
+        let mut callbacks = self.callbacks.borrow_mut();
+        if let Some(state) = callbacks.views.get_mut(&self.target) {
+            state.document_ready = true;
+            state.events.push_back(HostEvent::LoadStatusChanged {
+                status: LoadStatusKind::Started,
+            });
+            // Completion linearizes when it enters this queue. Already finalized
+            // results stay before Started, including across a same-URL reload.
+            state.retire_evaluations(JavaScriptEvaluationErrorKind::DocumentNotFound);
+        }
+    }
+
+    fn process_terminated(&self) {
+        let mut callbacks = self.callbacks.borrow_mut();
+        if let Some(state) = callbacks.views.get_mut(&self.target) {
+            state.document_ready = false;
+            state.events.push_back(HostEvent::Crashed {
+                url: None,
+                reason: "WebKit web content process terminated".to_owned(),
+                backtrace: None,
+            });
+            state.retire_evaluations(JavaScriptEvaluationErrorKind::InternalError);
+        }
+    }
+
+    fn begin_evaluation(&self, id: &str) -> Result<Option<u64>, HostError> {
+        let mut callbacks = self.callbacks.borrow_mut();
+        let state = callbacks
+            .views
+            .get_mut(&self.target)
+            .ok_or_else(|| HostError::new("system webview lifetime is no longer live"))?;
+        if id.trim().is_empty() {
+            return Err(HostError::new("JavaScript evaluation id must not be empty"));
+        }
+        if state.pending.contains_key(id) {
+            return Err(HostError::new(format!(
+                "JavaScript evaluation {id} is already pending in this webview"
+            )));
+        }
+        if !state.document_ready {
+            state.events.push_back(evaluation_event(
+                id,
+                Err(JavaScriptEvaluationErrorKind::WebViewNotReady),
+            ));
+            return Ok(None);
+        }
+        state.next_request = state
+            .next_request
+            .checked_add(1)
+            .ok_or_else(|| HostError::new("JavaScript evaluation token space exhausted"))?;
+        let token = state.next_request;
+        state.pending.insert(id.to_owned(), token);
+        Ok(Some(token))
+    }
+
+    fn complete_evaluation(
+        &self,
+        id: &str,
+        token: u64,
+        result: Result<String, NativeEvaluationError>,
+    ) {
+        let mut callbacks = self.callbacks.borrow_mut();
+        let Some(state) = callbacks.views.get_mut(&self.target) else {
+            return;
+        };
+        // Commit/process retirement removes every old token. Check before any
+        // state change: even an old process error must not invalidate a new read.
+        if state.pending.get(id) != Some(&token) {
+            return;
+        }
+        match result {
+            Err(
+                NativeEvaluationError::ProcessTerminated | NativeEvaluationError::ViewInvalidated,
+            ) => {
+                state.document_ready = false;
+                state.retire_evaluations(JavaScriptEvaluationErrorKind::InternalError);
+            }
+            result => {
+                state.pending.remove(id);
+                state.events.push_back(evaluation_event(
+                    id,
+                    result.map_err(|error| match error {
+                        NativeEvaluationError::Result(error) => error,
+                        _ => unreachable!("lifetime errors handled above"),
+                    }),
+                ));
+            }
         }
     }
 
     fn drain(&self) -> Vec<HostEvent> {
         self.callbacks
             .borrow_mut()
-            .events
+            .views
             .get_mut(&self.target)
-            .map(|events| events.drain(..).collect())
+            .map(|state| state.events.drain(..).collect())
             .unwrap_or_default()
     }
 
     fn clear(&self) {
-        if let Some(events) = self.callbacks.borrow_mut().events.get_mut(&self.target) {
-            events.clear();
+        if let Some(state) = self.callbacks.borrow_mut().views.get_mut(&self.target) {
+            state.events.clear();
         }
     }
 
     fn invalidate(&self) {
-        let mut callbacks = self.callbacks.borrow_mut();
-        callbacks.live.remove(&self.target);
-        callbacks.events.remove(&self.target);
+        self.callbacks.borrow_mut().views.remove(&self.target);
     }
 }
 
@@ -665,7 +764,27 @@ where
                     .evaluate_javascript(webview, evaluation_id, script),
             )
         } else {
-            Err(system_unsupported(webview, "JavaScript evaluation"))
+            let state = system_state_mut(&mut self.views, webview)?;
+            let sink = SystemCallbackSink {
+                target: (webview.raw(), state.generation),
+                callbacks: self.callbacks.clone(),
+            };
+            if state.webview.is_some() && MainThreadMarker::new().is_none() {
+                return Err(HostError::new(
+                    "system webview must evaluate on the AppKit main thread",
+                ));
+            }
+            let Some(token) = sink.begin_evaluation(evaluation_id)? else {
+                // Transfer the whole ordered queue, including this readiness failure,
+                // before a later construction attempt can reset the native generation.
+                return Ok(sink.drain());
+            };
+            let native = state
+                .webview
+                .as_ref()
+                .expect("an eligible document has a native webview");
+            javascript::evaluate(native, sink, evaluation_id, token, script);
+            Ok(Vec::new())
         }
     }
 
@@ -902,19 +1021,14 @@ fn build_system_webview(
                 title: (!title.is_empty()).then_some(title),
             });
         })
-        .with_on_page_load_handler(move |event, _| {
-            let status = match event {
-                PageLoadEvent::Started => LoadStatusKind::Started,
-                PageLoadEvent::Finished => LoadStatusKind::Complete,
-            };
-            load_sink.push(HostEvent::LoadStatusChanged { status });
+        .with_on_page_load_handler(move |event, _| match event {
+            PageLoadEvent::Started => load_sink.document_committed(),
+            PageLoadEvent::Finished => load_sink.push(HostEvent::LoadStatusChanged {
+                status: LoadStatusKind::Complete,
+            }),
         })
         .with_on_web_content_process_terminate_handler(move || {
-            crash_sink.push(HostEvent::Crashed {
-                url: None,
-                reason: "WebKit web content process terminated".to_owned(),
-                backtrace: None,
-            });
+            crash_sink.process_terminated();
         })
         .build_as_child(parent)
         .map_err(wry_error)
@@ -1025,10 +1139,18 @@ fn collect_system_updates(
         return Ok(events);
     };
 
-    let url = native.url().map_err(wry_error)?;
-    if state.last_url.as_deref() != Some(url.as_str()) {
-        state.last_url = Some(url.clone());
-        events.push(HostEvent::UrlChanged { url });
+    // WebKit can clear URL after process termination. WRY's URL convenience
+    // method unwraps it; use the native optional value so queued crash/evaluation
+    // events still reach Runtime, without inventing a replacement URL.
+    // SAFETY: the retained WRY view is accessed on its AppKit owning thread.
+    if let Some(url) = unsafe { native.webview().URL() }
+        .and_then(|url| url.absoluteString())
+        .map(|url| url.to_string())
+    {
+        if state.last_url.as_deref() != Some(url.as_str()) {
+            state.last_url = Some(url.clone());
+            events.push(HostEvent::UrlChanged { url });
+        }
     }
 
     let navigation_state = (
@@ -1322,5 +1444,487 @@ mod tests {
                 }
             ]
         ));
+    }
+
+    struct EvaluationRuntime {
+        runtime: Runtime<MacOsViewHost<NoopDelegate>>,
+        callbacks: Rc<RefCell<SystemCallbacks>>,
+    }
+
+    impl EvaluationRuntime {
+        fn new() -> Self {
+            let host = MacOsViewHost::new(
+                NoopDelegate,
+                MacOsViewHostOptions::new(
+                    SurfaceHostOptions::default(),
+                    WebKitDataStoreIdentifier([0x39; 16]),
+                ),
+            );
+            let callbacks = host.callbacks.clone();
+            Self {
+                runtime: Runtime::new(host),
+                callbacks,
+            }
+        }
+
+        fn view(&mut self) -> (WebViewHandle, SystemCallbackSink) {
+            let session = self.runtime.create_session();
+            let webview = self
+                .runtime
+                .create_webview_with_options(
+                    session,
+                    MacOsWebViewOptions::new(MacOsWebViewKind::SystemWebView),
+                )
+                .unwrap();
+            let target = *self
+                .callbacks
+                .borrow()
+                .views
+                .keys()
+                .find(|(handle, _)| *handle == webview.raw())
+                .unwrap();
+            (
+                webview,
+                SystemCallbackSink {
+                    target,
+                    callbacks: self.callbacks.clone(),
+                },
+            )
+        }
+
+        fn events(&mut self) -> Vec<(WebViewHandle, HostEvent)> {
+            self.runtime.perform_all_updates().unwrap();
+            self.runtime
+                .drain_events()
+                .into_iter()
+                .map(|event| {
+                    assert!(event.managed_child_webview_id.is_none());
+                    (event.webview, event.event)
+                })
+                .collect()
+        }
+    }
+
+    fn success(id: &str) -> HostEvent {
+        evaluation_event(id, Ok(r#"{"type":"string","value":"snapshot"}"#.to_owned()))
+    }
+
+    fn complete(sink: &SystemCallbackSink, id: &str, token: u64) {
+        sink.complete_evaluation(
+            id,
+            token,
+            Ok(r#"{"type":"string","value":"snapshot"}"#.to_owned()),
+        );
+    }
+
+    #[test]
+    fn unready_evaluation_is_correlated_and_never_deferred() {
+        let mut test = EvaluationRuntime::new();
+        let (view, sink) = test.view();
+        assert!(test
+            .runtime
+            .evaluate_javascript(view, " \t", "unused")
+            .is_err());
+        test.runtime
+            .evaluate_javascript(view, "unready", "must not be retained")
+            .unwrap();
+        // Readiness failures transfer immediately to Runtime's queue. Even a
+        // failed first native construction resetting its sink cannot erase them.
+        sink.clear();
+        assert_eq!(
+            test.events(),
+            vec![(
+                view,
+                evaluation_event(
+                    "unready",
+                    Err(JavaScriptEvaluationErrorKind::WebViewNotReady),
+                )
+            )]
+        );
+        sink.document_committed();
+        assert_eq!(
+            test.events(),
+            vec![(
+                view,
+                HostEvent::LoadStatusChanged {
+                    status: LoadStatusKind::Started
+                }
+            )]
+        );
+        assert!(sink.callbacks.borrow().views[&sink.target]
+            .pending
+            .is_empty());
+        test.runtime.destroy_webview(view).unwrap();
+        assert!(matches!(
+            test.runtime.evaluate_javascript(view, "closed", "unused"),
+            Err(ServokitError::UnknownWebView(_))
+        ));
+        assert!(test.events().is_empty());
+    }
+
+    #[test]
+    fn per_view_ids_reject_pending_duplicates_and_allow_out_of_order_results() {
+        let mut test = EvaluationRuntime::new();
+        let (a, first) = test.view();
+        let (b, second) = test.view();
+        first.document_committed();
+        second.document_committed();
+        test.events();
+        let text = first.begin_evaluation("same-id").unwrap().unwrap();
+        let metadata = first.begin_evaluation(" metadata ").unwrap().unwrap();
+        let sibling = second.begin_evaluation("same-id").unwrap().unwrap();
+        assert!(first.begin_evaluation("same-id").is_err());
+        complete(&first, " metadata ", metadata);
+        complete(&first, "same-id", text);
+        complete(&second, "same-id", sibling);
+        let events = test.events();
+        assert_eq!(
+            events
+                .iter()
+                .filter(|(view, _)| *view == a)
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![(a, success(" metadata ")), (a, success("same-id")),]
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|(view, _)| *view == b)
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![(b, success("same-id"))]
+        );
+        let reused = first.begin_evaluation("same-id").unwrap().unwrap();
+        complete(&first, "same-id", text);
+        assert!(test.events().is_empty());
+        complete(&first, "same-id", reused);
+        complete(&first, "same-id", reused);
+        assert_eq!(test.events(), vec![(a, success("same-id"))]);
+    }
+
+    #[test]
+    fn commit_preserves_historical_results_at_both_sdk_queue_stages() {
+        for transfer_before_commit in [false, true] {
+            let mut test = EvaluationRuntime::new();
+            let (view, sink) = test.view();
+            sink.document_committed();
+            test.events();
+            let finalized = sink.begin_evaluation("finalized").unwrap().unwrap();
+            let pending = sink.begin_evaluation("pending").unwrap().unwrap();
+            complete(&sink, "finalized", finalized);
+            if transfer_before_commit {
+                test.runtime.perform_updates(view).unwrap();
+            }
+            // Every observed commit is a boundary; no URL comparison is involved.
+            sink.document_committed();
+            complete(&sink, "pending", pending);
+            let replacement = sink.begin_evaluation("pending").unwrap().unwrap();
+            sink.complete_evaluation(
+                "pending",
+                pending,
+                Err(NativeEvaluationError::ProcessTerminated),
+            );
+            complete(&sink, "pending", pending);
+            assert!(sink.begin_evaluation("pending").is_err());
+            complete(&sink, "pending", replacement);
+            assert_eq!(
+                test.events(),
+                vec![
+                    (view, success("finalized")),
+                    (
+                        view,
+                        HostEvent::LoadStatusChanged {
+                            status: LoadStatusKind::Started
+                        }
+                    ),
+                    (
+                        view,
+                        evaluation_event(
+                            "pending",
+                            Err(JavaScriptEvaluationErrorKind::DocumentNotFound)
+                        )
+                    ),
+                    (view, success("pending")),
+                ]
+            );
+            // A repeated same-URL commit also retires current pending work.
+            let reload = sink.begin_evaluation("reload").unwrap().unwrap();
+            sink.document_committed();
+            complete(&sink, "reload", reload);
+            assert_eq!(
+                test.events(),
+                vec![
+                    (
+                        view,
+                        HostEvent::LoadStatusChanged {
+                            status: LoadStatusKind::Started
+                        }
+                    ),
+                    (
+                        view,
+                        evaluation_event(
+                            "reload",
+                            Err(JavaScriptEvaluationErrorKind::DocumentNotFound)
+                        )
+                    ),
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn commands_url_changes_and_load_completion_are_not_commit_boundaries() {
+        let mut test = EvaluationRuntime::new();
+        let (view, sink) = test.view();
+        sink.document_committed();
+        test.events();
+        let token = sink.begin_evaluation("old-document").unwrap().unwrap();
+        test.runtime
+            .dispatch_webview_command(view, WebViewCommand::Reload)
+            .unwrap();
+        sink.push(HostEvent::UrlChanged {
+            url: "https://fixture.test/spa".to_owned(),
+        });
+        sink.push(HostEvent::LoadStatusChanged {
+            status: LoadStatusKind::Complete,
+        });
+        complete(&sink, "old-document", token);
+        assert_eq!(
+            test.events(),
+            vec![
+                (
+                    view,
+                    HostEvent::UrlChanged {
+                        url: "https://fixture.test/spa".to_owned()
+                    }
+                ),
+                (
+                    view,
+                    HostEvent::LoadStatusChanged {
+                        status: LoadStatusKind::Complete
+                    }
+                ),
+                (view, success("old-document")),
+            ]
+        );
+    }
+
+    #[test]
+    fn close_discards_both_queues_and_pending_callbacks_for_either_sibling() {
+        for close_first in [false, true] {
+            for transfer_before_close in [false, true] {
+                let mut test = EvaluationRuntime::new();
+                let first = test.view();
+                let second = test.view();
+                let ((closed, sink), (survivor, sibling)) = if close_first {
+                    (first, second)
+                } else {
+                    (second, first)
+                };
+                sink.document_committed();
+                sibling.document_committed();
+                test.events();
+                let queued = sink.begin_evaluation("queued").unwrap().unwrap();
+                let pending = sink.begin_evaluation("shared").unwrap().unwrap();
+                let live = sibling.begin_evaluation("shared").unwrap().unwrap();
+                complete(&sink, "queued", queued);
+                if transfer_before_close {
+                    test.runtime.perform_updates(closed).unwrap();
+                }
+                test.runtime.destroy_webview(closed).unwrap();
+                let (replacement, new_sink) = test.view();
+                assert_ne!(replacement, closed);
+                new_sink.document_committed();
+                let new = new_sink.begin_evaluation("shared").unwrap().unwrap();
+                complete(&sink, "shared", pending);
+                sink.process_terminated();
+                sink.document_committed();
+                complete(&sibling, "shared", live);
+                complete(&new_sink, "shared", new);
+                let events = test.events();
+                assert!(!events.iter().any(|(view, _)| *view == closed));
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|(view, _)| *view == survivor)
+                        .cloned()
+                        .collect::<Vec<_>>(),
+                    vec![(survivor, success("shared"))]
+                );
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|(view, _)| *view == replacement)
+                        .cloned()
+                        .collect::<Vec<_>>(),
+                    vec![
+                        (
+                            replacement,
+                            HostEvent::LoadStatusChanged {
+                                status: LoadStatusKind::Started
+                            }
+                        ),
+                        (replacement, success("shared")),
+                    ]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn termination_error_and_notification_orders_retire_each_request_once() {
+        for notification_first in [false, true] {
+            let mut test = EvaluationRuntime::new();
+            let (view, sink) = test.view();
+            sink.document_committed();
+            test.events();
+            let finalized = sink.begin_evaluation("finalized").unwrap().unwrap();
+            let one = sink.begin_evaluation("one").unwrap().unwrap();
+            let two = sink.begin_evaluation("two").unwrap().unwrap();
+            complete(&sink, "finalized", finalized);
+            if notification_first {
+                sink.process_terminated();
+            }
+            sink.complete_evaluation("one", one, Err(NativeEvaluationError::ProcessTerminated));
+            // Ineligibility applies even before the notification arrives.
+            assert_eq!(sink.begin_evaluation("unready").unwrap(), None);
+            if !notification_first {
+                sink.process_terminated();
+            }
+            complete(&sink, "two", two);
+            sink.complete_evaluation("one", one, Err(NativeEvaluationError::ProcessTerminated));
+            let events = test.events();
+            assert_eq!(events.len(), 5);
+            assert_eq!(events[0], (view, success("finalized")));
+            assert_eq!(
+                events
+                    .iter()
+                    .filter(|(_, event)| matches!(event, HostEvent::Crashed { .. }))
+                    .count(),
+                1
+            );
+            for id in ["one", "two"] {
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|(_, event)| *event
+                            == evaluation_event(
+                                id,
+                                Err(JavaScriptEvaluationErrorKind::InternalError)
+                            ))
+                        .count(),
+                    1
+                );
+            }
+            assert!(events.contains(&(
+                view,
+                evaluation_event(
+                    "unready",
+                    Err(JavaScriptEvaluationErrorKind::WebViewNotReady)
+                )
+            )));
+            sink.document_committed();
+            let reused = sink.begin_evaluation("one").unwrap().unwrap();
+            sink.complete_evaluation("one", one, Err(NativeEvaluationError::ProcessTerminated));
+            complete(&sink, "one", reused);
+            assert_eq!(
+                test.events(),
+                vec![
+                    (
+                        view,
+                        HostEvent::LoadStatusChanged {
+                            status: LoadStatusKind::Started
+                        }
+                    ),
+                    (view, success("one")),
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn termination_preserves_finalized_failure_and_retires_only_pending_reads() {
+        for transfer_finalized_to_runtime in [false, true] {
+            let mut test = EvaluationRuntime::new();
+            let (view, sink) = test.view();
+            sink.document_committed();
+            test.events();
+            let finalized = sink.begin_evaluation("finalized").unwrap().unwrap();
+            let pending = sink.begin_evaluation("pending").unwrap().unwrap();
+            sink.complete_evaluation(
+                "finalized",
+                finalized,
+                Err(NativeEvaluationError::Result(
+                    JavaScriptEvaluationErrorKind::SerializationError,
+                )),
+            );
+            if transfer_finalized_to_runtime {
+                test.runtime.perform_all_updates().unwrap();
+            }
+
+            sink.process_terminated();
+            assert_eq!(sink.begin_evaluation("later").unwrap(), None);
+            complete(&sink, "pending", pending);
+            sink.complete_evaluation(
+                "finalized",
+                finalized,
+                Err(NativeEvaluationError::ProcessTerminated),
+            );
+
+            let events = test.events();
+            assert_eq!(events.len(), 4);
+            assert_eq!(
+                events[0],
+                (
+                    view,
+                    evaluation_event(
+                        "finalized",
+                        Err(JavaScriptEvaluationErrorKind::SerializationError)
+                    )
+                )
+            );
+            assert_eq!(events[1].0, view);
+            assert!(matches!(events[1].1, HostEvent::Crashed { .. }));
+            assert_eq!(
+                events[2],
+                (
+                    view,
+                    evaluation_event("pending", Err(JavaScriptEvaluationErrorKind::InternalError))
+                )
+            );
+            assert_eq!(
+                events[3],
+                (
+                    view,
+                    evaluation_event("later", Err(JavaScriptEvaluationErrorKind::WebViewNotReady))
+                )
+            );
+            assert!(test.events().is_empty());
+        }
+    }
+
+    #[test]
+    fn native_view_invalidation_retires_pending_and_makes_later_reads_unready() {
+        let mut test = EvaluationRuntime::new();
+        let (view, sink) = test.view();
+        sink.document_committed();
+        test.events();
+        let one = sink.begin_evaluation("one").unwrap().unwrap();
+        let two = sink.begin_evaluation("two").unwrap().unwrap();
+        sink.complete_evaluation("one", one, Err(NativeEvaluationError::ViewInvalidated));
+        complete(&sink, "two", two);
+        assert_eq!(sink.begin_evaluation("later").unwrap(), None);
+        let events = test.events();
+        assert_eq!(events.len(), 3);
+        for id in ["one", "two"] {
+            assert!(events.contains(&(
+                view,
+                evaluation_event(id, Err(JavaScriptEvaluationErrorKind::InternalError))
+            )));
+        }
+        assert!(events.contains(&(
+            view,
+            evaluation_event("later", Err(JavaScriptEvaluationErrorKind::WebViewNotReady))
+        )));
     }
 }

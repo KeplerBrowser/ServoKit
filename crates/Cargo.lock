@@ -7464,6 +7464,7 @@ dependencies = [
 name = "servokit"
 version = "0.1.0"
 dependencies = [
+ "block2",
  "cocoa",
  "core-foundation 0.10.0",
  "core-video",
@@ -7476,7 +7477,10 @@ dependencies = [
  "objc2",
  "objc2-app-kit",
  "objc2-core-foundation",
+ "objc2-foundation",
+ "objc2-web-kit",
  "raw-window-handle",
+ "serde_json",
  "servo",
  "servokit-embedder",
  "servokit-host",

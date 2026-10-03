@@ -201,6 +201,98 @@ place that container under a different live app-owned parent. Destroy and
 ordinary host drop remove system children before app-parent services are
 released. Windows and the React Native macOS adapter are outside this surface.
 
+### macOS system JavaScript evaluation
+
+`Runtime::evaluate_javascript(webview, evaluation_id, script)` is a
+ServoKit-owned operation. Servo views retain upstream
+`WebView::evaluate_javascript` behavior. System views use native
+`evaluateJavaScript:completionHandler:` on the same WRY-owned WKWebView, on the
+AppKit thread, and return the existing correlated
+`HostEvent::JavaScriptEvaluationResult` inside `ServokitEvent`. WRY retains
+browser and navigation-delegate ownership.
+
+System scripts execute synchronously in the current main document's page
+world, with asynchronous results. The operation does not wait for Promises,
+a destination URL, page stabilization or future DOM content. Evaluation itself
+does not focus, reveal, attach, navigate or recreate a view; caller scripts
+can have page-world side effects. Same-origin frame access follows normal
+page JavaScript rules; this API adds no frame/world selector or cross-origin
+access.
+
+A system document becomes eligible at its first observed main-document
+commit, WRY's macOS `PageLoadEvent::Started`. Completion of loading is not
+required. A known view without an eligible native document accepts the call
+and queues `WebViewNotReady` without retaining the script for later execution.
+A retained hidden or detached view remains eligible. The host continues to
+service AppKit and pump/drain Runtime events; no background-activity or latency
+guarantee is added.
+
+| Result or failure | System-view outcome |
+| --- | --- |
+| String, boolean, finite number, null, array, string-keyed object | Existing recursive tagged JSON in `value_json`, with `ok: true`. For example, a string is `{"type":"string","value":"text"}`. Array/object members are tagged too. |
+| Successful native nil or `NSNull` | `{"type":"null"}`. Undefined is not distinguished from null. |
+| Empty content | A successful value, such as the empty string; never an error sentinel. |
+| JavaScript exception, including syntax error | `EvaluationFailure`; WebKit does not supply the Servo compilation/runtime distinction. |
+| Native unsupported-result error, unsupported or cyclic native result, non-string object key, non-finite number, native JSON nesting limit or encoding failure | `SerializationError`. |
+| Pending read superseded by an observed document commit | `DocumentNotFound`. |
+| Explicit native process-termination error or unclassified native failure | `InternalError`. Observed termination also makes the document ineligible and retires every still-pending read. |
+| Native view invalidated while logically live | `InternalError` for pending reads; later calls return `WebViewNotReady` until a new commit. |
+
+Failures have `ok: false`, `error_type` and no `value_json`. Values reflect
+WebKit's native bridge; there is no lossless undefined/hole/custom-object
+guarantee or Servo DOM-reference tag support. Return ordinary JSON-compatible
+data for portable extraction. The existing native process-termination
+notification owns `Crashed`; evaluation errors do not fabricate another crash
+event. ServoKit does not automatically reload, recreate or switch engines.
+
+Error categories reflect the native error received. WebKit can report its
+unsupported-result error (`WKErrorDomain` code 5) for interrupted execution
+before reporting process termination. That completion remains a
+`SerializationError`; it does not establish that the script returned an
+unsupported value. A later termination notification retires only requests still
+pending, with `InternalError`, and leaves finalized results unchanged in either
+SDK queue. Subsequent evaluations return `WebViewNotReady` until a new observed
+document commit.
+
+Correlate results by Runtime instance, view handle and caller evaluation ID.
+IDs must be nonblank and distinct while outstanding within a view; the same
+ID is valid concurrently in different views. Unknown/destroyed handles, blank
+IDs and duplicates still pending in the system adapter fail immediately with
+no result for the rejected invocation. The adapter stops tracking a request
+when it finalizes a terminal result into its callback queue, so the caller's
+outstanding-ID rule extends until that caller receives or retires the result.
+Private tokens prevent retired callbacks from settling later ID reuse.
+Prefer monotonically allocated IDs per view lifetime. A caller timeout does
+not cancel native execution: retire that waiter and ignore its late result,
+without reusing an ID that could still arrive.
+
+Every observed main-document commit, including same-URL reload and committed
+history traversal, reports load-start then retires still-pending reads with
+one `DocumentNotFound` each. A navigation command or failed provisional
+navigation is not this boundary. A result finalized in the SDK callback
+queue before commit remains a historical snapshot ordered before load-start,
+including after transfer into Runtime's queue. Later callbacks from retired
+requests are ignored. SPA/DOM changes without commit retain snapshot-at-execution
+semantics. Separate text and metadata evaluations are not an atomic transaction;
+return URL/title/content together when the extraction needs common provenance.
+
+Hosts must preserve that provenance, advance their own per-view generation
+while processing lifecycle events, and recheck the generation when deferred
+work actually applies the result. Checking only on receipt or comparing URLs
+cannot protect deferred application across a same-URL reload. These checks
+cover observed/processed boundaries; a result does not attest that its document
+is still current at delivery or application. There is no public document
+identity or atomic caller-specified document guarantee.
+
+An accepted request has at most one terminal result while its view remains
+live. Results can complete out of request order; there is no hard deadline or
+terminal-result-after-destruction guarantee. Destroy invalidates the native
+lifetime and discards both SDK queues for the old handle. The caller cancels
+its waiters; reopening creates a new lifetime with no pending-read transfer.
+Already delivered results cannot be retracted by the SDK.
+
+### Surface vocabulary
+
 The public surface vocabulary is now `SurfaceHost`, `SurfaceHostOptions`,
 `SurfaceDelegate`, `NativeSurface`, `OffscreenSurface`,
 `SurfaceTarget`, `SurfaceFrame`, and `SurfaceError`. The old pre-release facade

@@ -454,13 +454,16 @@ pub trait Host {
         )))
     }
 
-    /// Forward JavaScript evaluation through Servo's existing webview path.
+    /// Forward ServoKit's JavaScript evaluation operation to the owning engine.
     ///
-    /// Provenance is `WebView::evaluate_javascript` and its completion callback.
+    /// Servo provenance is `WebView::evaluate_javascript` and its completion callback.
+    /// The macOS system host uses its WRY-owned WKWebView's native
+    /// `evaluateJavaScript:completionHandler:` in the main document's page world.
     /// Immediate host dispatch failure returns [`HostError`]; accepted evaluation
     /// success or script/serialization failure completes asynchronously as
     /// [`HostEvent::JavaScriptEvaluationResult`] with the caller's identifier.
-    /// This method adds no capability or policy beyond that existing Servo path.
+    /// Engine-specific readiness, supported values and document/lifetime rules
+    /// belong to the host; this method adds no policy to the existing Servo path.
     fn evaluate_javascript(
         &mut self,
         _webview: WebViewHandle,
@@ -1126,10 +1129,35 @@ impl<H: Host> Runtime<H> {
         self.record_events(webview, events)
     }
 
-    /// Evaluate JavaScript through Servo's `WebView::evaluate_javascript` path.
+    /// Evaluate JavaScript through the view's owning engine.
     ///
     /// The asynchronous result is emitted as `HostEvent::JavaScriptEvaluationResult` with the
-    /// caller-provided evaluation identifier.
+    /// caller-provided evaluation identifier. This ServoKit-owned operation maps to
+    /// Servo's `WebView::evaluate_javascript` on Servo views and native WKWebView
+    /// evaluation on macOS system views.
+    ///
+    /// On macOS system views, scripts run synchronously in the current main document's
+    /// page world; returned Promises are not awaited. Eligibility begins at the first
+    /// observed main-document commit, including for a retained hidden/detached view.
+    /// An ineligible live view queues `WebViewNotReady` without saving the script.
+    /// Caller IDs must remain distinct while outstanding within each view. Duplicate
+    /// IDs still pending in the system adapter fail immediately.
+    ///
+    /// System results use recursive string, boolean, finite-number, null, array and
+    /// string-keyed-object tags. Native nil normalizes to null. JavaScript exceptions
+    /// (including syntax errors) are `EvaluationFailure`; native unsupported-result
+    /// errors and unsupported values are `SerializationError`. Observed commit
+    /// retires pending work with `DocumentNotFound`; observed process termination
+    /// retires it with `InternalError`. WebKit can report an unsupported-result
+    /// error before reporting termination; already finalized results are not rewritten.
+    ///
+    /// A system result finalized before a commit remains a historical snapshot ordered
+    /// before load-start. Hosts must preserve request provenance, advance their own
+    /// per-view generation when processing lifecycle events, and recheck it when
+    /// deferred work applies a result. URL equality cannot detect same-URL reloads.
+    /// Results may complete out of request order, with no hard deadline. Caller timeout
+    /// does not cancel native execution. Destruction discards queued results; callers
+    /// cancel their own waiters and must not transfer them to replacement views.
     pub fn evaluate_javascript(
         &mut self,
         webview: WebViewHandle,

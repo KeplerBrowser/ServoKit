@@ -86,6 +86,15 @@ app-owned parent without discarding the browser view and reattach can move that
 container to a different parent. This does not change the Servo-backed React
 Native macOS path.
 
+The same system view supports the existing correlated JavaScript-evaluation
+operation through WKWebView's native completion. The macOS adapter owns
+readiness, native tagged-value conversion, pending-request retirement and
+per-view callback order. Observed main-document commits retire pending reads;
+already finalized results remain ordered historical snapshots. Runtime keeps
+that order during event transfer and discards closed-view events. See the
+[system evaluation contract](servokit.md#macos-system-javascript-evaluation)
+for supported values, lifetime rules and consumer freshness obligations.
+
 On iOS, the portable Rust controller owns request identity, pending semantics,
 fallback policy, and response validation. The WKWebView adapter owns native
 delegate completion and timer lifetimes, recycling, engine handles, effect

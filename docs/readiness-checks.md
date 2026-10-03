@@ -120,6 +120,29 @@ navigation results in the implementation PR. Keep this evidence macOS-only: it
 does not validate Windows or change the Servo-backed React Native macOS
 adapter.
 
+Rerun the system JavaScript-evaluation checks when changing evaluation,
+conversion, commit invalidation or callback/view lifetime. The owning facade
+regressions run with `cargo test --manifest-path crates/Cargo.toml -p servokit
+--features macos-system-webview --lib --locked` on macOS; locate and reuse the
+app's existing Cargo target. These include deterministic callback/Runtime queue
+ordering, same-URL commit retirement, ID reuse, sibling/replacement closure
+and both process-notification/evaluation-error orderings.
+
+Pair those tests with a controlled public Runtime consumer using real WRY-owned
+views. Prove pre-native/precommit readiness without deferred scripts,
+committed-but-loading access, cookie-gated and dynamically mutated DOM,
+two concurrent views with text/metadata requests, supported values/errors,
+and retained-hidden reads without focus, attachment, geometry or lifetime
+changes. Exercise navigation, reload, committed history traversal, failed
+provisional navigation, SPA changes, both SDK queue stages and sibling close/
+replacement. Record document markers, event order, process failure,
+commands, exact revision, platform/runtime and limitations in the owning
+issue/PR. Compilation or a standalone WKWebView demo is insufficient. Keep
+one-time proof machinery ephemeral under CONTRIBUTING. This validates the
+[bounded evaluation contract](servokit.md#macos-system-javascript-evaluation);
+downstream consumers must separately verify generation checks at deferred
+result application and cancellation on closure.
+
 ## Multiple native views on macOS
 
 Run the standalone public-facade proof on an interactive AppKit host:

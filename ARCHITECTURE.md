@@ -130,6 +130,13 @@ detach removes that container from the old parent, and reattach can place the
 same browser view under another app-owned parent. Servo and WebKit storage and
 credentials are not shared. The React Native macOS adapter remains Servo-backed.
 
+The system adapter maps the existing correlated JavaScript-evaluation operation
+to its WRY-owned WKWebView's native completion. It owns committed-document
+readiness, value/error conversion and pending-request retirement. Finalized
+results retain per-view historical order across later commits; hosts own
+extraction policy and generation checks when applying deferred results. See
+the [system evaluation contract](docs/servokit.md#macos-system-javascript-evaluation).
+
 Each view selects a `Native` or `Offscreen` target through the existing surface
 delegate. On macOS, exportable offscreen targets use a ServoKit-owned concrete
 Servo `RenderingContext` and bounded surfman IOSurface pool; consumers receive

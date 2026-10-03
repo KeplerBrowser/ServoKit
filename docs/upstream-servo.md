@@ -27,7 +27,7 @@ The submodule is a **reference checkout**, not the primary build dependency surf
 ## Published Rust baseline
 
 The current ServoKit release baseline is the crates.io `servo` crate pinned to
-`=0.3.0` in the Rust workspace manifests. ServoKit is therefore claiming a
+`=0.6.0` in the Rust workspace manifests. ServoKit is therefore claiming a
 published crates.io baseline, not a temporary git/tag dependency and not a build
 against the `upstream/servo` submodule. The submodule remains reference-only.
 

@@ -60,8 +60,8 @@ close. Normal interactive behavior is unchanged when `--smoke` is not supplied.
 example-local `examples/desktop-winit/Cargo.lock` file. Its manifest depends on
 repo-local `servokit` via `servokit = { path = "../../crates/servokit" }` with
 the `servo` feature, and it carries only the local `tikv-jemalloc-sys` patch
-needed by the Servo graph. It does not patch `stylo_derive`; that temporary
-patch is GPUI-only. The canonical Servo 0.3.0 baseline, patch strategy, and
+needed by the Servo graph. The `stylo_derive` and `zed-font-kit` compatibility
+patches are GPUI-only. The canonical Servo baseline, patch strategy, and
 `cargo update -p ... --precise ...` workflow live in
 [`rust-dependency-baseline.md`](./rust-dependency-baseline.md).
 

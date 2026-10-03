@@ -7,7 +7,7 @@ use servo::{
     DevicePoint, EventLoopWaker, ImeEvent, InputEvent, Key, KeyState, KeyboardEvent, MouseButton,
     MouseButtonAction, MouseButtonEvent, MouseLeftViewportEvent, MouseMoveEvent, NamedKey,
     Preferences, RenderingContext, Servo, ServoBuilder, TouchEvent, TouchEventType, TouchId,
-    WebView, WebViewBuilder, WebViewPoint, WheelDelta, WheelEvent, WheelMode,
+    TouchPointerType, WebView, WebViewBuilder, WebViewPoint, WheelDelta, WheelEvent, WheelMode,
 };
 use url::Url;
 
@@ -271,6 +271,7 @@ impl ServoWebView {
                 event_type,
                 TouchId(touch_id),
                 point,
+                TouchPointerType::Touch,
             )));
         Ok(())
     }
@@ -370,13 +371,13 @@ impl ServoWebView {
         self.webview
             .notify_input_event(InputEvent::MouseButton(MouseButtonEvent::new(
                 MouseButtonAction::Down,
-                MouseButton::Right,
+                MouseButton::Secondary,
                 point,
             )));
         self.webview
             .notify_input_event(InputEvent::MouseButton(MouseButtonEvent::new(
                 MouseButtonAction::Up,
-                MouseButton::Right,
+                MouseButton::Secondary,
                 point,
             )));
         Ok(())
@@ -590,7 +591,7 @@ impl ServoRuntime {
     /// Permanently shuts down the process engine after every view and other owner
     /// clone has been dropped. Ordinary drop releases the lease for later reuse.
     ///
-    /// Servo 0.3 supports only one engine initialization per process. Subsequent
+    /// Servo supports only one engine initialization per process. Subsequent
     /// acquisition after this call returns an error, rather than rebuilding Servo.
     pub fn shutdown(self) -> Result<(), String> {
         let lease = Rc::try_unwrap(self.lease)
@@ -869,9 +870,9 @@ fn acquire_process_servo_runtime(
 
 fn mouse_button(button: PointerButton) -> MouseButton {
     match button {
-        PointerButton::Primary => MouseButton::Left,
-        PointerButton::Secondary => MouseButton::Right,
-        PointerButton::Middle => MouseButton::Middle,
+        PointerButton::Primary => MouseButton::Primary,
+        PointerButton::Secondary => MouseButton::Secondary,
+        PointerButton::Middle => MouseButton::Auxiliary,
         PointerButton::Back => MouseButton::Back,
         PointerButton::Forward => MouseButton::Forward,
         PointerButton::Other(value) => MouseButton::Other(value),
@@ -937,6 +938,20 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn host_pointer_buttons_keep_servo_semantics() {
+        for (host, servo) in [
+            (PointerButton::Primary, MouseButton::Primary),
+            (PointerButton::Middle, MouseButton::Auxiliary),
+            (PointerButton::Secondary, MouseButton::Secondary),
+            (PointerButton::Back, MouseButton::Back),
+            (PointerButton::Forward, MouseButton::Forward),
+            (PointerButton::Other(6), MouseButton::Other(6)),
+        ] {
+            assert_eq!(mouse_button(host), servo);
+        }
+    }
 
     #[derive(Clone)]
     struct TestEventLoopWaker(Arc<AtomicBool>);
@@ -1407,6 +1422,25 @@ mod tests {
                 value_json: Some(
                     r#"{"type":"string","value":"Startup:startup-replacement"}"#.to_owned()
                 ),
+                error_type: None,
+            })
+        );
+
+        webview
+            .evaluate_javascript(
+                "engine-capabilities",
+                "typeof WebGLRenderingContext === 'function' && crypto.getRandomValues(new Uint8Array(1)) instanceof Uint8Array",
+            )
+            .expect("engine capability evaluation should be queued");
+        let capability_events = collect_events_until(&mut webview, |events| {
+            javascript_result(events, "engine-capabilities").is_some()
+        });
+        assert_eq!(
+            javascript_result(&capability_events, "engine-capabilities"),
+            Some(&HostEvent::JavaScriptEvaluationResult {
+                evaluation_id: "engine-capabilities".to_owned(),
+                ok: true,
+                value_json: Some(r#"{"type":"boolean","value":true}"#.to_owned()),
                 error_type: None,
             })
         );

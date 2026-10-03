@@ -20,7 +20,7 @@ use image::RgbaImage;
 use objc2_core_foundation::CFRetained;
 use servo::{DeviceIntRect, RefreshDriver, RenderingContext};
 use servokit_embedder::WebViewHandle;
-use surfman::platform::default::surface::NativeSurface as SurfmanNativeSurface;
+use surfman::default::surface::NativeSurface as SurfmanNativeSurface;
 use surfman::{
     Connection, Context, ContextAttributeFlags, ContextAttributes, Device, GLApi, GLVersion,
     Surface, SurfaceAccess, SurfaceTexture, SurfaceType,

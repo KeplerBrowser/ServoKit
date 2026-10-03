@@ -157,20 +157,13 @@ fn derive_variant_arm(variant: &VariantInfo, generics: &mut Option<WhereClause>)
     if variant_attrs.skip {
         return quote!(Ok(()));
     }
-    if variant_attrs.dimension {
-        assert_eq!(bindings.len(), 1);
-        assert!(
-            variant_attrs.function.is_none() && variant_attrs.keyword.is_none(),
-            "That makes no sense"
-        );
-    }
 
     let mut expr = if let Some(keyword) = variant_attrs.keyword {
         assert!(bindings.is_empty());
         quote! {
             std::fmt::Write::write_str(dest, #keyword)
         }
-    } else if !bindings.is_empty() {
+    } else if !bindings.is_empty() || variant_attrs.function.is_some() {
         derive_variant_fields_expr(bindings, generics, separator)
     } else {
         quote! {
@@ -178,15 +171,7 @@ fn derive_variant_arm(variant: &VariantInfo, generics: &mut Option<WhereClause>)
         }
     };
 
-    if variant_attrs.dimension {
-        expr = quote! {
-            match #expr {
-                Ok(()) => {}
-                Err(error) => return Err(error),
-            }
-            std::fmt::Write::write_str(dest, #identifier)
-        }
-    } else if let Some(function) = variant_attrs.function {
+    if let Some(function) = variant_attrs.function {
         let mut identifier = function.explicit().map_or(identifier, |name| name);
         identifier.push('(');
         expr = quote! {
@@ -404,7 +389,6 @@ pub struct CssVariantAttrs {
     pub derive_debug: bool,
     pub comma: bool,
     pub bitflags: Option<CssBitflagAttrs>,
-    pub dimension: bool,
     pub keyword: Option<String>,
     pub skip: bool,
 }

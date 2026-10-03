@@ -13,17 +13,25 @@ need them.
 
 ## Current Servo baseline
 
-The current ServoKit release baseline targets **crates.io `servo` `=0.3.0`**.
+The current ServoKit source baseline targets **crates.io `servo` `=0.6.0`**.
 
 That means:
 
-- ServoKit claims the published Servo v0.3 crates.io baseline.
+- ServoKit uses the published Servo v0.6 crates.io baseline with matching
+  `servo-default-resources` and `servo-allocator` versions.
 - ServoKit does **not** build against the `upstream/servo` git submodule.
 - ServoKit does **not** use a temporary Servo git/tag dependency for the
   release baseline.
 
 Changing the Servo baseline is an explicit follow-up decision, not a routine
 lockfile refresh.
+
+Servo 0.6 makes WebGL, WebCrypto, and jemalloc opt-in. ServoKit explicitly
+retains WebGL and WebCrypto through Servo's Cargo features and jemalloc through
+`servo-allocator/use-jemalloc`, preserving the prior effective engine defaults.
+Upstream still uses the system allocator on Windows. These dependencies remain
+behind ServoKit's `servo` feature; the portable controller stays Servo-free.
+Direct rendering dependencies align with Servo's surfman 0.13 and WebRender 0.70.
 
 ## Where direct pins live
 
@@ -32,7 +40,7 @@ root instead of being repeated across member manifests:
 
 - `crates/Cargo.toml` centralizes the Servo-facing crate pins used by
   `servokit`, `servokit-embedder`, `servokit-host`, and
-  `servokit-host-android`, including the exact `servo = "=0.3.0"` baseline,
+  `servokit-host-android`, including the exact `servo = "=0.6.0"` baseline,
   the shared `rustls` provider helper pin, and shared
   `raw-window-handle`/desktop host versions.
 
@@ -42,8 +50,7 @@ longer members of a shared examples workspace:
 - `examples/desktop-winit/Cargo.toml` depends on repo-local `servokit` with the
   `servo` feature and pins its direct `winit` dependency.
 - `examples/desktop-gpui/Cargo.toml` depends on repo-local `servokit` with the
-  `servo` feature and pins its direct GPUI, `raw-window-handle`, and `naga`
-  dependencies.
+  `servo` feature and pins its direct GPUI and `raw-window-handle` dependencies.
 
 ## Local patch strategy
 
@@ -58,7 +65,14 @@ patches that are actually active for its graph. The current active
 - `stylo_derive` → temporary local path patch in
   `examples/desktop-gpui/Cargo.toml` only. The GPUI dependency graph brings in
   `serde_fmt` through its structured logging stack, which makes Servo/Stylo's
-  generated `ToCss` `fmt::Result` propagation ambiguous under Servo `=0.3.0`.
+  generated `ToCss` `fmt::Result` propagation ambiguous. The existing workaround
+  is carried forward to `stylo_derive` 0.21.0 for Servo 0.6.
+- `zed-font-kit` → temporary local path patch in the GPUI example root only.
+  Published GPUI 0.2.2 requires `zed-font-kit` 0.14.1-zed, whose FreeType 0.20
+  dependency conflicts with Servo's FreeType 0.23 dependency. The patch applies
+  an upstream manifest-only fix to the exact published package, leaving its
+  Rust sources and macOS CoreText dependencies unchanged. Source provenance,
+  licensing, and removal criteria are recorded in its adjacent `PATCH.md`.
 
 The `stylo_derive` patch is intentionally GPUI-only. Core crates and
 `examples/desktop-winit` do not patch
@@ -66,6 +80,12 @@ The `stylo_derive` patch is intentionally GPUI-only. Core crates and
 The local patch replaces ambiguous `?` conversions in `to_css.rs` with explicit
 `match`/`return Err(error)` handling and should be removed when the Servo/Stylo
 crates.io graph no longer needs that workaround for the GPUI example.
+
+An external application combining GPUI with ServoKit must select both GPUI
+patches at its own Cargo root; Cargo does not inherit patches from ServoKit.
+This preserves the supported macOS GPUI path and does not establish new
+non-macOS GPUI support. The earlier direct Naga 26 feature workaround is no
+longer needed by the Servo 0.6 graph.
 
 ## Reproducible `--locked` workflow
 
@@ -93,7 +113,7 @@ example:
 
 ```sh
 cargo update --manifest-path crates/Cargo.toml -p rustls --precise 0.23.40
-cargo update --manifest-path examples/desktop-gpui/Cargo.toml -p naga@26.0.0 --precise 26.0.0
+cargo update --manifest-path examples/desktop-gpui/Cargo.toml -p gpui --precise 0.2.2
 cargo update --manifest-path examples/desktop-winit/Cargo.toml -p winit --precise 0.30.13
 cargo update --manifest-path crates/Cargo.toml -p raw-window-handle --precise 0.6.2
 ```
@@ -108,10 +128,11 @@ together.
 
 ## Servo baseline changes are special
 
-If ServoKit intentionally moves off crates.io `servo` `=0.3.0`, do all of the
+If ServoKit intentionally changes its published Servo baseline, do all of the
 following together:
 
-1. update the Servo pin in `crates/Cargo.toml`;
+1. update the Servo pin and matching resources/allocator pins in the crate
+   workspace, plus direct Servo pins in examples and development dependencies;
 2. regenerate or refresh `crates/Cargo.lock` and the lockfiles for Servo-backed
    example roots (`examples/desktop-winit/Cargo.lock` and
    `examples/desktop-gpui/Cargo.lock`), plus any other example lockfile whose
@@ -119,6 +140,5 @@ following together:
 3. rerun the `--locked` readiness commands for crates and desktop examples; and
 4. restate any API fallout before claiming the new baseline.
 
-Under the current `=0.3.0` baseline, future Servo API fallout stays deferred
-until ServoKit intentionally changes its Servo pin and refreshes the affected
-lockfiles with matching validation.
+Future Servo API fallout stays deferred until ServoKit intentionally changes
+its Servo pin and refreshes the affected lockfiles with matching validation.

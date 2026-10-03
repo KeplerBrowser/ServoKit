@@ -137,7 +137,7 @@ platform-specific `GpuFrame` values and explicitly complete them after their
 last GPU sample. This does not make the product scene renderer part of ServoKit.
 
 View destruction and ordinary host disposal preserve the process engine for
-reuse. Explicit `Runtime::shutdown` is terminal because Servo 0.3 cannot initialize
+reuse. Explicit `Runtime::shutdown` is terminal because Servo cannot initialize
 twice in one process. The [surface contract](docs/surface-modes.md) defines update
 servicing, error attribution, and view/native-resource teardown ordering.
 

@@ -114,7 +114,7 @@ for the remainder of the process.
   a later host to reuse the process engine.
 - `Runtime::shutdown` consumes the runtime, closes its views, and permanently
   shuts down the engine. Call it on the owning UI thread before native parent
-  windows or logging are destroyed. Servo 0.3 does not support engine restart.
+  windows or logging are destroyed. Servo does not support engine restart.
   Final cleanup still runs if an individual detach fails, and returns the first
   error. A lost GPU completion quarantines only its retained bounded IOSurface;
   macOS reclaims it when the app process exits. An unattached final host can also

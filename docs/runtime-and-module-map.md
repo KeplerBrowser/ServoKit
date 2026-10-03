@@ -225,7 +225,7 @@ native implementation. Android and macOS target Servo-backed controllers; iOS
 targets the packaged portable Rust controller.
 
 The first successful Servo construction retains one engine runtime on a
-process-long platform UI thread. Servo 0.3.0's handle is `Rc`/non-`Send`, so
+process-long platform UI thread. Servo's handle is `Rc`/non-`Send`, so
 ServoKit neither transfers that runtime nor reinitializes it after the owner
 thread exits. Controller/WebView state and attached render surfaces have
 shorter, independent lifetimes.

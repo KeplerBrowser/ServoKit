@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
-    <img alt="ServoKit: a web engine in your app, built on Servo." src="docs/assets/banner-light.svg" width="100%">
+    <img alt="ExplorerKit: a new kind of web explorer, built on Servo." src="docs/assets/banner-light.svg" width="100%">
   </picture>
 </p>
 
@@ -19,22 +19,24 @@
   <a href="CONTRIBUTING.md"><b>Contribute</b></a>
 </p>
 
-**ServoKit puts [Servo](https://servo.org), the independent web engine built
-for embedding, inside your app. Where Servo isn't ready yet, a view can use
-the platform's own web view instead, behind the same API.**
+**ExplorerKit is a new kind of web explorer: the web as a view inside your
+app, instead of a browser window around it.** It runs
+[Servo](https://servo.org), the independent web engine built for embedding.
+Where Servo isn't ready yet, a view can use the platform's own web view
+instead, behind the same API.
 
-You build the app: its windows, tabs, and buttons. ServoKit runs the engine,
+You build the app: its windows, tabs, and buttons. ExplorerKit runs the engine,
 draws web pages into a view you own, and gives you one small API to control it
 from Rust, Kotlin, or React Native.
 
 If you know [CEF](https://github.com/chromiumembedded/cef), it's the same
-idea, built on Servo. Servo can't render every website yet, so ServoKit also
+idea, built on Servo. Servo can't render every website yet, so ExplorerKit also
 has a compatibility layer that runs a view on the system web view. Views move
 to Servo as it matures.
 
-## Why ServoKit
+## Why ExplorerKit
 
-- **Your app stays yours.** ServoKit never opens windows or adds browser
+- **Your app stays yours.** ExplorerKit never opens windows or adds browser
   chrome. It draws into the window or view you give it.
 - **Servo first, with a way out.** Build for Servo, and run a view on the
   system web view where Servo isn't ready yet, behind the same API.
@@ -43,7 +45,7 @@ to Servo as it matures.
   views and iOS; macOS system web views still use WebKit's defaults.
 - **Platform code stays thin.** Each platform adapter does only what the
   platform requires: views, input, and threads.
-- **One API across platforms.** React Native apps get one `<ServoView>`. Rust
+- **One API across platforms.** React Native apps get one `<ExplorerView>`. Rust
   apps get one `Runtime`.
 
 ## Where it runs
@@ -57,7 +59,7 @@ to Servo as it matures.
 | Windows and Linux: Rust | Servo | 🚧 Should build; not verified yet |
 
 ¹ Apple requires WebKit for most iOS apps, and Servo doesn't support iOS
-yet. On iOS, ServoKit keeps the same `<ServoView>` API and the same Rust
+yet. On iOS, ExplorerKit keeps the same `<ExplorerView>` API and the same Rust
 browser logic, and drives `WKWebView` underneath.
 
 On macOS, which should you use? Servo works best today for content you
@@ -71,11 +73,11 @@ See [what works where](docs/reference/capabilities.md) for the full feature list
 **React Native**
 
 ```tsx
-import { ServoView } from 'react-native-servokit';
+import { ExplorerView } from 'react-native-explorerkit';
 
 export function Browser() {
   return (
-    <ServoView
+    <ExplorerView
       style={{ flex: 1 }}
       url="https://servo.org"
       onPageTitleChanged={(e) => console.log(e.nativeEvent.title)}
@@ -88,9 +90,9 @@ export function Browser() {
 **Rust**
 
 ```rust
-use servokit::{surface::SurfaceHost, HostEvent, HostSurface, Runtime};
+use explorerkit::{surface::SurfaceHost, HostEvent, HostSurface, Runtime};
 
-// `surfaces` gives ServoKit your window's native handle (see examples/desktop-winit).
+// `surfaces` gives ExplorerKit your window's native handle (see examples/desktop-winit).
 let mut runtime = Runtime::new(SurfaceHost::new(surfaces, options));
 let session = runtime.create_session();
 let view = runtime.create_webview(session)?;
@@ -128,7 +130,7 @@ Android and the other examples are covered in [Get started](docs/getting-started
 
 ## Built by AI agents
 
-ServoKit is built agent-first. So far, AI coding agents have written, tested,
+ExplorerKit is built agent-first. So far, AI coding agents have written, tested,
 reviewed, and merged every change, and people have steered: they choose what
 to build and approve each plan. Every commit so far was co-authored by an AI
 agent.
@@ -157,7 +159,7 @@ The rules the agents follow are public:
 | --- | --- |
 | [Get started](docs/getting-started.md) | Build and run an example app |
 | [How it works](ARCHITECTURE.md) | The big picture: who owns what, and the rules we keep |
-| [React Native](docs/platforms/react-native.md) | `<ServoView>` props, events, and methods |
+| [React Native](docs/platforms/react-native.md) | `<ExplorerView>` props, events, and methods |
 | [Android](docs/platforms/android.md) | Build the Android engine and use it from Kotlin |
 | [Desktop (Rust)](docs/platforms/desktop.md) | Embed Servo in a winit or GPUI app |
 | [What works where](docs/reference/capabilities.md) | Feature support on each platform |
@@ -166,14 +168,17 @@ Browse [all docs](docs/README.md). AI agents can start from [llms.txt](llms.txt)
 
 ## Status
 
-ServoKit is an experiment. APIs change often, and nothing is published to npm
-or crates.io yet. Servo itself can't render every website yet, which is why the
-system web view is part of the design. These are not supported yet: messaging
-between web pages and native code, preload scripts, and accessibility.
+ExplorerKit is an experiment. APIs change often, and nothing is published to
+npm or crates.io yet. Servo itself can't render every website yet, which is
+why the system web view is part of the design. These are not supported yet:
+messaging between web pages and native code, preload scripts, and
+accessibility.
+
+ExplorerKit was called ServoKit until October 2026.
 
 ## Credits
 
-ServoKit is glue. The hard parts come from these projects:
+ExplorerKit is glue. The hard parts come from these projects:
 
 - [Servo](https://servo.org): the web engine.
 - [WRY](https://github.com/tauri-apps/wry): drives the system web view on
@@ -181,14 +186,14 @@ ServoKit is glue. The hard parts come from these projects:
 - [surfman](https://github.com/servo/surfman) and
   [raw-window-handle](https://github.com/rust-windowing/raw-window-handle):
   GPU surfaces and native window handles.
-- [React Native](https://reactnative.dev): the `<ServoView>` component.
+- [React Native](https://reactnative.dev): the `<ExplorerView>` component.
 - [winit](https://github.com/rust-windowing/winit) and
   [GPUI](https://www.gpui.rs): used by the desktop examples.
 
-ServoKit is an independent community project, not affiliated with the Servo
+ExplorerKit is an independent community project, not affiliated with the Servo
 project. Licenses are listed in
 [Dependencies](docs/reference/dependencies.md#licenses).
 
 ## License
 
-ServoKit's own code is [MIT](LICENSE). Dependencies keep their own licenses.
+ExplorerKit's own code is [MIT](LICENSE). Dependencies keep their own licenses.

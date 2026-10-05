@@ -1,0 +1,14 @@
+Pod::Spec.new do |s|
+  s.name = "ExplorerKitMacOSBinary"
+  s.version = "__VERSION__"
+  s.summary = "Private ExplorerKit macOS runtime for react-native-explorerkit."
+  s.homepage = "https://github.com/KeplerBrowser/ServoKit"
+  s.license = { :type => "MIT", :file => "LICENSES/ExplorerKit.txt" }
+  s.author = "ExplorerKit contributors"
+  s.platform = :osx, "14.0"
+  s.source = {
+    :http => "__SOURCE_URL__",
+    :sha256 => "__SHA256__"
+  }
+  s.vendored_frameworks = "ExplorerKit.xcframework"
+end

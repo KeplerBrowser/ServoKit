@@ -1,5 +1,5 @@
 [package]
-name = "servokit-example-desktop-gpui"
+name = "explorerkit-example-desktop-gpui"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -16,7 +16,7 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 [dependencies]
 zed_gpui = { package = "gpui", version = "0.2.2", features = ["runtime_shaders"] }
 raw-window-handle = "0.6.2"
-servokit = { path = "../../crates/servokit", features = ["servo"] }
+explorerkit = { path = "../../crates/explorerkit", features = ["servo"] }
 
 [patch.crates-io]
 tikv-jemalloc-sys = { path = "../../crates/vendor/tikv-jemalloc-sys" }

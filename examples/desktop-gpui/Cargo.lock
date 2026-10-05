@@ -2637,6 +2637,63 @@ dependencies = [
 ]
 
 [[package]]
+name = "explorerkit"
+version = "0.1.0"
+dependencies = [
+ "cocoa 0.26.0",
+ "core-foundation 0.10.0",
+ "core-video",
+ "dpi",
+ "euclid",
+ "explorerkit-embedder",
+ "explorerkit-host",
+ "gleam",
+ "glow 0.17.0",
+ "image",
+ "io-surface",
+ "objc2-core-foundation",
+ "raw-window-handle",
+ "servo",
+ "surfman",
+ "webrender_api",
+]
+
+[[package]]
+name = "explorerkit-embedder"
+version = "0.1.0"
+dependencies = [
+ "dpi",
+ "euclid",
+ "explorerkit-host",
+ "rustls",
+ "serde_json",
+ "servo",
+ "servo-allocator",
+ "servo-default-resources",
+ "thiserror 2.0.18",
+ "url",
+]
+
+[[package]]
+name = "explorerkit-example-desktop-gpui"
+version = "0.1.0"
+dependencies = [
+ "cocoa 0.26.0",
+ "explorerkit",
+ "gpui",
+ "objc",
+ "raw-window-handle",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "explorerkit-host"
+version = "0.1.0"
+dependencies = [
+ "raw-window-handle",
+]
+
+[[package]]
 name = "exr"
 version = "1.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9322,63 +9379,6 @@ checksum = "170fb83ab34de17dc69aa7c67482b22218ddb85da56546f9bd6b929e32a05930"
 dependencies = [
  "serde",
  "stable_deref_trait",
-]
-
-[[package]]
-name = "servokit"
-version = "0.1.0"
-dependencies = [
- "cocoa 0.26.0",
- "core-foundation 0.10.0",
- "core-video",
- "dpi",
- "euclid",
- "gleam",
- "glow 0.17.0",
- "image",
- "io-surface",
- "objc2-core-foundation",
- "raw-window-handle",
- "servo",
- "servokit-embedder",
- "servokit-host",
- "surfman",
- "webrender_api",
-]
-
-[[package]]
-name = "servokit-embedder"
-version = "0.1.0"
-dependencies = [
- "dpi",
- "euclid",
- "rustls",
- "serde_json",
- "servo",
- "servo-allocator",
- "servo-default-resources",
- "servokit-host",
- "thiserror 2.0.18",
- "url",
-]
-
-[[package]]
-name = "servokit-example-desktop-gpui"
-version = "0.1.0"
-dependencies = [
- "cocoa 0.26.0",
- "gpui",
- "objc",
- "raw-window-handle",
- "servokit",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "servokit-host"
-version = "0.1.0"
-dependencies = [
- "raw-window-handle",
 ]
 
 [[package]]

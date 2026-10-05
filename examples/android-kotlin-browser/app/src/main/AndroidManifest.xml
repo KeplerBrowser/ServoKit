@@ -13,10 +13,10 @@
         android:allowBackup="false"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ServokitAndroidKotlinBrowser"
+        android:theme="@style/Theme.ExplorerKitAndroidKotlinBrowser"
         android:usesCleartextTraffic="true">
         <activity
-            android:name="org.servo.servokit.androidexample.MainActivity"
+            android:name="com.kepler.explorerkit.androidexample.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

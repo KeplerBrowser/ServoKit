@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Servokit Control Fixture - Dialogs</title>
+    <title>ExplorerKit Control Fixture - Dialogs</title>
     <link rel="stylesheet" href="../smoke/assets/smoke.css" />
     <style>
       .actions {
@@ -23,7 +23,7 @@
       }
     </style>
   </head>
-  <body data-fixture="servokit-control-dialogs">
+  <body data-fixture="explorerkit-control-dialogs">
     <main>
       <header>
         <p class="eyebrow">Embedder-control fixture</p>
@@ -60,12 +60,12 @@
       }
 
       document.getElementById("alert-button").addEventListener("click", () => {
-        window.alert("Servokit dialog fixture alert.");
+        window.alert("ExplorerKit dialog fixture alert.");
         updateOutput("Alert completed");
       });
 
       document.getElementById("confirm-button").addEventListener("click", () => {
-        const confirmed = window.confirm("Confirm this Servokit fixture request?");
+        const confirmed = window.confirm("Confirm this ExplorerKit fixture request?");
         updateOutput(confirmed ? "Confirm accepted" : "Confirm cancelled");
       });
 

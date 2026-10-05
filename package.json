@@ -1,5 +1,5 @@
 {
-  "name": "servokit",
+  "name": "explorerkit",
   "version": "0.0.0",
   "private": true,
   "description": "Servo embedder kit monorepo",
@@ -10,8 +10,8 @@
     "url": "git+https://github.com/KeplerBrowser/ServoKit.git"
   },
   "workspaces": [
-    "packages/react-native-servokit",
-    "packages/react-native-servokit/example",
+    "packages/react-native-explorerkit",
+    "packages/react-native-explorerkit/example",
     "examples/react-native-example-app",
     "examples/react-native-app",
     "examples/react-native-macos-app"

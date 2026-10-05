@@ -1,13 +1,13 @@
 # Kotlin browser example
 
 An Android app written in Kotlin, without React Native, that embeds Servo
-through ServoKit's shared Android layer.
+through ExplorerKit's shared Android layer.
 
 > [!NOTE]
 > This folder has no Kotlin code of its own. Its Gradle build compiles the
 > sources of [`android-native-example`](../android-native-example/README.md)
 > under a different app name and application ID
-> (`org.servo.servokit.androidkotlinbrowser`). Both folders produce the same
+> (`com.kepler.explorerkit.androidkotlinbrowser`). Both folders produce the same
 > app. To change the app, edit `android-native-example`.
 
 It is an example, not a Kotlin SDK or a published library.
@@ -16,10 +16,10 @@ It is an example, not a Kotlin SDK or a published library.
 
 ```text
 Kotlin app (examples/android-native-example sources)
-  → ServoViewBinding, ServoSurfaceLifecycleCoordinator, ServoHostEvent
-    (shared Kotlin layer in crates/servokit-host-android/android)
-  → servokit-host-android (Rust)
-  → servokit-embedder (Rust)
+  → ExplorerViewBinding, ExplorerSurfaceLifecycleCoordinator, ExplorerHostEvent
+    (shared Kotlin layer in crates/explorerkit-host-android/android)
+  → explorerkit-host-android (Rust)
+  → explorerkit-embedder (Rust)
   → Servo
 ```
 
@@ -41,7 +41,7 @@ examples/react-native-app/android/gradlew \
   :app:assembleDebug
 ```
 
-The build includes the `:servokit-android-host` module, which compiles the
+The build includes the `:explorerkit-host-android` module, which compiles the
 Rust library with `cargo ndk`. The app has no React Native dependencies and
 ships `arm64-v8a` only.
 
@@ -51,8 +51,8 @@ On an arm64 device or emulator:
 
 ```sh
 adb install -r examples/android-kotlin-browser/app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n org.servo.servokit.androidkotlinbrowser/org.servo.servokit.androidexample.MainActivity
-adb logcat -s ServokitNativeExample NativeServoView ExampleFixtureServer
+adb shell am start -n com.kepler.explorerkit.androidkotlinbrowser/com.kepler.explorerkit.androidexample.MainActivity
+adb logcat -s ExplorerKitNativeExample NativeExplorerView ExampleFixtureServer
 ```
 
 What to expect, and a step-by-step check of every prompt type, are in the

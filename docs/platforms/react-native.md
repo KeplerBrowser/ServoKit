@@ -1,20 +1,21 @@
 # React Native
 
-`react-native-servokit` gives React Native apps a `<ServoView>` component: a
-web view backed by Servo on Android and by WebKit on iOS, with one API on both.
+`react-native-explorerkit` gives React Native apps a `<ExplorerView>`
+component: a web view backed by Servo on Android and by WebKit on iOS, with
+one API on both.
 
 ## Platform support
 
 | Platform | Engine | Status |
 | --- | --- | --- |
-| Android | Servo, through the ServoKit Rust runtime | Experimental |
-| iOS | `WKWebView`, driven by the ServoKit Rust controller | Experimental |
+| Android | Servo, through the ExplorerKit Rust runtime | Experimental |
+| iOS | `WKWebView`, driven by the ExplorerKit Rust controller | Experimental |
 | macOS | Servo, through a private C boundary | Prototype, built from source only, not supported |
 | Windows | None | Not started |
 
 Why WebKit on iOS? Apple requires WebKit for most iOS apps (the EU and Japan
 allow other engines only with special entitlements), and Servo does not
-support iOS yet. ServoKit keeps the same component, commands, and Rust logic
+support iOS yet. ExplorerKit keeps the same component, commands, and Rust logic
 on iOS, and drives `WKWebView` underneath. See Open Web Advocacy's
 [Apple Browser Ban](https://open-web-advocacy.org/apple-browser-ban/) summary
 for background.
@@ -22,7 +23,7 @@ for background.
 ## Install
 
 The package is not on npm yet. Build it from this repository and install the
-packed archive, or depend on `packages/react-native-servokit` from a
+packed archive, or depend on `packages/react-native-explorerkit` from a
 workspace. Once installed:
 
 - React Native autolinking finds the Android library and the iOS pod. On iOS,
@@ -45,13 +46,13 @@ Other versions may work, but only these are tested.
 
 ```tsx
 import { useRef } from 'react';
-import { ServoView, type ServoViewHandle } from 'react-native-servokit';
+import { ExplorerView, type ExplorerViewHandle } from 'react-native-explorerkit';
 
 export function Browser() {
-  const servo = useRef<ServoViewHandle>(null);
+  const servo = useRef<ExplorerViewHandle>(null);
 
   return (
-    <ServoView
+    <ExplorerView
       ref={servo}
       style={{ flex: 1 }}
       url="https://servo.org"
@@ -103,7 +104,7 @@ These receive plain objects and let you answer the page.
 
 ## Methods
 
-Get a `ServoViewHandle` with a ref:
+Get a `ExplorerViewHandle` with a ref:
 
 | Method | What it does |
 | --- | --- |
@@ -239,11 +240,11 @@ every platform.
 
 | Platform | What ships | Who owns what |
 | --- | --- | --- |
-| Android | `android/libs/servokit-android-host-release.aar` (`arm64-v8a`, `x86_64`) | Rust owns browser logic. Kotlin owns the view and Android integration. |
-| iOS | `ios/ServoView.mm` and `ios/ServoKitController.xcframework` | The XCFramework holds only the Servo-free Rust controller. Objective-C++ owns `WKWebView` and its native objects. |
+| Android | `android/libs/explorerkit-host-android-release.aar` (`arm64-v8a`, `x86_64`) | Rust owns browser logic. Kotlin owns the view and Android integration. |
+| iOS | `ios/ExplorerView.mm` and `ios/ServoKitController.xcframework` | The XCFramework holds only the Servo-free Rust controller. Objective-C++ owns `WKWebView` and its native objects. |
 
 To check the exact package builds on iOS, run this from
-`packages/react-native-servokit`:
+`packages/react-native-explorerkit`:
 
 ```sh
 node scripts/validate-packed-consumer.mjs --ios-only
@@ -251,7 +252,8 @@ node scripts/validate-packed-consumer.mjs --ios-only
 
 More checks are in [Testing and validation](../reference/testing.md).
 
-The macOS adapter (`macos/ServoView.mm`) is not in the npm package. Local
-macOS apps use the repository-only `macos/ServokitMacOS.podspec`, either with
-a prebuilt `ServoKit.xcframework` and `SERVOKIT_BUILD_FROM_SOURCE=1`, or with a
-local `ServoKitMacOSBinary` pod. This keeps Servo out of the iOS pod.
+The macOS adapter (`macos/ExplorerView.mm`) is not in the npm package. Local
+macOS apps use the repository-only `macos/ExplorerKitMacOS.podspec`, either
+with a prebuilt `ExplorerKit.xcframework` and
+`EXPLORERKIT_BUILD_FROM_SOURCE=1`, or with a local `ExplorerKitMacOSBinary`
+pod. This keeps Servo out of the iOS pod.

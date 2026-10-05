@@ -10,11 +10,11 @@ Apps talk to a web view in three ways:
   link open? What did the user type in this `prompt()`? Which menu item was
   picked?
 
-ServoKit handles all three in Rust, in one place, so every platform behaves the
-same way. Platform adapters carry messages in and out, but don't decide what
-they mean. This holds for Servo views and for the iOS `WKWebView` adapter.
-macOS system web views use WebKit's own defaults for page prompts; see
-[macOS system web view](../reference/macos-system-webview.md).
+ExplorerKit handles all three in Rust, in one place, so every platform behaves
+the same way. Platform adapters carry messages in and out, but don't decide
+what they mean. This holds for Servo views and for the iOS `WKWebView`
+adapter. macOS system web views use WebKit's own defaults for page prompts;
+see [macOS system web view](../reference/macos-system-webview.md).
 
 ## Who decides what
 
@@ -53,8 +53,9 @@ fields:
 ```
 
 It is parsed in exactly one place: `ControllerCommand` in
-`crates/servokit-embedder/src/controller_command.rs`. Android, desktop, and the
-iOS controller all use that parser, so the JSON schema is never duplicated.
+`crates/explorerkit-embedder/src/controller_command.rs`. Android, desktop, and
+the iOS controller all use that parser, so the JSON schema is never
+duplicated.
 
 ### Commands
 
@@ -91,7 +92,7 @@ iOS controller all use that parser, so the JSON schema is never duplicated.
 > [!NOTE]
 > Answers to select pickers, file pickers, and permission prompts don't use
 > the envelope yet. The Android host has its own calls for them
-> (`ServoViewBinding.resolveSelectElement`, `resolveFilePicker`,
+> (`ExplorerViewBinding.resolveSelectElement`, `resolveFilePicker`,
 > `resolvePermission`), and the Rust `Runtime` cannot answer them.
 
 ## How a prompt flows
@@ -123,7 +124,7 @@ source of truth for request IDs and answers.
 
 When nobody answers a prompt, the engine's own default applies. For example,
 Servo allows the navigation, answers `alert` with OK, and cancels `confirm`
-and `prompt`. ServoKit adds no timers and makes up no answers: it ends a
+and `prompt`. ExplorerKit adds no timers and makes up no answers: it ends a
 prompt with the engine's default when nobody handles it or the view goes
 away. Risky requests are denied: permission prompts that are replaced or
 dropped are denied, and popups are denied unless you opt in.
@@ -149,7 +150,7 @@ Each platform carries the same envelope its own way:
 | Platform | Transport |
 | --- | --- |
 | Android | Fabric command → Kotlin → JNI `nativeSendControllerCommandWithController(controllerHandle, commandJson)`, or the C function `servo_host_send_controller_command_with_token_ffi(token, command_json)` |
-| React Native macOS | Fabric command → Objective-C++ → `servokit_desktop_private_dispatch_controller_command(host, token, bytes, length)` |
+| React Native macOS | Fabric command → Objective-C++ → `explorerkit_desktop_private_dispatch_controller_command(host, token, bytes, length)` |
 | iOS | Fabric command → Objective-C++ → `servokit_controller_dispatch(handle, bytes, length)` |
 | Rust | `servo_host_send_controller_command_with_token(token, ControllerCommand)` or the JSON variant, or the typed `Runtime` methods |
 
@@ -170,9 +171,9 @@ only hands over UI. The menu's answer still goes through the envelope.
 
 Only the React Native props, callbacks, and ref methods are app-facing API,
 and they are still experimental. The envelope, the JNI and C transports, and
-the iOS controller's C functions are internal contracts between ServoKit's own
-adapters. They are stable enough for those adapters, but they are not a public
-SDK or ABI.
+the iOS controller's C functions are internal contracts between ExplorerKit's
+own adapters. They are stable enough for those adapters, but they are not a
+public SDK or ABI.
 
 ### Status codes
 
@@ -186,18 +187,19 @@ The Android token transport returns a `ServoStatus`:
 | Bad `loadUrl` URL | `InvalidUrl` |
 | Bad JSON, unknown command, unknown menu action, or other envelope error | `BackendError` |
 
-The private desktop C boundary returns its own `ServokitDesktopPrivateStatus`:
+The private desktop C boundary returns its own
+`ExplorerKitDesktopPrivateStatus`:
 
 | Condition | Status |
 | --- | --- |
-| Accepted | `SERVOKIT_DESKTOP_PRIVATE_OK` |
-| Null host pointer | `SERVOKIT_DESKTOP_PRIVATE_NULL_POINTER` |
-| Unknown, disposed, or mismatched token | `SERVOKIT_DESKTOP_PRIVATE_STALE_TOKEN` |
-| Null, empty, oversized, non-UTF-8, malformed, or unknown command | `SERVOKIT_DESKTOP_PRIVATE_INVALID_ARGUMENT` |
-| Called from the wrong thread | `SERVOKIT_DESKTOP_PRIVATE_WRONG_THREAD` |
-| Reentrant call while busy | `SERVOKIT_DESKTOP_PRIVATE_BUSY` |
-| The runtime rejected an accepted command | `SERVOKIT_DESKTOP_PRIVATE_RUNTIME_ERROR` |
-| A panic was caught at the boundary | `SERVOKIT_DESKTOP_PRIVATE_PANIC` |
+| Accepted | `EXPLORERKIT_DESKTOP_PRIVATE_OK` |
+| Null host pointer | `EXPLORERKIT_DESKTOP_PRIVATE_NULL_POINTER` |
+| Unknown, disposed, or mismatched token | `EXPLORERKIT_DESKTOP_PRIVATE_STALE_TOKEN` |
+| Null, empty, oversized, non-UTF-8, malformed, or unknown command | `EXPLORERKIT_DESKTOP_PRIVATE_INVALID_ARGUMENT` |
+| Called from the wrong thread | `EXPLORERKIT_DESKTOP_PRIVATE_WRONG_THREAD` |
+| Reentrant call while busy | `EXPLORERKIT_DESKTOP_PRIVATE_BUSY` |
+| The runtime rejected an accepted command | `EXPLORERKIT_DESKTOP_PRIVATE_RUNTIME_ERROR` |
+| A panic was caught at the boundary | `EXPLORERKIT_DESKTOP_PRIVATE_PANIC` |
 
 The two sets of codes are not interchangeable.
 
@@ -216,7 +218,7 @@ be folded into the envelope:
 Servo-backed hosts send all events through one structured event bridge
 (`host_event_bridge.rs`), and adapters decode them. Add new events to that
 bridge rather than creating new per-field paths. On native Rust,
-`Runtime::drain_events()` returns them as `ServokitEvent` values.
+`Runtime::drain_events()` returns them as `ExplorerKitEvent` values.
 
 Common events: URL, title, favicon (native Rust only), status text, load
 status, history, focus, cursor, fullscreen, crash, error, surface attach,

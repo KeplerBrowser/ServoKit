@@ -1,17 +1,17 @@
 # Dependencies and the Servo version
 
-ServoKit builds against a published Servo release from crates.io. This page
+ExplorerKit builds against a published Servo release from crates.io. This page
 explains which version that is, where versions are pinned, which local patches
 exist, and how to update them safely.
 
 ## Servo version
 
-ServoKit uses **`servo = "=0.6.0"`** from crates.io, with the matching
+ExplorerKit uses **`servo = "=0.6.0"`** from crates.io, with the matching
 `servo-default-resources` and `servo-allocator` versions.
 
-- ServoKit does not build against the `upstream/servo` submodule or a Git
+- ExplorerKit does not build against the `upstream/servo` submodule or a Git
   branch of Servo.
-- Servo 0.6 makes WebGL, WebCrypto, and jemalloc opt-in. ServoKit turns all
+- Servo 0.6 makes WebGL, WebCrypto, and jemalloc opt-in. ExplorerKit turns all
   three back on (`webgl` and `webcrypto` features on `servo`, and
   `servo-allocator/use-jemalloc`). Upstream Servo still uses the system
   allocator on Windows.
@@ -29,7 +29,7 @@ There is no `Cargo.toml` at the repository root.
 
 | Cargo root | Lockfile | What it builds |
 | --- | --- | --- |
-| `crates/Cargo.toml` | `crates/Cargo.lock` | All ServoKit crates, including the Android host |
+| `crates/Cargo.toml` | `crates/Cargo.lock` | All ExplorerKit crates, including the Android host |
 | `examples/desktop-winit/Cargo.toml` | `examples/desktop-winit/Cargo.lock` | The `winit` desktop example |
 | `examples/desktop-gpui/Cargo.toml` | `examples/desktop-gpui/Cargo.lock` | The GPUI desktop example |
 
@@ -37,7 +37,7 @@ They are separate because Cargo applies `[patch.crates-io]` only from the root
 being built. Keeping roots separate means each patch affects only the build
 that needs it.
 
-Shared version pins for the ServoKit crates live once in
+Shared version pins for the ExplorerKit crates live once in
 `[workspace.dependencies]` in `crates/Cargo.toml`. Each example manifest pins
 its own app dependencies, such as `winit` or `gpui`.
 
@@ -54,8 +54,8 @@ Always build with `--locked` so Cargo uses the checked-in lockfile.
 Each patch folder has a `PATCH.md` with its source, license, and removal
 criteria. Remove a patch as soon as the upstream graph no longer needs it.
 
-If your own app combines GPUI with ServoKit, add both GPUI patches to your own
-Cargo root. Cargo does not inherit patches from dependencies.
+If your own app combines GPUI with ExplorerKit, add both GPUI patches to your
+own Cargo root. Cargo does not inherit patches from dependencies.
 
 ## Updating a dependency
 
@@ -90,11 +90,11 @@ Do all of these in one change:
 2. Refresh `crates/Cargo.lock` and the lockfiles of both desktop examples,
    plus any other lockfile whose graph changed.
 3. Rerun the `--locked` checks in [Testing and validation](testing.md).
-4. Write down any Servo API changes ServoKit had to absorb.
+4. Write down any Servo API changes ExplorerKit had to absorb.
 
 ## Licenses
 
-ServoKit's own code is under the [MIT license](../../LICENSE). Every
+ExplorerKit's own code is under the [MIT license](../../LICENSE). Every
 dependency keeps its own license. The main ones:
 
 | Project | License | Used for |
@@ -121,16 +121,16 @@ ship the license notices of everything inside, and say where the source of
 MPL-2.0 code such as Servo can be found. The macOS build already writes an
 SPDX software bill of materials (`distribution/macos/create-sbom.mjs`).
 
-ServoKit is an independent project. It is not made, endorsed, or supported by
+ExplorerKit is an independent project. It is not made, endorsed, or supported by
 the Servo project or Linux Foundation Europe, which hosts Servo. When you
-mention Servo, describe what ServoKit does with it ("embeds Servo", "for
+mention Servo, describe what ExplorerKit does with it ("embeds Servo", "for
 Servo"), and don't use Servo's logo.
 
 ## The `upstream/servo` submodule
 
 `upstream/servo` is a pinned Git submodule of the Servo repository. It is a
 reference copy for reading and comparing code. It is not used to build
-ServoKit.
+ExplorerKit.
 
 It is useful when you change native runtime behavior and want to compare with
 upstream. Good places to start:
@@ -154,7 +154,7 @@ it pinned means reviews and docs can point at one known upstream snapshot.
 When you move to a newer snapshot, update the submodule and any docs that
 compare against it.
 
-ServoKit reuses upstream patterns for low-level wiring: surface ownership,
+ExplorerKit reuses upstream patterns for low-level wiring: surface ownership,
 render loops and wakeups, baseline IME behavior, and JNI lifecycle. It keeps
 its own implementation of higher-level prompts, such as file pickers, context
 menus, permissions, dialogs, and app-facing policy decisions.

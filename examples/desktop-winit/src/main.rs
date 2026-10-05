@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use servokit::{
+use explorerkit::{
     runtime::{ensure_default_rustls_crypto_provider, Runtime},
     surface::{
         HostSurface, MemoryClipboard, NativeSurface, SurfaceDelegate, SurfaceError, SurfaceFrame,
@@ -27,7 +27,7 @@ use winit::{
     window::{Window, WindowId},
 };
 
-const APP_TITLE: &str = "Servokit winit desktop example";
+const APP_TITLE: &str = "ExplorerKit winit desktop example";
 const SURFACE_ID: &str = "desktop-winit-window";
 const DEFAULT_INITIAL_URL: &str = "http://127.0.0.1:8481/smoke/index.html";
 
@@ -236,7 +236,7 @@ impl DesktopWinitExample {
             return;
         };
         if let Err(error) = runtime.perform_updates(webview) {
-            let message = format!("servokit update failed: {error}");
+            let message = format!("explorerkit update failed: {error}");
             eprintln!("{message}");
             self.record_smoke_failure(message);
             self.finish_smoke_or_exit(event_loop);
@@ -278,7 +278,7 @@ impl DesktopWinitExample {
                     runtime.resolve_navigation_request(webview, &navigation_id, true)
                 {
                     failures.push(format!(
-                        "servokit navigation request {navigation_id} resolution failed: {error}"
+                        "explorerkit navigation request {navigation_id} resolution failed: {error}"
                     ));
                 }
             }
@@ -300,7 +300,7 @@ impl DesktopWinitExample {
             self.cursor = Some(input::clamp_cursor_point(cursor, viewport.size));
         }
         if let Err(error) = runtime.update_surface_viewport(webview, viewport) {
-            let message = format!("servokit viewport update failed: {error}");
+            let message = format!("explorerkit viewport update failed: {error}");
             eprintln!("{message}");
             self.record_smoke_failure(message);
             self.finish_smoke_or_exit(event_loop);
@@ -314,7 +314,8 @@ impl DesktopWinitExample {
         let Some(window) = self.window.as_ref() else {
             return;
         };
-        let Some(input) = input::to_servokit_event(event, &mut self.cursor, viewport(window).size)
+        let Some(input) =
+            input::to_explorerkit_event(event, &mut self.cursor, viewport(window).size)
         else {
             return;
         };
@@ -322,7 +323,7 @@ impl DesktopWinitExample {
             return;
         };
         if let Err(error) = runtime.dispatch_input_event(webview, input) {
-            let message = format!("servokit input dispatch failed: {error}");
+            let message = format!("explorerkit input dispatch failed: {error}");
             eprintln!("{message}");
             self.record_smoke_failure(message);
             self.finish_smoke_or_exit(event_loop);
@@ -369,7 +370,7 @@ impl DesktopWinitExample {
             return;
         };
         if let Err(error) = runtime.detach_surface(webview) {
-            eprintln!("servokit surface detach failed: {error}");
+            eprintln!("explorerkit surface detach failed: {error}");
         }
         self.drain_events();
     }

@@ -1,24 +1,24 @@
-# ServoKit docs
+# ExplorerKit docs
 
-ServoKit lets you embed Servo in your own app, with the platform's own web
+ExplorerKit lets you embed Servo in your own app, with the platform's own web
 view as a compatibility layer where Servo isn't ready yet. These docs explain
 how to try it, how it works, and how to use it on each platform.
 
 New here? Read [Get started](getting-started.md), then
-[How ServoKit works](../ARCHITECTURE.md).
+[How ExplorerKit works](../ARCHITECTURE.md).
 
 ## Start
 
 | Page | What it covers |
 | --- | --- |
 | [Get started](getting-started.md) | Build and run an example on iOS, desktop, or Android |
-| [How ServoKit works](../ARCHITECTURE.md) | The layers, the principles, the engine and its compatibility layer, and how a request moves through the code |
+| [How ExplorerKit works](../ARCHITECTURE.md) | The layers, the principles, the engine and its compatibility layer, and how a request moves through the code |
 
 ## Platforms
 
 | Page | What it covers |
 | --- | --- |
-| [React Native](platforms/react-native.md) | `<ServoView>` props, events, methods, and platform differences |
+| [React Native](platforms/react-native.md) | `<ExplorerView>` props, events, methods, and platform differences |
 | [Android](platforms/android.md) | The Android host, building the AAR, and using it from Kotlin |
 | [Desktop (Rust)](platforms/desktop.md) | Embedding Servo in a Rust app with `winit`, GPUI, or AppKit |
 

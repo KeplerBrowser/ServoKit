@@ -1,4 +1,4 @@
-use servokit::input::{
+use explorerkit::input::{
     HostInputEvent, KeyboardInputEvent, KeyboardInputKey, KeyboardInputState, KeyboardNamedKey,
     PointerButton, PointerButtonAction, PointerInputEvent, PointerScrollMode,
 };

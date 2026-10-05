@@ -31,19 +31,19 @@ pnpm-debug.log*
 /plans/
 /context/
 /research/
-/crates/servokit-host-android/android/.gradle/
-/crates/servokit-host-android/android/build/
-/packages/react-native-servokit/.servokit-source/
-/packages/react-native-servokit/lib/
-/packages/react-native-servokit/android/.cxx/
-/packages/react-native-servokit/android/.gradle/
-/packages/react-native-servokit/android/.kotlin/
-/packages/react-native-servokit/android/build/
-/packages/react-native-servokit/android/generated/
-/packages/react-native-servokit/android/libs/servokit-android-host-release.aar
-/packages/react-native-servokit/android/local.properties
-/packages/react-native-servokit/ios/generated/
-/packages/react-native-servokit/nitrogen/
+/crates/explorerkit-host-android/android/.gradle/
+/crates/explorerkit-host-android/android/build/
+/packages/react-native-explorerkit/.explorerkit-source/
+/packages/react-native-explorerkit/lib/
+/packages/react-native-explorerkit/android/.cxx/
+/packages/react-native-explorerkit/android/.gradle/
+/packages/react-native-explorerkit/android/.kotlin/
+/packages/react-native-explorerkit/android/build/
+/packages/react-native-explorerkit/android/generated/
+/packages/react-native-explorerkit/android/libs/explorerkit-host-android-release.aar
+/packages/react-native-explorerkit/android/local.properties
+/packages/react-native-explorerkit/ios/generated/
+/packages/react-native-explorerkit/nitrogen/
 
 # Example build output.
 /examples/target/

@@ -1556,9 +1556,9 @@ dependencies = [
 name = "desktop-winit"
 version = "0.1.0"
 dependencies = [
+ "explorerkit",
+ "explorerkit-embedder",
  "servo",
- "servokit",
- "servokit-embedder",
  "sha2 0.10.9",
  "winit",
 ]
@@ -1929,6 +1929,51 @@ checksum = "f1a05365e3b1c6d1650318537c7460c6923f1abdd272ad6842baa2b509957a06"
 dependencies = [
  "num-traits",
  "serde",
+]
+
+[[package]]
+name = "explorerkit"
+version = "0.1.0"
+dependencies = [
+ "cocoa",
+ "core-foundation 0.10.0",
+ "core-video",
+ "dpi",
+ "euclid",
+ "explorerkit-embedder",
+ "explorerkit-host",
+ "gleam",
+ "glow",
+ "image",
+ "io-surface",
+ "objc2-core-foundation",
+ "raw-window-handle",
+ "servo",
+ "surfman",
+ "webrender_api",
+]
+
+[[package]]
+name = "explorerkit-embedder"
+version = "0.1.0"
+dependencies = [
+ "dpi",
+ "euclid",
+ "explorerkit-host",
+ "rustls",
+ "serde_json",
+ "servo",
+ "servo-allocator",
+ "servo-default-resources",
+ "thiserror 2.0.18",
+ "url",
+]
+
+[[package]]
+name = "explorerkit-host"
+version = "0.1.0"
+dependencies = [
+ "raw-window-handle",
 ]
 
 [[package]]
@@ -7376,51 +7421,6 @@ checksum = "170fb83ab34de17dc69aa7c67482b22218ddb85da56546f9bd6b929e32a05930"
 dependencies = [
  "serde",
  "stable_deref_trait",
-]
-
-[[package]]
-name = "servokit"
-version = "0.1.0"
-dependencies = [
- "cocoa",
- "core-foundation 0.10.0",
- "core-video",
- "dpi",
- "euclid",
- "gleam",
- "glow",
- "image",
- "io-surface",
- "objc2-core-foundation",
- "raw-window-handle",
- "servo",
- "servokit-embedder",
- "servokit-host",
- "surfman",
- "webrender_api",
-]
-
-[[package]]
-name = "servokit-embedder"
-version = "0.1.0"
-dependencies = [
- "dpi",
- "euclid",
- "rustls",
- "serde_json",
- "servo",
- "servo-allocator",
- "servo-default-resources",
- "servokit-host",
- "thiserror 2.0.18",
- "url",
-]
-
-[[package]]
-name = "servokit-host"
-version = "0.1.0"
-dependencies = [
- "raw-window-handle",
 ]
 
 [[package]]

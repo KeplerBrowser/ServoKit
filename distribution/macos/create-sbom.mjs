@@ -31,10 +31,10 @@ const packageById = new Map(
 );
 const nodeById = new Map(metadata.resolve.nodes.map((node) => [node.id, node]));
 const roots = metadata.packages.filter(
-  (cargoPackage) => cargoPackage.name === 'servokit-host-desktop'
+  (cargoPackage) => cargoPackage.name === 'explorerkit-host-desktop'
 );
 if (roots.length !== 1) {
-  throw new Error(`expected one servokit-host-desktop package, got ${roots.length}`);
+  throw new Error(`expected one explorerkit-host-desktop package, got ${roots.length}`);
 }
 
 const reachable = new Set([roots[0].id]);
@@ -64,7 +64,7 @@ const id = (cargoPackage) =>
 const binarySha256 = createHash('sha256')
   .update(readFileSync(binaryPath))
   .digest('hex');
-const runtimeId = 'SPDXRef-ServoKitRuntime';
+const runtimeId = 'SPDXRef-ExplorerKitRuntime';
 
 mkdirSync(licensesPath, { recursive: true });
 const noticeRows = [];
@@ -106,7 +106,7 @@ writeFileSync(
   [
     '# Third-Party Notices',
     '',
-    'This file records the version-locked Cargo runtime graph linked into the ServoKit macOS framework. Corresponding license and notice files found in each package are under `LICENSES/Cargo`.',
+    'This file records the version-locked Cargo runtime graph linked into the ExplorerKit macOS framework. Corresponding license and notice files found in each package are under `LICENSES/Cargo`.',
     '',
     '| Package | Version | Declared license | Source | License files |',
     '| --- | --- | --- | --- | ---: |',
@@ -119,23 +119,23 @@ const document = {
   spdxVersion: 'SPDX-2.3',
   dataLicense: 'CC0-1.0',
   SPDXID: 'SPDXRef-DOCUMENT',
-  name: `ServoKit-macOS-${version}`,
+  name: `ExplorerKit-macOS-${version}`,
   documentNamespace: `https://github.com/KeplerBrowser/ServoKit/sbom/macos/${version}/${binarySha256}`,
   creationInfo: {
     created,
-    creators: ['Tool: ServoKit distribution/macos/create-sbom.mjs'],
+    creators: ['Tool: ExplorerKit distribution/macos/create-sbom.mjs'],
   },
   packages: [
     {
       SPDXID: runtimeId,
-      name: 'ServoKit',
+      name: 'ExplorerKit',
       versionInfo: version,
       downloadLocation: 'NOASSERTION',
       filesAnalyzed: false,
       licenseConcluded: 'NOASSERTION',
       licenseDeclared: 'MIT',
       checksums: [{ algorithm: 'SHA256', checksumValue: binarySha256 }],
-      packageFileName: 'ServoKit.xcframework',
+      packageFileName: 'ExplorerKit.xcframework',
       primaryPackagePurpose: 'LIBRARY',
     },
     ...packages.map((pkg) => ({
@@ -171,7 +171,7 @@ const document = {
     {
       annotationDate: created,
       annotationType: 'OTHER',
-      annotator: 'Tool: ServoKit distribution/macos/create-sbom.mjs',
+      annotator: 'Tool: ExplorerKit distribution/macos/create-sbom.mjs',
       comment: `Universal framework binary size: ${statSync(binaryPath).size} bytes`,
     },
   ],

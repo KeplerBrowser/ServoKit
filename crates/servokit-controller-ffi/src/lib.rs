@@ -7,7 +7,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
-use servokit_embedder::{PortableController, PortableControllerError, PortableControllerResult};
+use explorerkit_embedder::{PortableController, PortableControllerError, PortableControllerResult};
 
 const MAX_INPUT_BYTES: usize = 1024 * 1024;
 
@@ -340,7 +340,7 @@ pub extern "C" fn servokit_controller_destroy(handle: u64) -> ServoKitController
 /// # Safety
 ///
 /// A nonempty result's `bytes` and `len` must be the unchanged allocation fields returned by one
-/// ServoKit controller ABI call. That allocation must not have been freed before, and neither its
+/// ExplorerKit controller ABI call. That allocation must not have been freed before, and neither its
 /// pointer nor its bytes may be used after this call. Passing a mutated result or freeing one
 /// result more than once is undefined behavior.
 #[no_mangle]

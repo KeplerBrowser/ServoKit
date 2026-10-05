@@ -14,10 +14,10 @@ These run in a few minutes on any OS and do not compile Servo.
 
 | Area | Command |
 | --- | --- |
-| Servo-free Rust crates | `cargo test --manifest-path crates/Cargo.toml -p servokit-embedder -p servokit-host -p servokit-controller-ffi -p servokit --locked` |
-| React Native types | `bun run --cwd packages/react-native-servokit typecheck` |
-| React Native package build | `bun run --cwd packages/react-native-servokit prepare` |
-| React Native unit tests | `bun test packages/react-native-servokit/src/__tests__` |
+| Servo-free Rust crates | `cargo test --manifest-path crates/Cargo.toml -p explorerkit-embedder -p explorerkit-host -p servokit-controller-ffi -p explorerkit --locked` |
+| React Native types | `bun run --cwd packages/react-native-explorerkit typecheck` |
+| React Native package build | `bun run --cwd packages/react-native-explorerkit prepare` |
+| React Native unit tests | `bun test packages/react-native-explorerkit/src/__tests__` |
 | Commit messages | `bun run commitlint --from <base> --to HEAD` |
 | Docs | Check changed links, then `git diff --check` |
 
@@ -32,14 +32,14 @@ dependencies installed.
 
 ```sh
 # Facade behavior with the Servo backend
-cargo test --manifest-path crates/Cargo.toml -p servokit --features servo --locked
+cargo test --manifest-path crates/Cargo.toml -p explorerkit --features servo --locked
 
 # The full workspace, when you have the time and disk space
 cargo test --manifest-path crates/Cargo.toml --workspace --locked
 
 # One real-Servo test that covers shared engine ownership, reuse with zero
 # views, popups, and final shutdown in one process
-cargo test --locked --manifest-path crates/Cargo.toml -p servokit-embedder \
+cargo test --locked --manifest-path crates/Cargo.toml -p explorerkit-embedder \
   --features servo popup_and_process_runtime_lifetimes_share_one_real_servo_proof \
   -- --test-threads=1
 ```
@@ -51,7 +51,7 @@ several lifetimes in sequence.
 ### Desktop C boundary (macOS and Windows)
 
 ```sh
-cargo test --manifest-path crates/Cargo.toml -p servokit-host-desktop --test c_boundary --locked
+cargo test --manifest-path crates/Cargo.toml -p explorerkit-host-desktop --test c_boundary --locked
 ```
 
 This builds the static library, then compiles the private C header as C++17,
@@ -79,7 +79,7 @@ Android build bundle the pages and serve them on the same port inside the app;
 `examples/react-native-app` doesn't.
 
 A page that loads only proves that page loads. It does not prove that
-ServoKit fully supports the feature the page tests. Support claims live in
+ExplorerKit fully supports the feature the page tests. Support claims live in
 [What works where](capabilities.md).
 
 Every example should be able to show the same basic behavior: render a page,
@@ -97,7 +97,7 @@ Automatic checks:
 ```sh
 cargo check --manifest-path examples/desktop-winit/Cargo.toml --locked
 
-RUSTC_WRAPPER=sccache CARGO_TARGET_DIR=/tmp/servokit-gpui-target CARGO_PROFILE_DEV_DEBUG=0 \
+RUSTC_WRAPPER=sccache CARGO_TARGET_DIR=/tmp/explorerkit-gpui-target CARGO_PROFILE_DEV_DEBUG=0 \
   cargo check --manifest-path examples/desktop-gpui/Cargo.toml --locked
 ```
 
@@ -118,7 +118,7 @@ early window close. The default timeout is 30 seconds; change it with
 Manual check, part of a layout (GPUI):
 
 ```sh
-RUSTC_WRAPPER=sccache CARGO_TARGET_DIR=/tmp/servokit-gpui-target CARGO_PROFILE_DEV_DEBUG=0 \
+RUSTC_WRAPPER=sccache CARGO_TARGET_DIR=/tmp/explorerkit-gpui-target CARGO_PROFILE_DEV_DEBUG=0 \
   cargo run --locked --manifest-path examples/desktop-gpui/Cargo.toml -- \
   http://127.0.0.1:8481/smoke/index.html
 ```
@@ -131,7 +131,7 @@ footer shows URL, load, title, and the latest event.
 
 ```sh
 RUSTC_WRAPPER=sccache CARGO_PROFILE_DEV_DEBUG=0 FREETYPE2_NO_PKG_CONFIG=1 \
-cargo run --locked --manifest-path crates/Cargo.toml -p servokit \
+cargo run --locked --manifest-path crates/Cargo.toml -p explorerkit \
   --features servo --example multiple-native-views -- --smoke
 ```
 
@@ -165,7 +165,7 @@ Rerun these when you change `MacOsViewHost` or system JavaScript evaluation.
 Automatic regressions (macOS):
 
 ```sh
-cargo test --manifest-path crates/Cargo.toml -p servokit --features macos-system-webview --lib --locked
+cargo test --manifest-path crates/Cargo.toml -p explorerkit --features macos-system-webview --lib --locked
 ```
 
 These cover callback and runtime queue ordering, retiring pending requests on a
@@ -221,7 +221,7 @@ cargo check --manifest-path examples/desktop-winit/Cargo.toml --locked
 Manual check: serve the test pages, run `examples/desktop-winit`, and confirm
 that the page renders and that resize, focus, URL, load, and close events
 appear in the terminal. Windows has no framework adapter or shared GPU texture
-export yet. On Linux, ServoKit has not yet picked a baseline X11 or Wayland
+export yet. On Linux, ExplorerKit has not yet picked a baseline X11 or Wayland
 setup, and dma-buf export does not exist.
 
 ## Android
@@ -230,10 +230,10 @@ These need the Android setup from [Get started](../getting-started.md#android-re
 
 | Check | Command |
 | --- | --- |
-| Rust host crate | `cargo test --manifest-path crates/Cargo.toml -p servokit-host-android --locked` |
-| Build and verify the AAR, then copy it into the package | `examples/react-native-app/android/gradlew -p examples/react-native-app/android :servokit-android-host:stageReactNativeServokitReleaseAar` |
+| Rust host crate | `cargo test --manifest-path crates/Cargo.toml -p explorerkit-host-android --locked` |
+| Build and verify the AAR, then copy it into the package | `examples/react-native-app/android/gradlew -p examples/react-native-app/android :explorerkit-host-android:stageReactNativeExplorerKitReleaseAar` |
 | React Native example build | `bun run --cwd examples/react-native-app build:android` |
-| React Native adapter unit tests | `bun run --cwd packages/react-native-servokit test:native:android` |
+| React Native adapter unit tests | `bun run --cwd packages/react-native-explorerkit test:native:android` |
 | Kotlin browser example build | `examples/react-native-app/android/gradlew -p examples/android-kotlin-browser :app:assembleDebug` |
 | Bare Android example build | `examples/react-native-app/android/gradlew -p examples/android-native-example :app:assembleDebug` |
 
@@ -244,19 +244,19 @@ Manual checks on an arm64 device or emulator:
 
 ```sh
 # React Native: the package's test app, with shortcuts to every test page
-# (start Metro first: bun run --cwd packages/react-native-servokit/example start)
-bun run --cwd packages/react-native-servokit example:android
+# (start Metro first: bun run --cwd packages/react-native-explorerkit/example start)
+bun run --cwd packages/react-native-explorerkit example:android
 
 # Kotlin browser example
 adb install -r examples/android-kotlin-browser/app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n org.servo.servokit.androidkotlinbrowser/org.servo.servokit.androidexample.MainActivity
+adb shell am start -n com.kepler.explorerkit.androidkotlinbrowser/com.kepler.explorerkit.androidexample.MainActivity
 
 # Bare Android example
 adb install -r examples/android-native-example/app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n org.servo.servokit.androidexample/.MainActivity
+adb shell am start -n com.kepler.explorerkit.androidexample/.MainActivity
 
 # Logs for both Kotlin examples
-adb logcat -s ServokitNativeExample NativeServoView ExampleFixtureServer
+adb logcat -s ExplorerKitNativeExample NativeExplorerView ExampleFixtureServer
 ```
 
 The Kotlin examples show a native toolbar, test page shortcuts, the Servo
@@ -267,7 +267,7 @@ step-by-step script for every prompt type.
 ## iOS
 
 Release builds of the exact packed package (macOS with Xcode), from
-`packages/react-native-servokit`:
+`packages/react-native-explorerkit`:
 
 ```sh
 node scripts/validate-packed-consumer.mjs --ios-only
@@ -282,11 +282,11 @@ Manual simulator check with the package's test app, which has shortcuts to
 every test page:
 
 ```sh
-bun run --cwd packages/react-native-servokit example:fixtures:ios   # serves the test pages
-bun run --cwd packages/react-native-servokit/example start          # Metro
-(cd packages/react-native-servokit/example && bundle install)
-bun run --cwd packages/react-native-servokit example:pods:ios
-bun run --cwd packages/react-native-servokit example:ios
+bun run --cwd packages/react-native-explorerkit example:fixtures:ios   # serves the test pages
+bun run --cwd packages/react-native-explorerkit/example start          # Metro
+(cd packages/react-native-explorerkit/example && bundle install)
+bun run --cwd packages/react-native-explorerkit example:pods:ios
+bun run --cwd packages/react-native-explorerkit example:ios
 ```
 
 The pages should render through `WKWebView`, and commands, events, navigation
@@ -297,7 +297,7 @@ End-to-end flows ([Maestro](https://maestro.mobile.dev)) run against the same
 test app:
 
 ```sh
-bun run --cwd packages/react-native-servokit test:e2e:ios
+bun run --cwd packages/react-native-explorerkit test:e2e:ios
 ```
 
 The public example in `examples/react-native-app` is a plain browser. Use it
@@ -306,12 +306,12 @@ for a quick look, not for these checks.
 ## React Native on macOS (prototype)
 
 ```sh
-bun run --cwd packages/react-native-servokit typecheck
-bun run --cwd packages/react-native-servokit prepare
-bun test packages/react-native-servokit/src/__tests__/macos-fabric-source-routing.test.ts
+bun run --cwd packages/react-native-explorerkit typecheck
+bun run --cwd packages/react-native-explorerkit prepare
+bun test packages/react-native-explorerkit/src/__tests__/macos-fabric-source-routing.test.ts
 
 # Needs a prepared macOS Servo, Xcode, and CocoaPods setup and a clean checkout
-SERVOKIT_BUILD_FROM_SOURCE=1 SERVOKIT_SOURCE_DIR="$PWD" \
+EXPLORERKIT_BUILD_FROM_SOURCE=1 EXPLORERKIT_SOURCE_DIR="$PWD" \
   bun run --cwd examples/react-native-macos-app pods:macos
 ```
 
@@ -323,7 +323,7 @@ lot of temporary disk space. Passing this check does not make the macOS
 adapter supported.
 
 > [!NOTE]
-> `ServoView.tsx` currently throws on any platform other than Android and iOS,
+> `ExplorerView.tsx` currently throws on any platform other than Android and iOS,
 > and React Native macOS reports its platform as `macos`. Confirm the example
 > still renders before relying on this check.
 

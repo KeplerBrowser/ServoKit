@@ -1,8 +1,8 @@
 # winit example
 
 A Rust desktop app that owns a `winit` window and event loop, and shows a
-Servo page across the whole window through the `servokit` crate. It is the
-simplest way to see Servo running inside ServoKit.
+Servo page across the whole window through the `explorerkit` crate. It is the
+simplest way to see Servo running inside ExplorerKit.
 
 ## Run
 

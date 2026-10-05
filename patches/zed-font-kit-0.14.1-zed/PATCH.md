@@ -19,7 +19,7 @@ use `freetype-sys` 0.23 instead of the optional `freetype` wrapper, select that
 dependency in `loader-freetype`, and align the non-Apple FreeType dependency to
 0.23. `Cargo.toml.orig` is retained unchanged for provenance.
 
-No Rust sources or CoreText/DirectWrite dependencies are changed. ServoKit's
+No Rust sources or CoreText/DirectWrite dependencies are changed. ExplorerKit's
 supported GPUI path is macOS; this patch does not establish a non-macOS GPUI
 support guarantee.
 
@@ -27,8 +27,8 @@ support guarantee.
 
 The standalone GPUI example selects this patch at its Cargo root. Cargo does not
 inherit dependency patches, so an external application combining GPUI 0.2.2 and
-ServoKit must select this package at its own Cargo root as well. The main
-ServoKit workspace and the Android build do not use this font-package patch.
+ExplorerKit must select this package at its own Cargo root as well. The main
+ExplorerKit workspace and the Android build do not use this font-package patch.
 
 Remove this copy and its root patch entry when the GPUI dependency graph uses a
 published font package with a compatible FreeType dependency. Confirm the

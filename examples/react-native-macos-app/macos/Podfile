@@ -11,22 +11,22 @@ prepare_react_native_project!
 target 'ServoKitMacOSExample-macOS' do
   platform :macos, '14.0'
 
-  servokit_package_root = Pod::Executable.execute_command('node', ['-p',
+  explorerkit_package_root = Pod::Executable.execute_command('node', ['-p',
     'require("path").dirname(require.resolve(
-      "react-native-servokit/package.json",
+      "react-native-explorerkit/package.json",
       {paths: [process.argv[1]]},
     ))', __dir__]).strip
 
-  if ENV['SERVOKIT_BUILD_FROM_SOURCE'] == '1'
+  if ENV['EXPLORERKIT_BUILD_FROM_SOURCE'] == '1'
     Pod::Executable.execute_command(
       'node',
-      [File.join(servokit_package_root, 'scripts/prepare-macos-source.mjs')]
+      [File.join(explorerkit_package_root, 'scripts/prepare-macos-source.mjs')]
     )
-  elsif ENV['SERVOKIT_MACOS_BINARY_POD_DIR']
-    pod 'ServoKitMacOSBinary', :path => ENV['SERVOKIT_MACOS_BINARY_POD_DIR']
+  elsif ENV['EXPLORERKIT_MACOS_BINARY_POD_DIR']
+    pod 'ExplorerKitMacOSBinary', :path => ENV['EXPLORERKIT_MACOS_BINARY_POD_DIR']
   end
 
-  pod 'ServokitMacOS', :path => File.join(servokit_package_root, 'macos')
+  pod 'ExplorerKitMacOS', :path => File.join(explorerkit_package_root, 'macos')
 
   use_native_modules!
 

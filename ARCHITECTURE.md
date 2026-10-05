@@ -1,9 +1,9 @@
-# How ServoKit works
+# How ExplorerKit works
 
-ServoKit sits between your app and Servo, a web engine built for embedding.
+ExplorerKit sits between your app and Servo, a web engine built for embedding.
 Like CEF, it lets your app own everything the user sees around the page. Where
 Servo isn't ready yet, a view can run on the platform's own web view through a
-compatibility layer, behind the same API. ServoKit's Rust core owns the
+compatibility layer, behind the same API. ExplorerKit's Rust core owns the
 browser logic, and a thin adapter on each platform connects it to your app.
 This page explains the layers, the rules we keep, and how a request travels
 through the code.
@@ -14,11 +14,11 @@ through the code.
 flowchart TD
   app["Your app<br/>windows, tabs, toolbars, layout"]
   subgraph adapters["Platform adapters (thin)"]
-    rn["React Native ServoView<br/>Android · iOS · macOS"]
+    rn["React Native ExplorerView<br/>Android · iOS · macOS"]
     kotlin["Android Kotlin layer"]
-    rust["Rust facade: servokit"]
+    rust["Rust facade: explorerkit"]
   end
-  subgraph core["ServoKit core (Rust)"]
+  subgraph core["ExplorerKit core (Rust)"]
     controller["Commands, events,<br/>page prompts"]
     runtime["Runtime: views, surfaces, engine lifetime"]
   end
@@ -48,8 +48,8 @@ support iOS yet. On iOS, the same Rust controller logic drives `WKWebView`.
 | Layer | Owns | Lives in |
 | --- | --- | --- |
 | **Your app** | Windows, tabs, menus, toolbars, layout, the event loop, and how prompts look | Your code |
-| **Adapter** | Native views and handles, input translation, threads, presenting UI, native completion objects | `packages/react-native-servokit`, `crates/servokit-host-android/android`, `crates/servokit-host-desktop` |
-| **Core** | Command names and validation, request IDs, pending prompts, answer checking, web view and surface lifetimes | `crates/servokit-embedder`, `crates/servokit`, `crates/servokit-host` |
+| **Adapter** | Native views and handles, input translation, threads, presenting UI, native completion objects | `packages/react-native-explorerkit`, `crates/explorerkit-host-android/android`, `crates/explorerkit-host-desktop` |
+| **Core** | Command names and validation, request IDs, pending prompts, answer checking, web view and surface lifetimes | `crates/explorerkit-embedder`, `crates/explorerkit`, `crates/explorerkit-host` |
 | **Engine** | Rendering, networking, storage, and page execution | Servo (crates.io `servo` 0.6.0). The compatibility layer uses the system web view: WebKit on iOS and macOS. |
 
 ## Principles
@@ -58,13 +58,13 @@ These are the rules the code must follow. A change that breaks one needs an
 accepted design decision first.
 
 1. **Your app owns the product.** Windows, tabs, menus, chrome, layout, and the
-   event loop belong to the app. ServoKit never opens a top-level window or
+   event loop belong to the app. ExplorerKit never opens a top-level window or
    creates tabs. It draws into the window, view, or buffer the app gives it.
 
 2. **Servo first; the system web view is a compatibility layer.** Each web
    view runs on Servo or, where a platform offers the compatibility layer, on
    the platform's own web view. Where both exist (today, native Rust on
-   macOS), the app chooses, and ServoKit never switches on its own. The
+   macOS), the app chooses, and ExplorerKit never switches on its own. The
    compatibility layer lets apps ship while Servo matures; it is not a second
    engine to design for.
 
@@ -91,14 +91,14 @@ accepted design decision first.
 
 7. **No orphaned prompts; deny what's risky.** Every prompt ends with the
    app's answer, or with the engine's own default when nobody handles it or
-   the view goes away. ServoKit adds no timers and makes up no answers.
+   the view goes away. ExplorerKit adds no timers and makes up no answers.
    Risky capabilities, such as permission requests, are denied by default.
    Known gap: the iOS adapter and the React Native adapter on Android still
    add timers or answer on their own; see
    [Fallbacks](docs/concepts/controller.md#fallbacks).
 
 8. **Servo starts once per process.** It runs on one UI thread and cannot
-   restart. The host app decides when it shuts down. ServoKit never shuts it
+   restart. The host app decides when it shuts down. ExplorerKit never shuts it
    down on its own.
 
 9. **Servo-first APIs.** Design every public API for Servo first. No feature
@@ -117,36 +117,36 @@ accepted design decision first.
 
 ```text
 Native Rust app
-  → servokit (Runtime, SurfaceHost or MacOsViewHost)
-  → servokit-embedder + servokit-host
+  → explorerkit (Runtime, SurfaceHost or MacOsViewHost)
+  → explorerkit-embedder + explorerkit-host
   → Servo  (or WebKit, for a macOS system view)
 
 React Native on Android
-  → react-native-servokit (ServoView.kt)
-  → Android Gradle module (ServoViewBinding, JNI)
-  → servokit-host-android
-  → servokit-embedder
+  → react-native-explorerkit (ExplorerView.kt)
+  → Android Gradle module (ExplorerViewBinding, JNI)
+  → explorerkit-host-android
+  → explorerkit-embedder
   → Servo
 
 Kotlin app on Android
-  → Android Gradle module (ServoViewBinding, JNI)
-  → servokit-host-android
-  → servokit-embedder
+  → Android Gradle module (ExplorerViewBinding, JNI)
+  → explorerkit-host-android
+  → explorerkit-embedder
   → Servo
 
 React Native on iOS
-  → react-native-servokit (ServoView.mm)
+  → react-native-explorerkit (ExplorerView.mm)
   → servokit-controller-ffi (portable controller, no Servo)
   → effects applied to WKWebView
 
 React Native on macOS (prototype)
-  → react-native-servokit (macos/ServoView.mm)
-  → servokit-host-desktop (private C boundary)
-  → servokit + servokit-embedder
+  → react-native-explorerkit (macos/ExplorerView.mm)
+  → explorerkit-host-desktop (private C boundary)
+  → explorerkit + explorerkit-embedder
   → Servo
 ```
 
-React Native defines one `<ServoView>` with one set of props, events, and
+React Native defines one `<ExplorerView>` with one set of props, events, and
 commands. Each platform maps it to its engine. React Native is one adapter
 among several, not the center of the design: the Android Kotlin layer is
 shared by the React Native adapter and the plain Kotlin examples.
@@ -156,7 +156,7 @@ shared by the React Native adapter and the plain Kotlin examples.
 Here is what happens when a page calls `confirm("Delete?")` inside a React
 Native app on Android:
 
-1. Servo calls ServoKit's `WebViewDelegate` with a dialog request.
+1. Servo calls ExplorerKit's `WebViewDelegate` with a dialog request.
 2. Rust records a pending dialog with a new ID, such as `dialog-1`, and queues
    a `simpleDialogRequested` event.
 3. On the next frame, the Kotlin adapter drains events and sends
@@ -178,13 +178,13 @@ stored WebKit completion handler to call.
 
 ```text
 crates/                          Rust crates (one Cargo workspace)
-  servokit/                      Public Rust API for native apps
-  servokit-embedder/             Shared core and Servo integration
-  servokit-host/                 Host-neutral surface types
-  servokit-host-android/         Android host (Rust) and its Gradle module
-  servokit-host-desktop/         Private C boundary for React Native macOS
+  explorerkit/                      Public Rust API for native apps
+  explorerkit-embedder/             Shared core and Servo integration
+  explorerkit-host/                 Host-neutral surface types
+  explorerkit-host-android/         Android host (Rust) and its Gradle module
+  explorerkit-host-desktop/         Private C boundary for React Native macOS
   servokit-controller-ffi/       Servo-free controller for iOS
-packages/react-native-servokit/  The React Native package
+packages/react-native-explorerkit/  The React Native package
 examples/                        Example apps and shared test pages
 docs/                            Documentation
 distribution/                    Scripts that build the iOS and macOS binaries
@@ -215,7 +215,7 @@ Each crate's job and dependency rules are in
 | **Host** | The platform implementation behind a runtime, such as `SurfaceHost` on desktop or the Android host. |
 | **Adapter** | Platform code that connects an app framework to the core, such as the React Native view on Android. |
 | **Controller** | The Rust code that owns commands, request IDs, and pending prompts for one web view. |
-| **Portable controller** | The Servo-free controller used on iOS, built from `servokit-embedder` without the `servo` feature. |
+| **Portable controller** | The Servo-free controller used on iOS, built from `explorerkit-embedder` without the `servo` feature. |
 | **Page prompt** | A question the page asks the app: navigation policy, dialogs, menus, pickers, permissions. Servo calls many of these *embedder controls*. |
 | **Compatibility layer** | The platform's own web view (WebKit on iOS and macOS), used behind the same API where Servo isn't ready yet. |
 | **Command envelope** | The JSON object `{"version":1,"command":...}` that carries commands and prompt answers into Rust. |

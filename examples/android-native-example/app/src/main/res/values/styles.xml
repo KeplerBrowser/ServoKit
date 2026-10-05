@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.ServokitNativeExample" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.ExplorerKitNativeExample" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>

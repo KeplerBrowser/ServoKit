@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an improvement to ServoKit.
+description: Suggest an improvement to ExplorerKit.
 labels: [enhancement, rfc]
 body:
   - type: textarea

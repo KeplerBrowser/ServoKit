@@ -9,8 +9,8 @@ page wins, and the other page should be fixed.
   fallback UI for dialogs, menus, pickers, and permission prompts comes from
   the React Native adapter. Kotlin apps get the same events and build their
   own UI.
-- **iOS** means the React Native `<ServoView>` on `WKWebView`.
-- **Native Rust** means a Rust app using the `servokit` crate with Servo,
+- **iOS** means the React Native `<ExplorerView>` on `WKWebView`.
+- **Native Rust** means a Rust app using the `explorerkit` crate with Servo,
   tested on macOS.
 - Views that a macOS Rust app runs on the system web view have their own
   list in [macOS system web view](macos-system-webview.md).
@@ -85,7 +85,7 @@ The page asks before following a link or loading a frame (Servo's
   dismissals. In React Native, long-press shows a native menu with Servo's
   actions; you can add items with `onBeforeShowContextMenu` and observe picks
   with `onContextMenuItemSelected`. Kotlin apps show their own menu.
-- **iOS:** not supported. The test page may load, but ServoKit does not
+- **iOS:** not supported. The test page may load, but ExplorerKit does not
   handle the menu.
 - **Native Rust:** handle `ContextMenuRequested` and answer with
   `resolve_context_menu` or `dismiss_context_menu`.
@@ -99,7 +99,7 @@ The page asks before following a link or loading a frame (Servo's
   and week inputs; Kotlin apps build their own. Cancelled or unavailable
   pickers are dismissed safely, and unsupported input types fail without
   crashing. There are no React Native hooks for these yet.
-- **iOS:** not supported by ServoKit. WebKit may show its own UI.
+- **iOS:** not supported by ExplorerKit. WebKit may show its own UI.
 - **Native Rust:** you receive `SelectElementRequested`, `FilePickerRequested`,
   and `InputMethodRequested` events. You can commit a picker value as
   `HostInputEvent::ImeCommit`, but the `Runtime` cannot answer select or file
@@ -132,7 +132,7 @@ The page asks before following a link or loading a frame (Servo's
 - **Android:** Android's real `ClipboardManager` instead of Servo's in-process
   fallback. A paste while the app is in the background gets empty text,
   because Android 10 and newer block background clipboard reads.
-- **iOS:** WebKit's native editing behavior. ServoKit adds nothing.
+- **iOS:** WebKit's native editing behavior. ExplorerKit adds nothing.
 - **Native Rust:** you provide a `SurfaceClipboard`, or use `MemoryClipboard`.
 
 ### Fullscreen, cursor, crash, and errors
@@ -156,7 +156,7 @@ opens a `target="_blank"` link.
   them.
 - **iOS:** not reported.
 - **Native Rust:** denied by default. With `PopupRequestPolicy::ManagedChild`,
-  ServoKit creates a child view that you attach a surface to. See
+  ExplorerKit creates a child view that you attach a surface to. See
   [Runtime and views](../concepts/runtime.md#popups-and-new-windows).
 
 ### JavaScript evaluation
@@ -173,7 +173,7 @@ See [React Native](../platforms/react-native.md#evaluating-javascript) and
 
 ### Packaging
 
-The packed `react-native-servokit` archive contains the Android AAR
+The packed `react-native-explorerkit` archive contains the Android AAR
 (`arm64-v8a` and `x86_64`) and the Servo-free iOS controller XCFramework. App
 builds run no Cargo and download nothing. It is not published to npm yet, and
 there is no CI or release process yet.

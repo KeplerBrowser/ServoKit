@@ -1,5 +1,5 @@
 {
-  "name": "react-native-servokit-macos-example",
+  "name": "react-native-explorerkit-macos-example",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -8,13 +8,13 @@
     "start": "react-native start"
   },
   "dependencies": {
-    "@servokit/react-native-example-app": "workspace:*",
+    "@explorerkit/react-native-example-app": "workspace:*",
     "lucide-react-native": "^1.24.0",
     "react": "19.1.4",
     "react-native": "0.81.6",
     "react-native-macos": "0.81.9",
     "react-native-safe-area-context": "^5.8.0",
-    "react-native-servokit": "file:../../packages/react-native-servokit",
+    "react-native-explorerkit": "file:../../packages/react-native-explorerkit",
     "react-native-svg": "^15.15.5"
   },
   "devDependencies": {

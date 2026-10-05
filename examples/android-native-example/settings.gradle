@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ServokitAndroidNativeExample"
+rootProject.name = "ExplorerKitAndroidNativeExample"
 include ":app"
-include ":servokit-android-host"
-project(":servokit-android-host").projectDir = new File(rootDir, "../../crates/servokit-host-android/android")
+include ":explorerkit-host-android"
+project(":explorerkit-host-android").projectDir = new File(rootDir, "../../crates/explorerkit-host-android/android")

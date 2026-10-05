@@ -1,6 +1,6 @@
 # Get started
 
-This page shows how to build and run a ServoKit example. Pick the path that
+This page shows how to build and run an ExplorerKit example. Pick the path that
 matches what you want to see:
 
 | Path | Engine | You need | First build |
@@ -12,7 +12,7 @@ matches what you want to see:
 All commands run from the repository root.
 
 > [!NOTE]
-> ServoKit is experimental and nothing is published yet, so you build
+> ExplorerKit is experimental and nothing is published yet, so you build
 > everything from this repository.
 
 ## Set up the repository
@@ -29,8 +29,8 @@ bun install
 
 ## iOS simulator (React Native)
 
-This is the quickest path. On iOS, `<ServoView>` uses Apple's WebKit, and the
-ServoKit Rust controller ships as a prebuilt binary in the repository, so you
+This is the quickest path. On iOS, `<ExplorerView>` uses Apple's WebKit, and the
+ExplorerKit Rust controller ships as a prebuilt binary in the repository, so you
 don't need Rust.
 
 You need a Mac with Xcode, an iOS simulator, and Ruby with Bundler for
@@ -80,7 +80,7 @@ Next: [Desktop guide](platforms/desktop.md).
 
 ## Android (React Native or Kotlin)
 
-On Android, ServoKit runs Servo. The first build compiles Servo for Android,
+On Android, ExplorerKit runs Servo. The first build compiles Servo for Android,
 which takes a while. The React Native example uses the result packaged as an
 Android library (an AAR); the Kotlin examples build the Rust library directly
 through the Gradle module.
@@ -106,7 +106,7 @@ Build the Servo host library and copy it into the React Native package:
 ```sh
 examples/react-native-app/android/gradlew \
   -p examples/react-native-app/android \
-  :servokit-android-host:stageReactNativeServokitReleaseAar
+  :explorerkit-host-android:stageReactNativeExplorerKitReleaseAar
 ```
 
 Then run the React Native example. Start Metro in one terminal:
@@ -121,7 +121,7 @@ Install and launch the app in another terminal:
 bun run --cwd examples/react-native-app android
 ```
 
-To try ServoKit from Kotlin without React Native, build the
+To try ExplorerKit from Kotlin without React Native, build the
 [bare Android example](../examples/android-native-example/README.md):
 
 ```sh
@@ -143,12 +143,12 @@ Next: [Android guide](platforms/android.md) or
 | [`examples/android-kotlin-browser`](../examples/android-kotlin-browser/README.md) | The same Kotlin app, built under a different name |
 | [`examples/desktop-winit`](../examples/desktop-winit) | Rust app that owns a `winit` window |
 | [`examples/desktop-gpui`](../examples/desktop-gpui/README.md) | Rust GPUI app with Servo in one part of its layout (macOS) |
-| [`crates/servokit/examples/multiple-native-views`](../crates/servokit/examples/multiple-native-views) | Two independent pages side by side (macOS) |
+| [`crates/explorerkit/examples/multiple-native-views`](../crates/explorerkit/examples/multiple-native-views) | Two independent pages side by side (macOS) |
 | [`examples/fixtures`](../examples/fixtures/README.md) | Shared test pages used by every example |
 
 `examples/react-native-example-app` holds the browser UI shared by the React
-Native examples. `packages/react-native-servokit/example` is the package's own
-test app, used by its native unit tests and end-to-end tests.
+Native examples. `packages/react-native-explorerkit/example` is the package's
+own test app, used by its native unit tests and end-to-end tests.
 
 ## Something broke?
 

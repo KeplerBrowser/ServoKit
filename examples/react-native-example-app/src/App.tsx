@@ -13,23 +13,23 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {
-  ServoView,
-  type ServoViewHandle,
-  type ServoViewJavaScriptDialogRequest,
-} from "react-native-servokit";
+  ExplorerView,
+  type ExplorerViewHandle,
+  type ExplorerViewJavaScriptDialogRequest,
+} from "react-native-explorerkit";
 
 const homeUrl = "https://servo.org";
 const activeColor = "#007aff";
 const disabledColor = "#c7c7cc";
 
 export default function App() {
-  const servoRef = useRef<ServoViewHandle>(null);
+  const explorerRef = useRef<ExplorerViewHandle>(null);
   const [pageUrl, setPageUrl] = useState(homeUrl);
   const [addressBarText, setAddressBarText] = useState(homeUrl);
   const [loadStatus, setLoadStatus] = useState("Idle");
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
-  const [servoKey, setServoKey] = useState(0);
+  const [explorerKey, setExplorerKey] = useState(0);
 
   const navigateTo = (url: string) => {
     const trimmedUrl = url.trim();
@@ -42,10 +42,10 @@ export default function App() {
     if (Platform.OS === "ios") {
       setPageUrl(trimmedUrl);
     }
-    servoRef.current?.loadUrl(trimmedUrl);
+    explorerRef.current?.loadUrl(trimmedUrl);
   };
 
-  const handleJavaScriptDialog = (request: ServoViewJavaScriptDialogRequest) => {
+  const handleJavaScriptDialog = (request: ExplorerViewJavaScriptDialogRequest) => {
     const title =
       request.kind === "alert"
         ? "Page alert"
@@ -91,9 +91,9 @@ export default function App() {
         style={styles.container}
       >
         <SafeAreaView edges={["top", "left", "right"]} style={styles.workspace}>
-          <ServoView
-            key={servoKey}
-            ref={servoRef}
+          <ExplorerView
+            key={explorerKey}
+            ref={explorerRef}
             style={styles.webview}
             url={pageUrl}
             onUrlChanged={(event) => {
@@ -107,11 +107,11 @@ export default function App() {
             }}
             onJavaScriptDialog={handleJavaScriptDialog}
             onError={(event) =>
-              console.warn("ServoView error", event.nativeEvent.code, event.nativeEvent.message)
+              console.warn("ExplorerView error", event.nativeEvent.code, event.nativeEvent.message)
             }
             onCrashed={(event) =>
               console.warn(
-                "ServoView crashed",
+                "ExplorerView crashed",
                 event.nativeEvent.reason,
                 event.nativeEvent.backtrace,
               )
@@ -152,7 +152,7 @@ export default function App() {
               accessibilityRole="button"
               disabled={!canGoBack}
               style={({ pressed }) => [styles.iconButton, pressed && canGoBack && styles.buttonPressed]}
-              onPress={() => servoRef.current?.goBack()}
+              onPress={() => explorerRef.current?.goBack()}
             >
               <ArrowLeft color={canGoBack ? activeColor : disabledColor} size={24} strokeWidth={2.2} />
             </Pressable>
@@ -164,7 +164,7 @@ export default function App() {
                 styles.iconButton,
                 pressed && canGoForward && styles.buttonPressed,
               ]}
-              onPress={() => servoRef.current?.goForward()}
+              onPress={() => explorerRef.current?.goForward()}
             >
               <ArrowRight
                 color={canGoForward ? activeColor : disabledColor}
@@ -184,7 +184,7 @@ export default function App() {
               accessibilityLabel="Reload"
               accessibilityRole="button"
               style={({ pressed }) => [styles.iconButton, pressed && styles.buttonPressed]}
-              onPress={() => servoRef.current?.reload()}
+              onPress={() => explorerRef.current?.reload()}
             >
               <RotateCw color={activeColor} size={23} strokeWidth={2.2} />
             </Pressable>
@@ -192,7 +192,7 @@ export default function App() {
               accessibilityLabel="Recycle Servo"
               accessibilityRole="button"
               style={({ pressed }) => [styles.iconButton, pressed && styles.buttonPressed]}
-              onPress={() => setServoKey((key) => key + 1)}
+              onPress={() => setExplorerKey((key) => key + 1)}
             >
               <Recycle color={activeColor} size={23} strokeWidth={2.2} />
             </Pressable>

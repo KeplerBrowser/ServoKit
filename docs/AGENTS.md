@@ -64,7 +64,7 @@ git grep -n "<the old fact>" -- '*.md'
 docs/
   README.md            Docs home: the map of every page
   getting-started.md   First run
-  concepts/            How ServoKit works, one idea per page
+  concepts/            How ExplorerKit works, one idea per page
   platforms/           One guide per platform
   reference/           Facts to look up: capabilities, crates, testing, dependencies
 ```

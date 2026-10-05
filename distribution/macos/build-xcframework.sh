@@ -4,7 +4,7 @@ export LC_ALL=C
 export TZ=UTC
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-target_dir="${CARGO_TARGET_DIR:-/private/tmp/servokit-macos-cargo-target}"
+target_dir="${CARGO_TARGET_DIR:-/private/tmp/explorerkit-macos-cargo-target}"
 cargo_home="${CARGO_HOME:-${HOME}/.cargo}"
 
 reject_path_whitespace() {
@@ -22,28 +22,28 @@ target_dir="$(cd -- "${target_dir}" && pwd -P)"
 reject_path_whitespace "physical CARGO_TARGET_DIR" "${target_dir}"
 export CARGO_TARGET_DIR="${target_dir}"
 
-package_json="${root}/packages/react-native-servokit/package.json"
-header="${root}/crates/servokit-host-desktop/include/servokit_desktop_private.h"
+package_json="${root}/packages/react-native-explorerkit/package.json"
+header="${root}/crates/explorerkit-host-desktop/include/explorerkit_desktop_private.h"
 package_version="$(bun -e 'console.log(require(process.argv[1]).version)' "${package_json}")"
-version="${SERVOKIT_BINARY_VERSION:-${package_version}}"
-output="${SERVOKIT_ARTIFACT_DIR:-/private/tmp/servokit-macos-${version}}"
+version="${EXPLORERKIT_BINARY_VERSION:-${package_version}}"
+output="${EXPLORERKIT_ARTIFACT_DIR:-/private/tmp/explorerkit-macos-${version}}"
 work="${output}/work"
 stage="${output}/stage"
 evidence="${output}/evidence"
-framework="${stage}/ServoKit.framework"
-binary="${framework}/Versions/A/ServoKit"
-dsym="${stage}/ServoKit.framework.dSYM"
-xcframework="${stage}/ServoKit.xcframework"
+framework="${stage}/ExplorerKit.framework"
+binary="${framework}/Versions/A/ExplorerKit"
+dsym="${stage}/ExplorerKit.framework.dSYM"
+xcframework="${stage}/ExplorerKit.xcframework"
 metadata="${work}/cargo-metadata.json"
-exports="${work}/ServoKit.exports"
+exports="${work}/ExplorerKit.exports"
 release_root="${work}/release"
-release_zip="${output}/ServoKit-macos-${version}.zip"
-dsym_zip="${output}/ServoKit-macos-${version}-dSYM.zip"
-source_url="${SERVOKIT_BINARY_SOURCE_URL:-https://github.com/KeplerBrowser/ServoKit/releases/download/v${version}/ServoKit-macos-${version}.zip}"
+release_zip="${output}/ExplorerKit-macos-${version}.zip"
+dsym_zip="${output}/ExplorerKit-macos-${version}-dSYM.zip"
+source_url="${EXPLORERKIT_BINARY_SOURCE_URL:-https://github.com/KeplerBrowser/ServoKit/releases/download/v${version}/ExplorerKit-macos-${version}.zip}"
 created="${SOURCE_DATE_EPOCH:-$(git -C "${root}" show -s --format=%ct HEAD)}"
 created_iso="$(date -u -r "${created}" '+%Y-%m-%dT%H:%M:%SZ')"
 archive_timestamp="$(date -u -r "${created}" '+%Y%m%d%H%M.%S')"
-install_name="@rpath/ServoKit.framework/Versions/A/ServoKit"
+install_name="@rpath/ExplorerKit.framework/Versions/A/ExplorerKit"
 link_libraries=(
   -framework AppKit
   -framework QuartzCore
@@ -63,24 +63,24 @@ link_libraries=(
 )
 
 if [ "${version}" != "${package_version}" ]; then
-  echo "SERVOKIT_BINARY_VERSION ${version} does not match package version ${package_version}" >&2
+  echo "EXPLORERKIT_BINARY_VERSION ${version} does not match package version ${package_version}" >&2
   exit 1
 fi
 
 case "${output}" in
-  /private/tmp/* | "${root}"/artifacts/* | */.servokit-source) ;;
-  *) echo "SERVOKIT_ARTIFACT_DIR must be under /private/tmp, ${root}/artifacts, or end in /.servokit-source" >&2; exit 1 ;;
+  /private/tmp/* | "${root}"/artifacts/* | */.explorerkit-source) ;;
+  *) echo "EXPLORERKIT_ARTIFACT_DIR must be under /private/tmp, ${root}/artifacts, or end in /.explorerkit-source" >&2; exit 1 ;;
 esac
 
 if [ -e "${work}" ] || [ -e "${stage}" ] || [ -e "${evidence}" ]; then
-  echo "SERVOKIT_ARTIFACT_DIR must not contain an existing build" >&2
+  echo "EXPLORERKIT_ARTIFACT_DIR must not contain an existing build" >&2
   exit 1
 fi
 mkdir -p "${work}" "${stage}" "${evidence}" "${release_root}" "${framework}/Versions/A/Headers" \
   "${framework}/Versions/A/Modules" "${framework}/Versions/A/Resources"
 : > "${evidence}/mozjs-object-build-versions.txt"
 
-grep -Eo 'servokit_desktop_private_[a-z_]+' "${header}" | LC_ALL=C sort -u |
+grep -Eo 'explorerkit_desktop_private_[a-z_]+' "${header}" | LC_ALL=C sort -u |
   sed 's/^/_/' > "${exports}"
 if [ "$(wc -l < "${exports}" | tr -d ' ')" != "9" ]; then
   echo "Expected exactly nine private exports" >&2
@@ -99,7 +99,7 @@ export ZERO_AR_DATE=1
 rust_remap_flags=(
   "--remap-path-prefix=${HOME}=/home"
   "--remap-path-prefix=${cargo_home}=/cargo"
-  "--remap-path-prefix=${root}=/src/servokit"
+  "--remap-path-prefix=${root}=/src/explorerkit"
   "--remap-path-prefix=${target_dir}=/target"
 )
 printf -v CARGO_ENCODED_RUSTFLAGS '%s\x1f' "${rust_remap_flags[@]}"
@@ -109,7 +109,7 @@ export CARGO_ENCODED_RUSTFLAGS
 clang_remap_flags=(
   "-ffile-prefix-map=${HOME}=/home"
   "-ffile-prefix-map=${cargo_home}=/cargo"
-  "-ffile-prefix-map=${root}=/src/servokit"
+  "-ffile-prefix-map=${root}=/src/explorerkit"
   "-ffile-prefix-map=${target_dir}=/target"
 )
 export CFLAGS="${CFLAGS:+${CFLAGS} }-mmacosx-version-min=14.0 ${clang_remap_flags[*]}"
@@ -122,7 +122,7 @@ export AR_x86_64_apple_darwin="$(xcrun --find ar)"
 for target in aarch64-apple-darwin x86_64-apple-darwin; do
   cargo rustc \
     --manifest-path "${root}/crates/Cargo.toml" \
-    --package servokit-host-desktop \
+    --package explorerkit-host-desktop \
     --target "${target}" \
     --release \
     --locked
@@ -132,7 +132,7 @@ for target in aarch64-apple-darwin x86_64-apple-darwin; do
     x86_64-apple-darwin) clang_target="x86_64-apple-macos14.0" ;;
   esac
 
-  archive="${target_dir}/${target}/release/libservokit_host_desktop.a"
+  archive="${target_dir}/${target}/release/libexplorerkit_host_desktop.a"
   for object_name in jsapi jsglue; do
     members="$(xcrun ar -t "${archive}" | grep -E "(^|-)${object_name}[.]o$" || true)"
     member_count="$(printf '%s\n' "${members}" | sed '/^$/d' | wc -l | tr -d ' ')"
@@ -166,12 +166,12 @@ for target in aarch64-apple-darwin x86_64-apple-darwin; do
     -Wl,-dead_strip \
     -Wl,-fatal_warnings \
     "${link_libraries[@]}" \
-    -o "${work}/ServoKit-${target}"
+    -o "${work}/ExplorerKit-${target}"
 done
 
 xcrun lipo -create \
-  "${work}/ServoKit-aarch64-apple-darwin" \
-  "${work}/ServoKit-x86_64-apple-darwin" \
+  "${work}/ExplorerKit-aarch64-apple-darwin" \
+  "${work}/ExplorerKit-x86_64-apple-darwin" \
   -output "${binary}"
 
 architectures="$(xcrun lipo -archs "${binary}")"
@@ -210,18 +210,18 @@ done < "${evidence}/dependencies.txt"
 
 : > "${evidence}/build-versions.txt"
 for architecture in arm64 x86_64; do
-  build_version="${work}/ServoKit.${architecture}.build-version"
+  build_version="${work}/ExplorerKit.${architecture}.build-version"
   xcrun vtool -show-build -arch "${architecture}" "${binary}" > "${build_version}"
   grep -Fq "platform MACOS" "${build_version}"
   grep -Fq "minos 14.0" "${build_version}"
   cat "${build_version}" >> "${evidence}/build-versions.txt"
 done
 
-cp "${header}" "${framework}/Versions/A/Headers/servokit_desktop_private.h"
+cp "${header}" "${framework}/Versions/A/Headers/explorerkit_desktop_private.h"
 
 cat > "${framework}/Versions/A/Modules/module.modulemap" <<'EOF'
-framework module ServoKit {
-  umbrella header "servokit_desktop_private.h"
+framework module ExplorerKit {
+  umbrella header "explorerkit_desktop_private.h"
   export *
   module * { export * }
 }
@@ -233,10 +233,10 @@ cat > "${framework}/Versions/A/Resources/Info.plist" <<EOF
 <plist version="1.0">
 <dict>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
-  <key>CFBundleExecutable</key><string>ServoKit</string>
-  <key>CFBundleIdentifier</key><string>org.servo.servokit.runtime</string>
+  <key>CFBundleExecutable</key><string>ExplorerKit</string>
+  <key>CFBundleIdentifier</key><string>com.kepler.explorerkit.runtime</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-  <key>CFBundleName</key><string>ServoKit</string>
+  <key>CFBundleName</key><string>ExplorerKit</string>
   <key>CFBundlePackageType</key><string>FMWK</string>
   <key>CFBundleShortVersionString</key><string>${version}</string>
   <key>CFBundleSupportedPlatforms</key><array><string>MacOSX</string></array>
@@ -247,7 +247,7 @@ cat > "${framework}/Versions/A/Resources/Info.plist" <<EOF
 EOF
 
 ln -s A "${framework}/Versions/Current"
-ln -s Versions/Current/ServoKit "${framework}/ServoKit"
+ln -s Versions/Current/ExplorerKit "${framework}/ExplorerKit"
 ln -s Versions/Current/Headers "${framework}/Headers"
 ln -s Versions/Current/Modules "${framework}/Modules"
 ln -s Versions/Current/Resources "${framework}/Resources"
@@ -262,7 +262,7 @@ for local_path in "${root}" "${target_dir}" "${cargo_home}" "${HOME}"; do
   fi
 done
 
-signing_identity="${SERVOKIT_CODESIGN_IDENTITY:--}"
+signing_identity="${EXPLORERKIT_CODESIGN_IDENTITY:--}"
 if [ "${signing_identity}" = "-" ]; then
   codesign --force --sign - "${framework}"
   signing_status="ad-hoc"
@@ -273,8 +273,8 @@ else
 fi
 codesign --verify --strict --verbose=2 "${framework}"
 
-binary_uuids="${work}/ServoKit.binary-uuids"
-dsym_uuids="${work}/ServoKit.dsym-uuids"
+binary_uuids="${work}/ExplorerKit.binary-uuids"
+dsym_uuids="${work}/ExplorerKit.dsym-uuids"
 xcrun dwarfdump --uuid "${binary}" | awk '{print $2, $3}' | LC_ALL=C sort > "${binary_uuids}"
 xcrun dwarfdump --uuid "${dsym}" | awk '{print $2, $3}' | LC_ALL=C sort > "${dsym_uuids}"
 cmp "${binary_uuids}" "${dsym_uuids}"
@@ -285,8 +285,8 @@ native_lifecycle="${work}/macos-native-lifecycle"
 xcrun clang++ -std=c++17 -fobjc-arc \
   -I "${framework}/Headers" \
   -F "${stage}" \
-  "${root}/crates/servokit-host-desktop/tests/macos_native_lifecycle.mm" \
-  -framework ServoKit \
+  "${root}/crates/explorerkit-host-desktop/tests/macos_native_lifecycle.mm" \
+  -framework ExplorerKit \
   -framework AppKit \
   -o "${native_lifecycle}"
 DYLD_FRAMEWORK_PATH="${stage}" "${native_lifecycle}" "${work}/macos-native-lifecycle.result"
@@ -297,7 +297,7 @@ xcodebuild -create-xcframework -framework "${framework}" -output "${xcframework}
 if [ "${signing_identity}" = "-" ]; then
   codesign --force --sign - "${xcframework}"
 else
-  codesign --force --timestamp --sign "${SERVOKIT_CODESIGN_IDENTITY}" "${xcframework}"
+  codesign --force --timestamp --sign "${EXPLORERKIT_CODESIGN_IDENTITY}" "${xcframework}"
 fi
 codesign --verify --strict --verbose=2 "${xcframework}"
 
@@ -311,18 +311,18 @@ if [ "$(/usr/libexec/PlistBuddy -c 'Print :AvailableLibraries' "${xcframework_pl
   exit 1
 fi
 
-if [ "${SERVOKIT_FRAMEWORK_ONLY:-0}" = "1" ]; then
+if [ "${EXPLORERKIT_FRAMEWORK_ONLY:-0}" = "1" ]; then
   printf 'Framework: %s\n' "${xcframework}"
   exit 0
 fi
 
-cp -R "${xcframework}" "${release_root}/ServoKit.xcframework"
+cp -R "${xcframework}" "${release_root}/ExplorerKit.xcframework"
 mkdir -p "${release_root}/LICENSES"
-cp "${root}/LICENSE" "${release_root}/LICENSES/ServoKit.txt"
+cp "${root}/LICENSE" "${release_root}/LICENSES/ExplorerKit.txt"
 bun "${root}/distribution/macos/create-sbom.mjs" \
   "${metadata}" \
   "${binary}" \
-  "${release_root}/ServoKit.spdx.json" \
+  "${release_root}/ExplorerKit.spdx.json" \
   "${version}" \
   "${created_iso}" \
   "${release_root}/LICENSES/Cargo" \
@@ -341,7 +341,7 @@ done < <(find "${release_root}" "${dsym}" -print0)
 )
 (
   cd "${stage}"
-  find ServoKit.framework.dSYM -print | LC_ALL=C sort | zip -X -q -y "${dsym_zip}" -@
+  find ExplorerKit.framework.dSYM -print | LC_ALL=C sort | zip -X -q -y "${dsym_zip}" -@
 )
 
 release_sha256="$(shasum -a 256 "${release_zip}" | awk '{print $1}')"
@@ -355,13 +355,13 @@ sed \
   -e "s/__VERSION__/${version}/g" \
   -e "s@__SOURCE_URL__@${source_url}@g" \
   -e "s/__SHA256__/${release_sha256}/g" \
-  "${root}/distribution/macos/ServoKitMacOSBinary.podspec.template" \
-  > "${output}/ServoKitMacOSBinary.podspec"
-if grep -Eq '__[A-Z0-9_]+__' "${output}/ServoKitMacOSBinary.podspec"; then
+  "${root}/distribution/macos/ExplorerKitMacOSBinary.podspec.template" \
+  > "${output}/ExplorerKitMacOSBinary.podspec"
+if grep -Eq '__[A-Z0-9_]+__' "${output}/ExplorerKitMacOSBinary.podspec"; then
   echo "Generated binary podspec contains an unresolved placeholder" >&2
   exit 1
 fi
-cp "${release_root}/ServoKit.spdx.json" "${output}/ServoKit.spdx.json"
+cp "${release_root}/ExplorerKit.spdx.json" "${output}/ExplorerKit.spdx.json"
 
 cat > "${output}/manifest.json" <<EOF
 {
@@ -388,10 +388,10 @@ EOF
 (
   cd "${output}"
   shasum -a 256 \
-    "ServoKit-macos-${version}.zip" \
-    "ServoKit-macos-${version}-dSYM.zip" \
-    "ServoKit.spdx.json" \
-    "ServoKitMacOSBinary.podspec" > SHA256SUMS
+    "ExplorerKit-macos-${version}.zip" \
+    "ExplorerKit-macos-${version}-dSYM.zip" \
+    "ExplorerKit.spdx.json" \
+    "ExplorerKitMacOSBinary.podspec" > SHA256SUMS
 )
 
 (

@@ -3,10 +3,10 @@ plugins {
     id "org.jetbrains.kotlin.android"
 }
 
-def servokitRootDir = projectDir.canonicalFile.parentFile.parentFile.parentFile
-def sharedFixtureSourceDir = new File(servokitRootDir, "examples/fixtures")
-def generatedFixtureAssetsDir = file("$buildDir/generated/servo-fixtures/assets")
-def generatedFixtureAssetRoot = file("$generatedFixtureAssetsDir/servo-fixtures")
+def explorerkitRootDir = projectDir.canonicalFile.parentFile.parentFile.parentFile
+def sharedFixtureSourceDir = new File(explorerkitRootDir, "examples/fixtures")
+def generatedFixtureAssetsDir = file("$buildDir/generated/explorerkit-fixtures/assets")
+def generatedFixtureAssetRoot = file("$generatedFixtureAssetsDir/explorerkit-fixtures")
 
 tasks.register("syncFixtureAssets", Sync) {
     from(sharedFixtureSourceDir)
@@ -14,12 +14,12 @@ tasks.register("syncFixtureAssets", Sync) {
 }
 
 android {
-    namespace "org.servo.servokit.androidexample"
+    namespace "com.kepler.explorerkit.androidexample"
     compileSdk rootProject.ext.compileSdkVersion
     ndkVersion rootProject.ext.ndkVersion
 
     defaultConfig {
-        applicationId "org.servo.servokit.androidexample"
+        applicationId "com.kepler.explorerkit.androidexample"
         minSdk rootProject.ext.minSdkVersion
         targetSdk rootProject.ext.targetSdkVersion
         versionCode 1
@@ -59,6 +59,6 @@ tasks.named("preBuild").configure {
 }
 
 dependencies {
-    implementation project(":servokit-android-host")
+    implementation project(":explorerkit-host-android")
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.5"
 }

@@ -1889,6 +1889,81 @@ dependencies = [
 ]
 
 [[package]]
+name = "explorerkit"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "cocoa",
+ "core-foundation 0.10.0",
+ "core-video",
+ "dpi",
+ "euclid",
+ "explorerkit-embedder",
+ "explorerkit-host",
+ "gleam",
+ "glow",
+ "image",
+ "io-surface",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "objc2-web-kit",
+ "raw-window-handle",
+ "serde_json",
+ "servo",
+ "surfman",
+ "webrender_api",
+ "wry",
+]
+
+[[package]]
+name = "explorerkit-embedder"
+version = "0.1.0"
+dependencies = [
+ "dpi",
+ "euclid",
+ "explorerkit-host",
+ "rustls",
+ "serde_json",
+ "servo",
+ "servo-allocator",
+ "servo-base",
+ "servo-default-resources",
+ "thiserror 2.0.18",
+ "url",
+]
+
+[[package]]
+name = "explorerkit-host"
+version = "0.1.0"
+dependencies = [
+ "raw-window-handle",
+]
+
+[[package]]
+name = "explorerkit-host-android"
+version = "0.1.0"
+dependencies = [
+ "dpi",
+ "explorerkit-embedder",
+ "explorerkit-host",
+ "jni 0.21.1",
+ "raw-window-handle",
+ "serde_json",
+ "servo",
+]
+
+[[package]]
+name = "explorerkit-host-desktop"
+version = "0.1.0"
+dependencies = [
+ "explorerkit",
+ "explorerkit-embedder",
+ "raw-window-handle",
+]
+
+[[package]]
 name = "exr"
 version = "1.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7461,86 +7536,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "servokit"
-version = "0.1.0"
-dependencies = [
- "block2",
- "cocoa",
- "core-foundation 0.10.0",
- "core-video",
- "dpi",
- "euclid",
- "gleam",
- "glow",
- "image",
- "io-surface",
- "objc2",
- "objc2-app-kit",
- "objc2-core-foundation",
- "objc2-foundation",
- "objc2-web-kit",
- "raw-window-handle",
- "serde_json",
- "servo",
- "servokit-embedder",
- "servokit-host",
- "surfman",
- "webrender_api",
- "wry",
-]
-
-[[package]]
 name = "servokit-controller-ffi"
 version = "0.1.0"
 dependencies = [
+ "explorerkit-embedder",
  "serde_json",
- "servokit-embedder",
-]
-
-[[package]]
-name = "servokit-embedder"
-version = "0.1.0"
-dependencies = [
- "dpi",
- "euclid",
- "rustls",
- "serde_json",
- "servo",
- "servo-allocator",
- "servo-base",
- "servo-default-resources",
- "servokit-host",
- "thiserror 2.0.18",
- "url",
-]
-
-[[package]]
-name = "servokit-host"
-version = "0.1.0"
-dependencies = [
- "raw-window-handle",
-]
-
-[[package]]
-name = "servokit-host-android"
-version = "0.1.0"
-dependencies = [
- "dpi",
- "jni 0.21.1",
- "raw-window-handle",
- "serde_json",
- "servo",
- "servokit-embedder",
- "servokit-host",
-]
-
-[[package]]
-name = "servokit-host-desktop"
-version = "0.1.0"
-dependencies = [
- "raw-window-handle",
- "servokit",
- "servokit-embedder",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 # React Native macOS prototype
 
-A React Native macOS app that renders `<ServoView>` with Servo, through the
-package's AppKit adapter and ServoKit's private desktop C boundary.
+A React Native macOS app that renders `<ExplorerView>` with Servo, through the
+package's AppKit adapter and ExplorerKit's private desktop C boundary.
 
 > [!WARNING]
 > This is a prototype. It is not supported, not packaged, and has no
@@ -11,7 +11,7 @@ It shares its browser UI with the Android and iOS example through
 [`examples/react-native-example-app`](../react-native-example-app).
 
 > [!NOTE]
-> `ServoView.tsx` currently throws for any platform other than Android and
+> `ExplorerView.tsx` currently throws for any platform other than Android and
 > iOS, and React Native macOS reports its platform as `macos`. Confirm on a
 > Mac whether this example still renders before relying on it.
 
@@ -25,7 +25,7 @@ From the repository root:
 
 ```sh
 bun install
-SERVOKIT_BUILD_FROM_SOURCE=1 SERVOKIT_SOURCE_DIR="$PWD" \
+EXPLORERKIT_BUILD_FROM_SOURCE=1 EXPLORERKIT_SOURCE_DIR="$PWD" \
   bun run --cwd examples/react-native-macos-app pods:macos
 bun run --cwd examples/react-native-macos-app start   # Metro, in its own terminal
 bun run --cwd examples/react-native-macos-app macos

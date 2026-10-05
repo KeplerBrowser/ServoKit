@@ -1,236 +1,222 @@
-# ServoKit Architecture
+# How ServoKit works
 
-ServoKit is a Servo embedding toolkit with Rust-owned controller semantics and
-thin platform adapters. React Native exposes one Fabric
-`ServoView`; each native adapter maps that interface to its engine. The iOS
-path uses the Servo-free portable Rust controller with WKWebView. This is the
-fast mental model. Detailed runtime flow and the repo-maintained module map
-live in
-[`docs/runtime-and-module-map.md`](./docs/runtime-and-module-map.md). The
-platform host-control capability matrix lives in
-[`docs/host-control-capabilities.md`](./docs/host-control-capabilities.md).
+ServoKit sits between your app and Servo, a web engine built for embedding.
+Like CEF, it lets your app own everything the user sees around the page. Where
+Servo isn't ready yet, a view can run on the platform's own web view through a
+compatibility layer, behind the same API. ServoKit's Rust core owns the
+browser logic, and a thin adapter on each platform connects it to your app.
+This page explains the layers, the rules we keep, and how a request travels
+through the code.
 
-## Project Structure
-
-```text
-crates/                         Rust facade, embedder, host, and platform hosts
-packages/react-native-servokit/ React Native Fabric adapter
-examples/                       Repo-local proof apps and fixtures
-docs/                           Durable reference docs
-upstream/servo/                 Pinned upstream Servo reference checkout
-```
-
-## High-Level System Diagram
+## The big picture
 
 ```mermaid
 flowchart TD
-  app["React Native app"] --> fabric["Fabric ServoView interface"]
-  fabric --> portable["Portable Rust controller"]
-  fabric --> android["Android adapter"]
-  fabric --> macos["macOS AppKit adapter"]
-  portable --> ios["iOS UIKit effect adapter"]
-  ios --> webkit["WKWebView / WebKit"]
-  android --> runtime["Rust ServoKit runtime and host"]
-  macos --> runtime
-  runtime --> servo["Servo"]
+  app["Your app<br/>windows, tabs, toolbars, layout"]
+  subgraph adapters["Platform adapters (thin)"]
+    rn["React Native ServoView<br/>Android · iOS · macOS"]
+    kotlin["Android Kotlin layer"]
+    rust["Rust facade: servokit"]
+  end
+  subgraph core["ServoKit core (Rust)"]
+    controller["Commands, events,<br/>page prompts"]
+    runtime["Runtime: views, surfaces, engine lifetime"]
+  end
+  servo(("Servo"))
+  webkit(("System web view<br/>compatibility layer"))
+
+  app --> rn
+  app --> kotlin
+  app --> rust
+  rn --> controller
+  kotlin --> controller
+  rust --> runtime
+  controller --> runtime
+  runtime --> servo
+  runtime -. "macOS: per view" .-> webkit
+  controller -. "iOS: portable controller" .-> webkit
 ```
 
-## Core Components
+Servo is the engine. The platform's own web view is a compatibility layer
+for what Servo can't do yet. Today, native Rust apps on macOS choose per view,
+Android and the other desktop paths use only Servo, and iOS uses only
+`WKWebView`, because Apple requires WebKit for most iOS apps and Servo doesn't
+support iOS yet. On iOS, the same Rust controller logic drives `WKWebView`.
 
-| Component | Owns |
-| --- | --- |
-| `servokit` | Rust facade for native callers: runtime, webview, surface, event, input, and control vocabulary. |
-| `servokit-embedder` | Reusable Servo integration, portable controller reducer, command/event payloads, pending control state, and Servo runtime helpers. |
-| `servokit-host` | Host-neutral surface and platform values. |
-| `servokit-host-android` | Android native-window/render backend, JNI, frame loop, clipboard/input, and Android platform control adapters. |
-| `servokit-host-desktop` | Package-private desktop C boundary over the Rust ServoKit runtime for framework adapters. |
-| `servokit-controller-ffi` | Servo-free portable controller C boundary packaged for iOS. |
-| `crates/servokit-host-android/android` | Shared repo-local Android Gradle/Kotlin/JNI host module below React Native and Android examples. |
-| `react-native-servokit` | One `ServoView` Fabric contract plus engine-specific Android, iOS, and macOS adapters. |
+## The layers
 
-## Runtime Paths
+| Layer | Owns | Lives in |
+| --- | --- | --- |
+| **Your app** | Windows, tabs, menus, toolbars, layout, the event loop, and how prompts look | Your code |
+| **Adapter** | Native views and handles, input translation, threads, presenting UI, native completion objects | `packages/react-native-servokit`, `crates/servokit-host-android/android`, `crates/servokit-host-desktop` |
+| **Core** | Command names and validation, request IDs, pending prompts, answer checking, web view and surface lifetimes | `crates/servokit-embedder`, `crates/servokit`, `crates/servokit-host` |
+| **Engine** | Rendering, networking, storage, and page execution | Servo (crates.io `servo` 0.6.0). The compatibility layer uses the system web view: WebKit on iOS and macOS. |
+
+## Principles
+
+These are the rules the code must follow. A change that breaks one needs an
+accepted design decision first.
+
+1. **Your app owns the product.** Windows, tabs, menus, chrome, layout, and the
+   event loop belong to the app. ServoKit never opens a top-level window or
+   creates tabs. It draws into the window, view, or buffer the app gives it.
+
+2. **Servo first; the system web view is a compatibility layer.** Each web
+   view runs on Servo or, where a platform offers the compatibility layer, on
+   the platform's own web view. Where both exist (today, native Rust on
+   macOS), the app chooses, and ServoKit never switches on its own. The
+   compatibility layer lets apps ship while Servo matures; it is not a second
+   engine to design for.
+
+3. **Browser logic lives in Rust, once.** Command names, field validation,
+   request IDs, pending prompts, and answer checking are written in Rust and
+   shared by every platform. Writing them once is what keeps them consistent.
+   Known gap: macOS system web views don't pass prompts to the app yet, so
+   WebKit's defaults apply.
+
+4. **Adapters stay thin.** Platform code owns only what the platform forces on
+   it: views, native handles, input translation, presentation, threads, and
+   native completion objects. Adapters carry messages; they don't decide what
+   messages mean. Callbacks in React Native or Kotlin supply answers and UI,
+   but are never the source of truth for a pending prompt.
+
+5. **One way in for browser control.** Commands and prompt answers travel as
+   one versioned JSON envelope, parsed only by `ControllerCommand` in Rust.
+   Surfaces, input, and the update loop have their own APIs and stay out of
+   the envelope.
+
+6. **A web view outlives its surface.** A web view can exist before, between,
+   and after surfaces. Detaching keeps its page and state. Disposing it makes
+   later commands fail with an explicit error, never act on a stale object.
+
+7. **No orphaned prompts; deny what's risky.** Every prompt ends with the
+   app's answer, or with the engine's own default when nobody handles it or
+   the view goes away. ServoKit adds no timers and makes up no answers.
+   Risky capabilities, such as permission requests, are denied by default.
+   Known gap: the iOS adapter and the React Native adapter on Android still
+   add timers or answer on their own; see
+   [Fallbacks](docs/concepts/controller.md#fallbacks).
+
+8. **Servo starts once per process.** It runs on one UI thread and cannot
+   restart. The host app decides when it shuts down. ServoKit never shuts it
+   down on its own.
+
+9. **Servo-first APIs.** Design every public API for Servo first. No feature
+   may exist only in the compatibility layer; where the system web view can't
+   do something, it returns an explicit unsupported error instead of faking
+   it. Build on Servo's published crates.io release, use Servo's names for
+   Servo concepts, and follow servoshell's embedding patterns. Diverge only on
+   purpose, and say why.
+
+10. **Claim only what's proven.** A capability counts as supported only when
+    there is evidence for it in [Testing and validation](docs/reference/testing.md).
+    [What works where](docs/reference/capabilities.md) is the single source of
+    truth for support claims.
+
+## Paths through the code
 
 ```text
-Native Rust shells
-  -> servokit
-  -> servokit-embedder + servokit-host
-  -> Servo
+Native Rust app
+  → servokit (Runtime, SurfaceHost or MacOsViewHost)
+  → servokit-embedder + servokit-host
+  → Servo  (or WebKit, for a macOS system view)
 
-React Native Android
-  -> react-native-servokit ServoView
-  -> crates/servokit-host-android/android
-  -> servokit-host-android
-  -> servokit-embedder
-  -> Servo
+React Native on Android
+  → react-native-servokit (ServoView.kt)
+  → Android Gradle module (ServoViewBinding, JNI)
+  → servokit-host-android
+  → servokit-embedder
+  → Servo
 
-Kotlin/native Android examples
-  -> crates/servokit-host-android/android
-  -> servokit-host-android
-  -> servokit-embedder
-  -> Servo
+Kotlin app on Android
+  → Android Gradle module (ServoViewBinding, JNI)
+  → servokit-host-android
+  → servokit-embedder
+  → Servo
 
-React Native iOS
-  -> react-native-servokit ServoView
-  -> portable Rust controller + UIKit effect adapter
-  -> WKWebView/WebKit
+React Native on iOS
+  → react-native-servokit (ServoView.mm)
+  → servokit-controller-ffi (portable controller, no Servo)
+  → effects applied to WKWebView
 
-React Native macOS
-  -> react-native-servokit ServoView
-  -> AppKit adapter + package-private desktop C boundary
-  -> Rust ServoKit runtime and host
-  -> Servo
+React Native on macOS (prototype)
+  → react-native-servokit (macos/ServoView.mm)
+  → servokit-host-desktop (private C boundary)
+  → servokit + servokit-embedder
+  → Servo
 ```
 
-## Ownership Model
+React Native defines one `<ServoView>` with one set of props, events, and
+commands. Each platform maps it to its engine. React Native is one adapter
+among several, not the center of the design: the Android Kotlin layer is
+shared by the React Native adapter and the plain Kotlin examples.
 
-- Apps own product UI, tabs, chrome, navigation affordances, and top-level
-  windows.
-- The shared React Native layer owns the public Fabric `ServoView` props,
-  events, mounted command, refs, and JavaScript ergonomics. It does not choose
-  one engine implementation for every platform.
-- Android and macOS adapters own native views and handles, mounting, geometry,
-  input translation, native presentation, and platform scheduling. Rust owns
-  controller/browser state and Servo integration behind those adapters.
-- On iOS, the portable Rust controller owns shared command validation, request
-  identity, pending semantics, and fallback policy. The Objective-C++ adapter
-  executes Rust effects and owns its `WKWebView`, WebKit delegates, native
-  completions and timers, recycling, KVO/native objects, and main-thread
-  scheduling. The packaged Rust controller does not include Servo.
-- On Servo-backed paths, surface lifecycle and browser control identity are
-  separate. A controller can outlive a render surface; disposing the host
-  invalidates later commands explicitly.
+## A request, end to end
 
-## Servo runtime ownership
+Here is what happens when a page calls `confirm("Delete?")` inside a React
+Native app on Android:
 
-Servo-backed paths use one process engine and one active owner on its UI thread.
-The native Rust `Runtime` can create multiple independent live webviews under
-that owner. Each Servo view keeps its own `WebView`, delegate,
-controller/pending state, event queue, and rendering target. The host retains the
-engine connection independently of its views, including while no views exist.
+1. Servo calls ServoKit's `WebViewDelegate` with a dialog request.
+2. Rust records a pending dialog with a new ID, such as `dialog-1`, and queues
+   a `simpleDialogRequested` event.
+3. On the next frame, the Kotlin adapter drains events and sends
+   `onJavaScriptDialogRequested` to JavaScript.
+4. Your `onJavaScriptDialog` handler shows a dialog and calls
+   `request.confirm()`.
+5. The component sends
+   `{"version":1,"command":"resolveSimpleDialog","dialogId":"dialog-1","confirmed":true,"promptValue":null}`
+   to the native view, which passes it through JNI unchanged.
+6. Rust parses the envelope, checks that `dialog-1` is still pending on this
+   view, and answers Servo. The page's `confirm()` returns `true`.
 
-The runtime manages view membership and handle routing; the application manages
-selection, layout, and presentation. Servo owns internal IPC,
-networking/storage infrastructure, and engine coordination. Existing
-`SessionHandle`s identify logical groups; they do not provide storage partitions.
+If there is no handler, step 4 shows a native Android dialog instead, and its
+answer takes the same path from step 5. On iOS, steps 1 to 3 start from a
+WebKit callback, and in step 6 the Rust controller tells Objective-C++ which
+stored WebKit completion handler to call.
 
-Native hosts may set one process-wide `SurfaceHostOptions::config_directory`
-before Servo is first initialized. ServoKit passes it directly to upstream
-`Opts::config_dir`, so Servo owns cookie, authentication, HSTS, and web-storage
-persistence. A retained engine accepts only the same configured directory;
-changing profiles requires a new application process.
+## Repository map
 
-On macOS, a native Rust host may use `MacOsViewHost` and choose `Servo` or
-`SystemWebView` when each runtime view is created. This is a concrete host
-creation option, not an app-visible browser/window model: `Runtime` still owns
-view membership and lifetime, while the app owns its window, layout slot, and
-selection policy. System views are WRY-owned child `WKWebView`s, receive native
-AppKit input, and use a WebKit-only stable data-store identifier. A retained
-ServoKit-owned container `NSView` keeps WRY independent of the app parent:
-detach removes that container from the old parent, and reattach can place the
-same browser view under another app-owned parent. Servo and WebKit storage and
-credentials are not shared. The React Native macOS adapter remains Servo-backed.
+```text
+crates/                          Rust crates (one Cargo workspace)
+  servokit/                      Public Rust API for native apps
+  servokit-embedder/             Shared core and Servo integration
+  servokit-host/                 Host-neutral surface types
+  servokit-host-android/         Android host (Rust) and its Gradle module
+  servokit-host-desktop/         Private C boundary for React Native macOS
+  servokit-controller-ffi/       Servo-free controller for iOS
+packages/react-native-servokit/  The React Native package
+examples/                        Example apps and shared test pages
+docs/                            Documentation
+distribution/                    Scripts that build the iOS and macOS binaries
+patches/, crates/vendor/         Temporary dependency patches
+upstream/servo/                  Pinned Servo source, for reference only
+```
 
-The system adapter maps the existing correlated JavaScript-evaluation operation
-to its WRY-owned WKWebView's native completion. It owns committed-document
-readiness, value/error conversion and pending-request retirement. Finalized
-results retain per-view historical order across later commits; hosts own
-extraction policy and generation checks when applying deferred results. See
-the [system evaluation contract](docs/servokit.md#macos-system-javascript-evaluation).
+Each crate's job and dependency rules are in
+[Crates and packages](docs/reference/crates.md).
 
-Each view selects a `Native` or `Offscreen` target through the existing surface
-delegate. On macOS, exportable offscreen targets use a ServoKit-owned concrete
-Servo `RenderingContext` and bounded surfman IOSurface pool; consumers receive
-platform-specific `GpuFrame` values and explicitly complete them after their
-last GPU sample. This does not make the product scene renderer part of ServoKit.
+## Where to go next
 
-View destruction and ordinary host disposal preserve the process engine for
-reuse. Explicit `Runtime::shutdown` is terminal because Servo cannot initialize
-twice in one process. The [surface contract](docs/surface-modes.md) defines update
-servicing, error attribution, and view/native-resource teardown ordering.
-
-The single-view Android and private desktop adapters retain their existing
-ownership paths; this does not introduce a public React Native multi-view API.
-Lower-level Rust `PopupRequestPolicy::ManagedChild` remains root-scoped popup
-adoption, separate from independently created native views. React Native Android
-uses default-deny and emits `onCreateNewWebViewRequested` as informational intent;
-iOS does not emit that event.
-
-## Engine-Specific Control Ownership
-
-The React Native API uses shared capability names such as `navigationPolicy`
-and `dialog`, but sharing names does not move native engine state across
-platforms.
-
-- On Android and macOS, Rust creates and validates Servo-backed commands and
-  pending requests; native adapters translate platform input and presentation.
-- On iOS, the portable Rust controller validates supported commands and owns
-  request identity, pending semantics, and fallback policy. The Objective-C++
-  adapter maps its effects and observations to WebKit/UIKit and owns native
-  completion and timer objects.
-- React Native callbacks provide app-facing presentation and answers. They do
-  not replace the owning controller's pending state.
-
-Fallback policy is safe native default first, bounded non-wedging fallback
-second, and deny-by-default for risk-sensitive capabilities.
-
-## Platform Posture
-
-| Platform | Current posture |
+| To learn about | Read |
 | --- | --- |
-| Android | Servo-backed experimental path through the Rust ServoKit runtime and shared Android host module. |
-| iOS | Packaged WKWebView/WebKit-backed React Native `ServoView` above the Servo-free portable Rust controller; Servo-on-iOS is deferred. |
-| macOS | Native Rust hosts can create Servo or WRY/WKWebView child views in app-owned AppKit slots. The experimental React Native macOS adapter remains Servo-backed and is not a supported or distributed runtime contract. |
-| Native desktop | Rust facade proof paths for app-owned native windows/layout slots; the system-view option is macOS-only. |
-| Windows React Native | Runtime adapter, package integration, and distribution are deferred. |
-
-iOS defaults to WebKit because iOS browser-engine policy, artifact supply, and
-entitlements are separate host constraints; see Open Web Advocacy's
-[Apple Browser Ban](https://open-web-advocacy.org/apple-browser-ban/) summary
-for context. Servo-on-iOS is deferred.
-
-## Development And Validation
-
-Build and runtime evidence for each platform is maintained in the
-[readiness matrix](docs/readiness-checks.md).
-
-Fixture pages prove smoke behavior for current proof surfaces. A fixture load is
-not by itself a claim that ServoKit owns native defaults, customization hooks, or
-complete support for a capability.
-
-## Future Considerations
-
-- Platform-specific host-control implementation claims should stay aligned with
-  [`docs/host-control-capabilities.md`](./docs/host-control-capabilities.md).
-- Preload/user scripts, secure web-content IPC, accessibility, publication/CI,
-  release promotion, and richer platform parity remain separate product
-  decisions.
-
-## Documentation Map
-
-| Doc | Use it for |
-| --- | --- |
-| [`README.md`](./README.md) | Product overview, status, examples, and on-ramp. |
-| [`docs/runtime-and-module-map.md`](./docs/runtime-and-module-map.md) | Detailed runtime flow, ownership split, and module map. |
-| [`docs/host-control-capabilities.md`](./docs/host-control-capabilities.md) | Android Servo-backed vs iOS WKWebView/WebKit-backed host-control capability matrix. |
-| [`docs/servokit.md`](./docs/servokit.md) | Target module responsibilities and design rules. |
-| [`docs/surface-modes.md`](./docs/surface-modes.md) | Current native and local/exportable offscreen surface contract. |
-| [`docs/embedded-surface-contract.md`](./docs/embedded-surface-contract.md) | App-owned window and layout embedding contract. |
-| [`docs/controller-seam.md`](./docs/controller-seam.md) | Controller identity, command envelope ownership, and response rules. |
-| [`docs/react-native-rust-control-seam.md`](./docs/react-native-rust-control-seam.md) | Rust controller-command transports for Servo-backed hosts and the portable iOS controller. |
-| [`docs/react-native-servokit.md`](./docs/react-native-servokit.md) | React Native adapter API and platform posture. |
-| [`docs/feature-coverage.md`](./docs/feature-coverage.md) | Current capability coverage and deferred surfaces. |
-| [`docs/readiness-checks.md`](./docs/readiness-checks.md) | Build and smoke-check matrix. |
+| The engine, web views, threads, and profiles | [Runtime and views](docs/concepts/runtime.md) |
+| Drawing into windows, views, and buffers | [Surfaces](docs/concepts/surfaces.md) |
+| Commands, events, prompts, and fallbacks | [Commands, events, and page prompts](docs/concepts/controller.md) |
+| Each crate's job and dependency rules | [Crates and packages](docs/reference/crates.md) |
+| Support on each platform | [What works where](docs/reference/capabilities.md) |
 
 ## Glossary
 
-- **Servo controller**: Rust-owned command, pending-request, and browser state
-  for a Servo-backed host.
-- **Engine adapter**: Platform mapping from the shared Fabric interface and its
-  Rust control semantics to ServoKit/Servo or WKWebView/WebKit.
-- **Port/adapter**: Thin platform binding or view holder around the selected
-  engine and its owning control layer.
-- **Controller handle**: Rust-owned control identity for commands and policy
-  responses; the iOS handle targets the Servo-free portable controller.
-- **Render handle**: Servo-backed platform surface/render target identity.
-- **Pending control**: In-flight engine request waiting for a valid response or
-  fallback.
+| Term | Meaning |
+| --- | --- |
+| **Web view** | One browsing context: a page, its history, and its pending prompts. Identified by a `WebViewHandle`. |
+| **Surface** | Where a web view draws: a native window or view, or an offscreen buffer. |
+| **Runtime** | The Rust object that owns web views and routes commands and events. |
+| **Host** | The platform implementation behind a runtime, such as `SurfaceHost` on desktop or the Android host. |
+| **Adapter** | Platform code that connects an app framework to the core, such as the React Native view on Android. |
+| **Controller** | The Rust code that owns commands, request IDs, and pending prompts for one web view. |
+| **Portable controller** | The Servo-free controller used on iOS, built from `servokit-embedder` without the `servo` feature. |
+| **Page prompt** | A question the page asks the app: navigation policy, dialogs, menus, pickers, permissions. Servo calls many of these *embedder controls*. |
+| **Compatibility layer** | The platform's own web view (WebKit on iOS and macOS), used behind the same API where Servo isn't ready yet. |
+| **Command envelope** | The JSON object `{"version":1,"command":...}` that carries commands and prompt answers into Rust. |
+| **Event bridge** | The structured JSON stream that carries events out of Rust to adapters. |

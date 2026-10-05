@@ -203,7 +203,7 @@ export type ServoViewContextMenuItemSelectedEvent = Readonly<{
  * Props for the ServoView component.
  *
  * Event handlers receive direct events from the platform's native engine adapter.
- * @see https://github.com/KeplerBrowser/ServoKit/blob/main/docs/host-control-capabilities.md
+ * @see https://github.com/KeplerBrowser/ServoKit/blob/main/docs/reference/capabilities.md
  */
 export interface ServoViewProps
   extends Omit<

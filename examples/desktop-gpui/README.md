@@ -1,19 +1,36 @@
-# Servokit desktop GPUI example
+# GPUI example (macOS)
 
-A GPUI desktop app that embeds Servo through Servokit inside a GPUI layout slot.
-GPUI owns the native window and surrounding layout; `servokit::surface::macos::AppKitChildSurface` supplies the AppKit child `NSView` for the slot, and Servokit owns the Servo webview attached to that native child surface.
+A [GPUI](https://www.gpui.rs) desktop app that shows a Servo page in one slot
+of its layout. GPUI owns the window, chrome, and layout. ServoKit owns the
+Servo web view, which draws into a child `NSView` placed over that slot.
 
-Template alignment: this example follows the `create-gpui-app`/GPUI app shape (`Application::new().run(...)`, `App::open_window`, root `Render` entity), but uses crates.io `gpui` 0.2.2 with `runtime_shaders` instead of the Zed git workspace template so users can run it from this repository without a second GPUI workspace. It intentionally keeps GPUI as the app/layout framework and uses only the public `servokit` facade for Servo embedding.
+This is the "part of a layout" example. For the simpler whole-window case,
+see [`desktop-winit`](../desktop-winit/README.md).
 
-## Usage
+## How it works
 
-Start the fixture server from the repository root:
+- The app follows the usual GPUI shape: `Application::new().run(...)`,
+  `App::open_window`, and a root `Render` entity. It uses crates.io `gpui`
+  0.2.2 with `runtime_shaders`, so it runs from this repository without a Zed
+  checkout.
+- `servokit::surface::macos::AppKitChildSurface` creates and updates the
+  child `NSView`. The app passes the GPUI window's parent view, the slot's
+  bounds from layout, and the scale factor.
+- A GPUI task runs ServoKit updates. In-slot pointer, wheel, keyboard, and
+  focus events are forwarded as `HostInputEvent`s.
+- The footer shows the URL, load status, title, and the latest ServoKit event.
+
+Only the public `servokit` crate is used.
+
+## Run
+
+Start the test pages from the repository root:
 
 ```sh
 python3 -m http.server 8481 --directory examples/fixtures
 ```
 
-Run the GPUI example:
+Run the example (the environment variables just speed up the build):
 
 ```sh
 RUSTC_WRAPPER=sccache \
@@ -22,48 +39,24 @@ CARGO_PROFILE_DEV_DEBUG=0 \
 cargo run --locked --manifest-path examples/desktop-gpui/Cargo.toml
 ```
 
-You can pass a custom URL:
+Pass a URL after `--` to open another page, for example
+`-- https://servo.org/`.
 
-```sh
-RUSTC_WRAPPER=sccache \
-CARGO_TARGET_DIR=/tmp/servokit-gpui-target \
-CARGO_PROFILE_DEV_DEBUG=0 \
-cargo run --locked --manifest-path examples/desktop-gpui/Cargo.toml -- https://servo.org/
-```
+With the test pages running, the Servo slot shows **Smoke fixtures ready**.
+Resize the window: the Servo view should stay aligned with its slot, with
+GPUI's chrome around it. The footer updates as you navigate, focus, type,
+resize, or hit errors.
 
-## Expected macOS smoke result
+## Shutdown check
 
-With the fixture server running, use the smoke fixture URL for the manual macOS
-proof:
+The `shutdown` example loads a page, then closes its window or quits the app.
+Because this test app exits when its only window closes, both paths end its
+use of Servo. That is this example's choice, not a ServoKit rule: an app that
+keeps running can close a window's views and keep the engine for later views.
 
-```sh
-RUSTC_WRAPPER=sccache \
-CARGO_TARGET_DIR=/tmp/servokit-gpui-target \
-CARGO_PROFILE_DEV_DEBUG=0 \
-cargo run --locked --manifest-path examples/desktop-gpui/Cargo.toml -- http://127.0.0.1:8481/smoke/index.html
-```
-
-The expected visual marker is `Smoke fixtures ready` inside the Servo-rendered
-browser slot. Resize the GPUI window and confirm the Servo child `NSView` stays
-aligned to the GPUI layout slot, with GPUI chrome still surrounding it. The
-footer is the event output surface for this example: it should update with the
-current URL, load status/title, and latest `ServokitEvent` status as navigation,
-focus/input, resize, or error/crash events arrive.
-
-This example is the AppKit child-view proof path for macOS. The simpler
-[`desktop-winit`](../../docs/desktop-winit.md) example is the whole-window
-native-child proof path; both use the same ServoKit `NativeSurface` facade.
-
-## Shutdown regression
-
-The separate `shutdown` example loads a self-contained page, then requests native
-window close or application quit. This single-window test program exits when its
-window closes, so both paths deliberately end the host's use of Servo. That is
-example policy, not a ServoKit requirement: an embedding host that remains alive
-can close a window's views and keep its engine for other or future views.
-
-The example cancels its update task and calls `Runtime::shutdown` while the native
-surface and logging remain alive. Run both paths from the repository root:
+The example cancels its update task and calls `Runtime::shutdown` while the
+native view and logging are still alive. Run both paths from the repository
+root:
 
 ```sh
 for exit_path in --close-window --app-quit; do
@@ -74,32 +67,38 @@ for exit_path in --close-window --app-quit; do
 done
 ```
 
-Each process must exit successfully. Expect output confirming task cancellation,
-runtime finalization with the surface alive, wake-target release, and execution
-of the Rust host destructor. AppKit termination need not return through Rust
-`main`, so a `main-returned` marker is not required.
+Each run must exit successfully and print that the task was cancelled, the
+runtime finished while the view was alive, the wake target was released, and
+the Rust host destructor ran. AppKit may terminate without returning through
+Rust's `main`, so a `main-returned` line is not required.
 
-Repeat each exit path with these options, individually and together:
+Repeat each path with these options, alone and together:
 
-- `--logger-after-page` initializes tracing/log forwarding after Servo has loaded
-  the page, instead of before application startup. Neither mode emits a deliberate
-  logger warmup event.
-- `--unattached-replacement` drops the original runtime normally, then finalizes a
-  fresh runtime without attaching another surface. This checks retirement of the
-  retained process engine.
+- `--logger-after-page`: set up logging after the page loads instead of
+  before startup.
+- `--unattached-replacement`: drop the first runtime normally, then shut down
+  through a fresh runtime with no surface attached. This checks that a
+  leftover engine is retired.
 
-`--retain-runtime` is a separate, deliberately failing control: ordinary runtime
-drop leaves final engine destruction to TLS teardown and reproduces the tracing
-`AccessError`. Keep it out of successful smoke gates; do not suppress logs, warm
-up formatter TLS, or bypass destructors to make it pass.
+`--retain-runtime` is a control that is meant to fail: it leaves engine
+cleanup to thread-local teardown and reproduces a tracing `AccessError`. Keep
+it out of passing checks, and don't hide it by silencing logs or skipping
+destructors.
 
-The [surface lifecycle contract](../../docs/surface-modes.md#view-destruction-and-final-shutdown)
-defines the public shutdown behavior and native resource ordering.
+The shutdown rules are in
+[Surfaces](../../docs/concepts/surfaces.md#closing-views-and-shutting-down).
 
 ## Notes
 
-- The visible chrome, layout, focus target, and input hooks are GPUI-owned; Servokit owns the Servo webview lifecycle.
-- The app now calls `servokit::runtime::ensure_default_rustls_crypto_provider()` at startup, and Servo creation also re-checks it as a safety net. Embedders that need a different rustls provider must call `servokit::runtime::install_rustls_crypto_provider(...)` before creating any Servo-backed surfaces or webviews.
-- The macOS child-surface glue comes from `servokit::surface::macos::AppKitChildSurface`: the host supplies the parent view handle plus logical bounds/scale, and ServoKit keeps the browser child `NSView` aligned for native child-surface embedding. Keep this helper framed as a macOS proof-surface utility in `servokit::surface::macos`, not as a stable production component crate or a `servokit-gpui` SDK.
-- `examples/desktop-gpui` is a standalone Cargo root with its own `Cargo.lock` and no longer needs its own direct `rustls` dependency just to install the default provider.
-- The GPUI manifest owns temporary `stylo_derive` and `zed-font-kit` compatibility patches for the `ToCss` derive ambiguity and the FreeType version conflict with Servo. External GPUI consumers must select both at their own Cargo root; dependency patches are not inherited. Core crates and non-GPUI examples do not use them; see [`../../docs/rust-dependency-baseline.md`](../../docs/rust-dependency-baseline.md).
+- The app calls `servokit::runtime::ensure_default_rustls_crypto_provider()`
+  at startup, and Servo creation checks it again. To use a different `rustls`
+  provider, call `servokit::runtime::install_rustls_crypto_provider(...)`
+  before creating any Servo surface or web view.
+- `AppKitChildSurface` is a macOS helper for examples and proofs. It is not a
+  GPUI component crate or a `servokit-gpui` SDK.
+- This folder is its own Cargo root with its own `Cargo.lock`.
+- The manifest applies two temporary patches, `stylo_derive` and
+  `zed-font-kit`, to work around a `ToCss` derive ambiguity and a FreeType
+  version conflict with Servo. Your own GPUI app needs both in its own Cargo
+  root, because Cargo does not inherit patches. See
+  [Dependencies](../../docs/reference/dependencies.md#local-patches).

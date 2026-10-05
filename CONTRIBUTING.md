@@ -1,81 +1,109 @@
 # Contributing
 
-ServoKit uses agent-led development. Contributors describe problems, discuss
-tradeoffs, and approve designs; agents investigate, implement, test, review, and merge.
-You do not need to write code or prepare a pull request to contribute.
-Keep discussion friendly, focused, and constructive.
+ServoKit is built by AI coding agents. People decide what to build; agents
+investigate, write the code, test it, review it, and merge it. **You don't need
+to write code to contribute.** Describing a real problem clearly is the most
+valuable thing you can do.
+
+Please keep discussions friendly, focused, and constructive.
+
+## How a change happens
+
+```text
+1. Open an issue        Describe the problem or idea. New proposals get the `rfc` label.
+2. Discuss              An agent helps work out scope, options, non-goals, and how to prove it works.
+3. Approve              A maintainer approves the concrete scope. The label becomes `accepted`.
+4. Invoke               A contributor explicitly asks an agent to build the accepted issue.
+5. Build and review     The agent implements and tests it, and an independent reviewer checks it.
+6. Merge                The agent merges once the definition of done is met.
+```
+
+Acceptance allows the work but does not start it. Work starts only when a
+contributor explicitly asks an agent to build the accepted issue.
 
 ## Start with an issue
 
-Use the feature request form for a feature, refactor, or architectural proposal.
-Describe the desired outcome and why it matters. Start with `rfc`; an
-agent helps develop scope, alternatives, non-goals, and acceptance evidence in
-the issue. You do not need an architectural plan before starting the discussion.
-Discussion depth should match the change's consequences.
+- **Ideas, features, refactors, and design proposals:** use the feature
+  request form. Describe the outcome you want and why it matters. You don't
+  need an architecture plan to start. The depth of discussion should match how
+  much the change could break.
+- **Bugs:** use the bug report form with steps to reproduce.
+- **Small fixes:** typos and obvious corrections that don't change behavior or
+  contracts can go ahead without a proposal. Bigger fixes still need
+  agreement on scope.
 
-Report reproducible failures with the bug form. Small typos and obvious,
-behavior-preserving corrections can proceed under standing authorization without
-a manufactured proposal. Significant fixes still need agreement on their scope.
+Labels describe the kind of contribution: `bug`, `enhancement`,
+`documentation`, or `question`. `help wanted` and `good first issue` invite
+reproduction, investigation, and design help as well as code. Closed issues
+and linked pull requests show what is done and delivered.
 
-## Discuss, accept, then invoke
+## Getting to "accepted"
 
-```text
-rfc -> discussion and human approval -> accepted -> explicit agent invocation
-                                                   -> PR and independent review -> merge
-```
+A proposal is ready when its scope and its acceptance evidence are concrete,
+and any architectural concerns are resolved. A clean review by an agent does
+not replace human approval. A maintainer approves in the issue, then the agent
+records the decision and swaps `rfc` for `accepted`.
 
-A proposal is ready for acceptance when its scope and acceptance evidence are
-concrete and architectural findings are resolved; a clean agent review does not
-replace human approval. A maintainer approves the proposal in the discussion. The agent records
-that decision and replaces `rfc` with `accepted`. Acceptance permits that scope;
-it does not automatically launch development. Explicitly ask an agent to
-implement the accepted issue when you want work to start.
+Within the approved scope, agents choose the implementation details.
+Foundational changes, such as public contracts, ownership, lifecycle or
+threading guarantees, security or FFI boundaries, platform support, or
+distribution, get an independent architectural review before approval. New
+trade-offs, bigger scope, unresolved review concerns, and missing evidence go
+back to the same issue, where people decide the next step.
 
-Agents choose implementation details within the agreement. Foundational changes
-receive an independent architectural review before approval. New tradeoffs,
-expanded scope, unresolved review concerns, and missing required validation
-return to the same issue, where humans steer the next step.
-
-Use familiar labels for the kind of contribution: `bug`, `enhancement`,
-`documentation`, or `question`. `help wanted` and `good first issue` can invite
-reproduction, investigation, or design participation as well as implementation.
-Closed issues and linked PRs provide completion and delivery status.
+Investigate open design questions in the issue itself. Contributors don't
+need special planning tools.
 
 ## Keep work meaningful
 
-An issue represents an independently acceptable feature or engineering outcome.
-Tests, file edits, and reviewer corrections are part of that outcome, not separate
-administrative tickets. Split only when another outcome can be accepted or deferred
-independently. A PR delivers a feature across whichever layers it requires.
+An issue is one outcome that could be accepted or deferred on its own. Tests,
+file edits, and review fixes are part of that outcome, not separate tickets.
+Split an issue only when part of it could be accepted or deferred
+independently. A pull request delivers one feature or fix across every layer
+it touches.
 
-State the supported behavior or engineering guarantee that becomes true. Cleanup,
-investigation steps, evidence collection, and file operations are delivery work,
-not outcomes. Fold them into the nearest active feature or fix. When no active
-outcome owns necessary maintenance, a maintainer may authorize one scoped change
-directly; create an issue only when the maintenance itself needs an independent
-decision or can be deferred independently.
+Write the outcome as the behavior or guarantee that becomes true. Cleanup,
+investigation, evidence gathering, and file moves are how you deliver an
+outcome, not outcomes themselves. Fold them into the nearest active feature or
+fix. When maintenance has no active outcome to belong to, a maintainer can
+approve one scoped change directly. Open an issue for maintenance only when it
+needs its own decision or could be deferred on its own.
 
-One-time research and feasibility tooling is ephemeral by default. Record its
-revision, commands, results, and limitations in the issue or PR, then remove the
-machinery before merge. Track a proof harness or readiness check only when the
-accepted scope names the supported guarantee it protects, its owning layer, and
-the event that requires it to run again. When a later outcome supersedes tracked
-proof machinery, remove it as part of that outcome while preserving the historical
-evidence.
+## Keep proof tools temporary
 
-Milestones describe shared sprint goals, with Outcome, Done when, and Not included
-boundaries. They can span working sessions and are separate from releases.
-Investigate unresolved design questions in the issue; contributors need no
-special planning tools.
+This is the proof-artifact retention rule. Scripts written to research or
+prove something once are temporary by default.
+Record their revision, commands, results, and limits in the issue or pull
+request, then remove them before merging.
+
+Keep a proof tool or check in the repository only when the accepted scope
+names three things: the guarantee it protects, the layer that owns it, and
+the event that requires running it again. When a later change replaces a
+tracked proof, remove the old one in that change and keep its results in the
+history.
+
+## Milestones
+
+Milestones are shared goals for a stretch of work. Each one states an
+**Outcome**, **Done when**, and **Not included**. A milestone can span many
+working sessions, and it is separate from releases.
 
 ## Implementation and merge
 
-Once invoked, the implementing agent owns the change through PR submission, independent review,
-and merge. Agents verify the agreed acceptance criteria, resolve review findings,
-and pass required checks before merging; no final human sign-off is required.
-The PR records the result and evidence. Humans return to the discussion when
-scope or design decisions change or a concern cannot be resolved within the
-agreement. Release workflow design remains open and separate from this authorization.
+Once invoked, the implementing agent owns the change through the pull request,
+independent review, and merge. It checks the agreed acceptance criteria,
+resolves review findings, and passes the required checks before merging. No
+final human sign-off is needed. The pull request records the result and the
+evidence. People come back in when scope or design changes, or when a concern
+can't be resolved within the agreement. How releases work is still undecided
+and is not covered by this approval.
 
-Agents follow [AGENTS.md](AGENTS.md) and the repository development skill.
-[ARCHITECTURE.md](ARCHITECTURE.md) explains the technical ownership model.
+## For agents and maintainers
+
+- [AGENTS.md](AGENTS.md): the rules agents follow.
+- [Development skill](.agents/skills/development/SKILL.md): the playbooks for
+  implementing, reviewing, and merging.
+- [How ServoKit works](ARCHITECTURE.md): the layers and the principles every
+  change must respect.
+- [Testing and validation](docs/reference/testing.md): the checks for each
+  area.

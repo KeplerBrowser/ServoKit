@@ -1,7 +1,7 @@
 # React Native example
 
-A small browser app built with `react-native-servokit`. On Android it renders
-with Servo. On iOS it renders with WebKit, through the same `<ServoView>`.
+A small browser app built with `react-native-explorerkit`. On Android it renders
+with Servo. On iOS it renders with WebKit, through the same `<ExplorerView>`.
 
 The browser UI lives in
 [`examples/react-native-example-app`](../react-native-example-app), and is
@@ -32,7 +32,7 @@ for the toolchain, then:
 ```sh
 examples/react-native-app/android/gradlew \
   -p examples/react-native-app/android \
-  :servokit-android-host:stageReactNativeServokitReleaseAar
+  :explorerkit-host-android:stageReactNativeExplorerKitReleaseAar
 bun run --cwd examples/react-native-app android
 ```
 

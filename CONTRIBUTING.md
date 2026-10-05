@@ -1,6 +1,6 @@
 # Contributing
 
-ServoKit is built by AI coding agents. People decide what to build; agents
+ExplorerKit is built by AI coding agents. People decide what to build; agents
 investigate, write the code, test it, review it, and merge it. **You don't need
 to write code to contribute.** Describing a real problem clearly is the most
 valuable thing you can do.
@@ -103,7 +103,7 @@ and is not covered by this approval.
 - [AGENTS.md](AGENTS.md): the rules agents follow.
 - [Development skill](.agents/skills/development/SKILL.md): the playbooks for
   implementing, reviewing, and merging.
-- [How ServoKit works](ARCHITECTURE.md): the layers and the principles every
+- [How ExplorerKit works](ARCHITECTURE.md): the layers and the principles every
   change must respect.
 - [Testing and validation](docs/reference/testing.md): the checks for each
   area.

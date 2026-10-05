@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use servokit::events::{HostEvent, LoadStatusKind, ServokitEvent};
+use explorerkit::events::{ExplorerKitEvent, HostEvent, LoadStatusKind};
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -67,7 +67,7 @@ impl SmokeState {
         }
     }
 
-    pub fn observe(&mut self, event: &ServokitEvent) {
+    pub fn observe(&mut self, event: &ExplorerKitEvent) {
         match &event.event {
             HostEvent::SurfaceAttached { size } => {
                 self.surface_attached = Some((size.width, size.height));

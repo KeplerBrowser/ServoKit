@@ -11,12 +11,12 @@ uses Servo, and Windows has no equivalent.
 
 ## Set up
 
-Turn on the `macos-system-webview` feature of the `servokit` crate (it also
-turns on `servo`), then use `servokit::webview::macos::MacOsViewHost` as your
+Turn on the `macos-system-webview` feature of the `explorerkit` crate (it also
+turns on `servo`), then use `explorerkit::webview::macos::MacOsViewHost` as your
 host:
 
 ```rust
-use servokit::webview::macos::{
+use explorerkit::webview::macos::{
     MacOsViewHost, MacOsViewHostOptions, MacOsWebViewKind, MacOsWebViewOptions,
     WebKitDataStoreIdentifier,
 };
@@ -39,7 +39,7 @@ let system_view = runtime.create_webview_with_options(
 ```
 
 Your delegate's `appkit_parent` returns the live AppKit parent view for a
-slot. ServoKit creates the system view inside it and never takes ownership of
+slot. ExplorerKit creates the system view inside it and never takes ownership of
 your window.
 
 ## How system views behave
@@ -51,7 +51,7 @@ your window.
 - **Commands and events.** Load, reload, back, forward, and focus work. The
   view reports URL, load status, title, crash, and navigation-state events
   (whether it can go back or forward).
-- **Input.** AppKit delivers input straight to the view. ServoKit rejects
+- **Input.** AppKit delivers input straight to the view. ExplorerKit rejects
   `HostInputEvent`s forwarded to a system view.
 - **Defaults.** WebKit applies its own defaults for normal navigation and
   permissions. New windows and downloads are denied.
@@ -60,7 +60,7 @@ your window.
   storage, and IndexedDB across launches; use a different one to isolate
   them. Servo and WebKit never share storage, logins, autofill, passkeys, or
   credentials.
-- **Detach and reattach.** WRY is parented to a ServoKit-owned container
+- **Detach and reattach.** WRY is parented to an ExplorerKit-owned container
   view. Detaching removes the container from your view but keeps the browser
   alive. Reattaching can move the same container under a different live
   parent. Destroying a view, or dropping the host normally, removes system
@@ -72,7 +72,7 @@ your window.
 engines. Servo views use Servo's `WebView::evaluate_javascript`. System views
 call WebKit's `evaluateJavaScript:completionHandler:` on the same WRY-owned
 `WKWebView`, on the AppKit thread. Either way, the result arrives later as a
-`HostEvent::JavaScriptEvaluationResult` inside a `ServokitEvent`.
+`HostEvent::JavaScriptEvaluationResult` inside a `ExplorerKitEvent`.
 
 ### What the script sees
 
@@ -93,8 +93,8 @@ A system view becomes ready at its first observed main-document commit (WRY's
 - Calling before that is accepted, and returns `WebViewNotReady`. The script
   is not saved for later.
 - A hidden or detached view that stays alive stays ready.
-- Your app must keep running the AppKit loop and calling ServoKit's update and
-  drain functions. There is no background-activity or latency guarantee.
+- Your app must keep running the AppKit loop and calling ExplorerKit's update
+  and drain functions. There is no background-activity or latency guarantee.
 
 ### Results
 
@@ -115,13 +115,13 @@ whatever WebKit's bridge returns, so there is no exact support for
 JSON-compatible data when you need the same result on both engines.
 
 If WebKit reports its "unsupported result" error (`WKErrorDomain` code 5)
-because execution was interrupted, ServoKit reports `SerializationError`, even
-though the script did not return a bad value. If the process then terminates,
-only reads still pending get `InternalError`; results already delivered are
-unchanged, and new calls return `WebViewNotReady` until the next commit. The
-existing process-termination notification sends the single `Crashed` event;
-evaluation errors never create another one. ServoKit never reloads, recreates,
-or switches engines on its own.
+because execution was interrupted, ExplorerKit reports `SerializationError`,
+even though the script did not return a bad value. If the process then
+terminates, only reads still pending get `InternalError`; results already
+delivered are unchanged, and new calls return `WebViewNotReady` until the next
+commit. The existing process-termination notification sends the single
+`Crashed` event; evaluation errors never create another one. ExplorerKit never
+reloads, recreates, or switches engines on its own.
 
 ### Evaluation IDs
 
@@ -151,7 +151,7 @@ same page, return them together from one script.
 
 ### Keeping results fresh in your app
 
-ServoKit does not expose a document identity, so your app must guard against
+ExplorerKit does not expose a document identity, so your app must guard against
 stale results:
 
 - Keep your own generation counter per view. Advance it when you process

@@ -1,0 +1,19 @@
+appId: com.kepler.explorerkit.reactnative.example
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.fixtures
+- tapOn:
+    id: fixture.title-event
+- waitForAnimationToEnd
+- assertVisible: "Title changed to: ExplorerKit Smoke - Title Changed"
+- tapOn:
+    id: browser.tools
+- tapOn:
+    id: tools.tab.status
+- assertVisible:
+    id: status.title
+    text: "Title: ExplorerKit Smoke - Title Changed"

@@ -1,7 +1,7 @@
 # Desktop (Rust)
 
-A native Rust app can embed Servo with the `servokit` crate. Your app keeps
-its window, event loop, and layout. ServoKit draws pages into a window, a
+A native Rust app can embed Servo with the `explorerkit` crate. Your app keeps
+its window, event loop, and layout. ExplorerKit draws pages into a window, a
 child view, or an offscreen buffer you provide.
 
 | OS | Status |
@@ -10,14 +10,14 @@ child view, or an offscreen buffer you provide.
 | Windows | Should build through `winit`, but not verified: no CI or recorded build yet. |
 | Linux | Should build through `winit`, but not verified. No baseline X11 or Wayland setup chosen yet. |
 
-## Add ServoKit to your app
+## Add ExplorerKit to your app
 
-ServoKit is not on crates.io yet. Depend on it by path or Git, with the `servo`
-feature:
+ExplorerKit is not on crates.io yet. Depend on it by path or Git, with the
+`servo` feature:
 
 ```toml
 [dependencies]
-servokit = { path = "../ServoKit/crates/servokit", features = ["servo"] }
+explorerkit = { path = "../ServoKit/crates/explorerkit", features = ["servo"] }
 ```
 
 The examples also apply the repository's `tikv-jemalloc-sys` patch so their
@@ -29,11 +29,11 @@ Servo uses `rustls`. Call this once at startup so you don't depend on a
 process-wide default being found:
 
 ```rust
-let _ = servokit::runtime::ensure_default_rustls_crypto_provider();
+let _ = explorerkit::runtime::ensure_default_rustls_crypto_provider();
 ```
 
 If you need a different provider, call
-`servokit::runtime::install_rustls_crypto_provider(...)` before creating any
+`explorerkit::runtime::install_rustls_crypto_provider(...)` before creating any
 surface or web view.
 
 ## Embed a page in five steps
@@ -41,7 +41,7 @@ surface or web view.
 The [`desktop-winit`](../../examples/desktop-winit) example is the full,
 working version of these steps.
 
-**1. Give ServoKit your window.** Implement `SurfaceDelegate` and return a
+**1. Give ExplorerKit your window.** Implement `SurfaceDelegate` and return a
 `NativeSurface` built from your window's handles:
 
 ```rust
@@ -114,7 +114,7 @@ The rules behind each step are in [Surfaces](../concepts/surfaces.md) and
 ### `desktop-winit`: a whole window
 
 The app owns the `winit` event loop, window, input, and a printed event log.
-ServoKit gets the window's handles through `NativeSurface`.
+ExplorerKit gets the window's handles through `NativeSurface`.
 
 ```sh
 python3 -m http.server 8481 --directory examples/fixtures   # optional test pages
@@ -149,16 +149,16 @@ The example is its own Cargo root with its own `Cargo.lock`.
 ### `desktop-gpui`: one part of a layout (macOS)
 
 [GPUI](https://www.gpui.rs) apps own their window and render a layout tree, so
-ServoKit cannot open a window of its own. This example puts Servo in one slot
+ExplorerKit cannot open a window of its own. This example puts Servo in one slot
 of a GPUI layout:
 
 - GPUI owns the window, chrome, layout, focus, and input hooks.
-- `servokit::surface::macos::AppKitChildSurface` creates a child `NSView` for
+- `explorerkit::surface::macos::AppKitChildSurface` creates a child `NSView` for
   the slot. The example sets its frame from GPUI's layout bounds and scale
   factor during prepaint.
-- The example runs ServoKit updates from a GPUI task, forwards in-slot pointer,
-  wheel, keyboard, and focus events as `HostInputEvent`s, and shows URL, load,
-  title, and event status in a GPUI footer.
+- The example runs ExplorerKit updates from a GPUI task, forwards in-slot
+  pointer, wheel, keyboard, and focus events as `HostInputEvent`s, and shows
+  URL, load, title, and event status in a GPUI footer.
 
 It uses crates.io `gpui` 0.2.2 with the `runtime_shaders` feature, and needs
 two temporary dependency patches. Run commands and the shutdown check are in
@@ -166,9 +166,10 @@ two temporary dependency patches. Run commands and the shutdown check are in
 
 ### `multiple-native-views`: several pages (macOS)
 
-`crates/servokit/examples/multiple-native-views` creates two independent pages
-in separate native views, then closes, replaces, and recreates them on one
-engine. See [Testing and validation](../reference/testing.md#multiple-views-on-macos).
+`crates/explorerkit/examples/multiple-native-views` creates two independent
+pages in separate native views, then closes, replaces, and recreates them on
+one engine. See [Testing and
+validation](../reference/testing.md#multiple-views-on-macos).
 
 ## More desktop features
 
@@ -184,10 +185,10 @@ engine. See [Testing and validation](../reference/testing.md#multiple-views-on-m
 ## Known limits
 
 - The AppKit child-view helper is meant for examples and proofs. It is not a
-  GPUI component crate, and ServoKit has no `servokit-gpui` crate.
+  GPUI component crate, and ExplorerKit has no `explorerkit-gpui` crate.
 - Child views are a working path, but not necessarily the fastest one. Exact
   zero-copy GPUI texture integration is still platform-specific work.
 - GPUI is pre-1.0.
 - Servo marks `WindowRenderingContext::set_window` and `take_window`, which
-  ServoKit uses for attach and detach, as temporary upstream APIs. ServoKit
-  will follow Servo when they change.
+  ExplorerKit uses for attach and detach, as temporary upstream APIs.
+  ExplorerKit will follow Servo when they change.

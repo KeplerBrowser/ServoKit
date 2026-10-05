@@ -1,1 +1,1 @@
-export { default } from '@servokit/react-native-example-app';
+export { default } from '@explorerkit/react-native-example-app';

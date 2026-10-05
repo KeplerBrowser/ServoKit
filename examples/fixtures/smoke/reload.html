@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Servokit Smoke - Reload Visibility</title>
+    <title>ExplorerKit Smoke - Reload Visibility</title>
     <link rel="stylesheet" href="assets/smoke.css" />
     <script>
       (function () {
@@ -12,7 +12,7 @@
           var countLabel = "unavailable";
 
           try {
-            var key = "servokit-smoke.reload-count";
+            var key = "explorerkit-smoke.reload-count";
             var nextCount = Number(window.localStorage.getItem(key) || "0") + 1;
             window.localStorage.setItem(key, String(nextCount));
             countLabel = String(nextCount);
@@ -33,7 +33,7 @@
       })();
     </script>
   </head>
-  <body data-fixture="servokit-smoke-reload">
+  <body data-fixture="explorerkit-smoke-reload">
     <main>
       <header>
         <p class="eyebrow">Reload smoke fixture</p>

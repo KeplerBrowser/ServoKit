@@ -2,39 +2,39 @@
 
 A **surface** is the place Servo draws a page: a native window, a child view
 inside your layout, or an offscreen buffer you composite yourself. Your app
-owns the surface. ServoKit borrows it, draws into it, and gives it back.
+owns the surface. ExplorerKit borrows it, draws into it, and gives it back.
 
 This page explains the surface types, how to attach and detach them, and the
 rules for running several views and shutting down. It applies to native Rust
-apps that use the `servokit` crate. The Android host has its own
+apps that use the `explorerkit` crate. The Android host has its own
 implementation with the same attach and detach rules, but it does not use
 these Rust types.
 
 ## The contract in one table
 
-| Your app owns | ServoKit owns |
+| Your app owns | ExplorerKit owns |
 | --- | --- |
 | Top-level windows, menus, tabs, and chrome | The Servo web view and its delegate |
 | Layout: where the page appears and how big it is | Rendering into the surface you provide |
-| The event loop, and when to call ServoKit | Turning Servo's requests into ServoKit events |
+| The event loop, and when to call ExplorerKit | Turning Servo's requests into ExplorerKit events |
 | Hit testing, and which input reaches the page | Request IDs and pending state for page prompts |
 | The UI for dialogs, menus, and pickers | Checking that answers to prompts are valid |
 
-ServoKit never creates top-level windows, menus, or tabs, and never runs your
+ExplorerKit never creates top-level windows, menus, or tabs, and never runs your
 event loop. A whole-window web view is just the case where your layout slot is
 the entire window.
 
 ## Building blocks
 
-These types come from the `servokit-host` crate and are re-exported by
-`servokit::surface`:
+These types come from the `explorerkit-host` crate and are re-exported by
+`explorerkit::surface`:
 
 | Type | What it is |
 | --- | --- |
 | `HostSurface` | Your name for a layout slot or native surface, such as `"main"`. |
 | `SurfaceViewport` | Where the slot is, how big it is, and the display scale. |
 | `SurfaceTarget` | What to draw into: a `NativeSurface` or an `OffscreenSurface`. |
-| `SurfaceDelegate` | The trait you implement so ServoKit can ask for targets and hand you frames. |
+| `SurfaceDelegate` | The trait you implement so ExplorerKit can ask for targets and hand you frames. |
 | `SurfaceFrameInfo` | Viewport and mode details for a painted frame. |
 
 `SurfaceDelegate` has four callbacks. Only the first is required:
@@ -62,9 +62,9 @@ placement, input routing, and the event loop.
 This is the path for whole-window `winit` apps and AppKit child views on
 macOS.
 
-On macOS, `servokit::surface::macos::AppKitChildSurface` creates and updates a
-child `NSView` for one slot in your layout. You give it the parent view, the
-slot's bounds, and the scale factor. The GPUI example uses it.
+On macOS, `explorerkit::surface::macos::AppKitChildSurface` creates and
+updates a child `NSView` for one slot in your layout. You give it the parent
+view, the slot's bounds, and the scale factor. The GPUI example uses it.
 
 ### Offscreen surface with CPU readback
 
@@ -85,19 +85,19 @@ renderer flips it when sampling.
 
 The pool has three slots:
 
-- If you hold all three, ServoKit waits to paint rather than overwrite a frame
-  you are still using.
+- If you hold all three, ExplorerKit waits to paint rather than overwrite a
+  frame you are still using.
 - Each frame comes with a one-shot `GpuFrameCompletion` that you may send to
   another thread. Call it after your last GPU read of that frame.
 - If you drop a completion without calling it, that slot is never reused. Its
   IOSurface stays allocated until the app exits. This trades a small leak for
   never reading freed memory.
 
-For exportable targets, viewport size is in logical points, and ServoKit
+For exportable targets, viewport size is in logical points, and ExplorerKit
 allocates `size × scale` pixels. Native and CPU-readback targets still use
 physical pixel sizes.
 
-The exported frame types live under `servokit::surface::macos` on purpose.
+The exported frame types live under `explorerkit::surface::macos` on purpose.
 Windows shared textures and Linux dma-buf would be separate platform types
 that reuse the same offscreen target and completion rules.
 
@@ -115,18 +115,19 @@ that reuse the same offscreen target and completion rules.
   slot has a real size.
 
 On macOS, a [system web view](../reference/macos-system-webview.md) keeps a
-ServoKit-owned container view while detached. Reattaching moves that container,
-with the same browser view inside, under the new parent you provide. Focus and
-blur requests made while detached are replayed after reattach.
+ExplorerKit-owned container view while detached. Reattaching moves that
+container, with the same browser view inside, under the new parent you
+provide. Focus and blur requests made while detached are replayed after
+reattach.
 
 ## The update loop
 
-Your event loop drives ServoKit:
+Your event loop drives ExplorerKit:
 
 1. Call `Runtime::perform_updates(view)`, or `Runtime::perform_all_updates()`
    when you have several views.
-2. ServoKit runs `before_update`, lets Servo do its work, paints if Servo asked
-   to, and calls `present_frame`.
+2. ExplorerKit runs `before_update`, lets Servo do its work, paints if Servo
+   asked to, and calls `present_frame`.
 3. Call `Runtime::drain_events()` and update your UI from the events.
 
 The waker you pass in `SurfaceHostOptions` is called when Servo needs another
@@ -157,7 +158,7 @@ adapter. This does not add a multi-view React Native API.
 
 ## Closing views and shutting down
 
-Your app decides how long the engine lives. ServoKit does not watch your
+Your app decides how long the engine lives. ExplorerKit does not watch your
 windows and never shuts the engine down on its own, even when the last view
 closes. You can keep the runtime alive with zero views and create new ones
 later.

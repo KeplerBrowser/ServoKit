@@ -2,7 +2,7 @@
 
 An Android app that embeds Servo in a plain `SurfaceView`, without React
 Native. It has native Android UI for every kind of page prompt, so it doubles
-as a hands-on test app for ServoKit's Android host.
+as a hands-on test app for ExplorerKit's Android host.
 
 The Kotlin classes here are example code, not a Kotlin SDK or a reusable
 library. [`android-kotlin-browser`](../android-kotlin-browser/README.md)
@@ -12,13 +12,13 @@ builds this same code under a different name.
 
 - A native Android app can embed Servo without loading React Native or any
   React Native classes.
-- The app depends on the shared `:servokit-android-host` Gradle module, which
+- The app depends on the shared `:explorerkit-host-android` Gradle module, which
   builds the Rust library.
-- It attaches a `Surface` through `ServoViewBinding` and
-  `ServoSurfaceLifecycleCoordinator`, loads a URL, runs updates from
-  `Choreographer`, and reads ServoKit's typed events.
+- It attaches a `Surface` through `ExplorerViewBinding` and
+  `ExplorerSurfaceLifecycleCoordinator`, loads a URL, runs updates from
+  `Choreographer`, and reads ExplorerKit's typed events.
 - Its toolbar drives load, reload, back, forward, focus, and blur.
-- It answers every prompt type through the same `ServoViewBinding` calls the
+- It answers every prompt type through the same `ExplorerViewBinding` calls the
   React Native adapter uses: navigation policy, JavaScript dialogs, text input
   and IME, `<select>`, date, time, and color pickers, file pickers,
   permissions, and context menus.
@@ -38,8 +38,8 @@ examples/react-native-app/android/gradlew \
   :app:assembleDebug
 ```
 
-The `:servokit-android-host` module runs `cargo ndk` on
-`crates/servokit-host-android` before the app is packaged. The app ships
+The `:explorerkit-host-android` module runs `cargo ndk` on
+`crates/explorerkit-host-android` before the app is packaged. The app ships
 `arm64-v8a` only.
 
 ## Run
@@ -48,8 +48,8 @@ On an arm64 device or emulator:
 
 ```sh
 adb install -r examples/android-native-example/app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n org.servo.servokit.androidexample/.MainActivity
-adb logcat -s ServokitNativeExample NativeServoView ExampleFixtureServer
+adb shell am start -n com.kepler.explorerkit.androidexample/.MainActivity
+adb logcat -s ExplorerKitNativeExample NativeExplorerView ExampleFixtureServer
 ```
 
 You should see a header, an address field, reload, back, forward, focus, and
@@ -58,7 +58,7 @@ footer. The app opens `http://127.0.0.1:8481/smoke/index.html`, served from a
 copy of [`examples/fixtures`](../fixtures/README.md) packaged in the app. The
 same server provides the prompt test pages under `/controls/`.
 
-The footer and logcat show ServoKit events as you browse, such as
+The footer and logcat show ExplorerKit events as you browse, such as
 `surfaceAttached`, `loadStatusChanged`, `urlChanged`, `historyChanged`,
 `focusChanged`, `navigationRequested`, `simpleDialogRequested`,
 `inputMethodRequested`, `selectElementRequested`, `permissionRequested`, and
@@ -68,8 +68,8 @@ To open a different URL:
 
 ```sh
 adb shell am start \
-  -n org.servo.servokit.androidexample/.MainActivity \
-  --es org.servo.servokit.androidexample.INITIAL_URL https://servo.org/
+  -n com.kepler.explorerkit.androidexample/.MainActivity \
+  --es com.kepler.explorerkit.androidexample.INITIAL_URL https://servo.org/
 ```
 
 ## Manual checks
@@ -90,7 +90,7 @@ Each check names the shortcut to tap, what to do, and what you should see.
 1. Tap **Dialogs**.
 2. Tap **Trigger alert**, **Trigger confirm**, and **Trigger prompt**. An
    Android dialog appears for each. Your answer goes through
-   `ServoViewBinding.resolveSimpleDialog`, the page shows the result, and the
+   `ExplorerViewBinding.resolveSimpleDialog`, the page shows the result, and the
    footer shows `simpleDialogRequested` and `simpleDialogDismissed`.
 
 ### Text input and IME
@@ -98,7 +98,7 @@ Each check names the shortcut to tap, what to do, and what you should see.
 1. Tap **Form**, then tap the text and email inputs. The footer shows
    `inputMethodRequested` and the soft keyboard opens. Typing, backspace, and
    delete edit the field. Enter goes through
-   `ServoViewBinding.dispatchKeyboardKey`.
+   `ExplorerViewBinding.dispatchKeyboardKey`.
 2. Tap the textarea. Multi-line input works, including new lines where the
    keyboard offers them.
 3. Close the keyboard with Back, or tap **Blur**. The footer shows
@@ -111,7 +111,7 @@ Each check names the shortcut to tap, what to do, and what you should see.
 
 1. Tap **Select**, then **Basic single select**. An Android dialog lists the
    options. OK updates the page's value and title through
-   `ServoViewBinding.resolveSelectElement`.
+   `ExplorerViewBinding.resolveSelectElement`.
 2. Try **Select with optgroups** and **Disabled option handling**. Group
    labels show as headers, and disabled options can't be picked.
 3. Try **Multiple select**. The dialog uses checkboxes and commits every
@@ -126,7 +126,7 @@ Each check names the shortcut to tap, what to do, and what you should see.
    `inputMethodRequested` event with `type=date`, an Android date picker
    opens, and OK
    commits a `yyyy-MM-dd` value through
-   `ServoViewBinding.dispatchImeComposition`. Cancel or Back changes nothing.
+   `ExplorerViewBinding.dispatchImeComposition`. Cancel or Back changes nothing.
 2. **Time** commits `HH:mm`.
 3. **Datetime local** opens a date picker, then a time picker, and commits
    `yyyy-MM-ddTHH:mm`. Cancelling either step commits nothing.
@@ -142,9 +142,9 @@ Each check names the shortcut to tap, what to do, and what you should see.
 1. Tap **Context**, then long-press the **Servo** link (or right-click with a
    mouse). The footer shows `contextMenuRequested`, and a dialog shows the
    link details and Servo's actions. Picking an action goes through
-   `ServoViewBinding.resolveContextMenu`.
+   `ExplorerViewBinding.resolveContextMenu`.
 2. Long-press **Generic target**. The dialog reports a page target. Cancel or
-   Back goes through `ServoViewBinding.dismissContextMenu`.
+   Back goes through `ExplorerViewBinding.dismissContextMenu`.
 3. Extra checks: long-press the **Image** target, long-press inside the
    **Input** or **Textarea**, and select text in the paragraph first. The
    actions offered depend on what Servo reports.
@@ -153,13 +153,13 @@ Each check names the shortcut to tap, what to do, and what you should see.
 
 1. Tap **File**, then **Single file**, and pick a small document. The
    selected `content://` item is copied into the app's cache, its path goes
-   to `ServoViewBinding.resolveFilePicker`, and the page shows the file name.
+   to `ExplorerViewBinding.resolveFilePicker`, and the page shows the file name.
 2. Open it again and cancel. The value stays the same, and the footer shows
-   `reason=cancelled` through `ServoViewBinding.dismissFilePicker`.
+   `reason=cancelled` through `ExplorerViewBinding.dismissFilePicker`.
 3. Tap **Multiple text/markdown files** and pick several, if the document
    provider allows multiple selection. All files are copied and listed. A
    provider that ignores multiple selection is a provider limit, not a
-   ServoKit bug.
+   ExplorerKit bug.
 4. Tap **Image files** and **Capture-hinted image**. The picker is filtered by
    MIME type (for example `image/*`). This app does not prompt for the camera.
    Extension filters are converted to MIME types where Android knows them, so
@@ -170,7 +170,7 @@ Each check names the shortcut to tap, what to do, and what you should see.
 1. Tap **Permissions**, then **Request notifications**. A dialog shows the
    origin and `notifications`. On Android 13 or newer, **Allow** may also show
    the system notification prompt. The answer goes through
-   `ServoViewBinding.resolvePermission`. **Deny**, Back, or closing the
+   `ExplorerViewBinding.resolvePermission`. **Deny**, Back, or closing the
    dialog answers no.
 2. **Request geolocation** asks for Android's location permission when
    needed, and allows only if Android grants it. The page may still report an

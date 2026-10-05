@@ -7,7 +7,7 @@ use appkit_surface::{
     new_surface_state, store_surface_state, take_last_error, viewport, GpuiServoSurface,
     SharedSurfaceState,
 };
-use servokit::{
+use explorerkit::{
     events::HostEvent,
     input::HostInputEvent,
     runtime::{ensure_default_rustls_crypto_provider, Runtime},
@@ -21,7 +21,7 @@ const DEFAULT_INITIAL_URL: &str = "http://127.0.0.1:8481/smoke/index.html";
 
 type GpuiRuntime = Runtime<SurfaceHost<GpuiServoSurface>>;
 
-struct ServoGpuiExample {
+struct ExplorerKitGpuiExample {
     initial_url: String,
     surface_state: SharedSurfaceState,
     runtime: Option<GpuiRuntime>,
@@ -35,7 +35,7 @@ struct ServoGpuiExample {
     tick_task: Option<Task<()>>,
 }
 
-impl ServoGpuiExample {
+impl ExplorerKitGpuiExample {
     fn new(initial_url: String, cx: &mut Context<Self>) -> Self {
         let mut this = Self {
             initial_url,
@@ -71,7 +71,10 @@ impl ServoGpuiExample {
         }));
     }
 
-    fn start_servo(&mut self, viewport: SurfaceViewport) -> Result<(), servokit::ServokitError> {
+    fn start_servo(
+        &mut self,
+        viewport: SurfaceViewport,
+    ) -> Result<(), explorerkit::ExplorerKitError> {
         let services = GpuiServoSurface::new(self.surface_state.clone());
         let options = SurfaceHostOptions::new(Arc::new(|| {}), Rc::new(MemoryClipboard::default()));
         let mut runtime = Runtime::new(SurfaceHost::new(services, options));
@@ -90,23 +93,23 @@ impl ServoGpuiExample {
 
     fn pump(&mut self) {
         if let Err(error) = self.sync_viewport() {
-            self.last_status = format!("Servokit surface sync failed: {error}").into();
+            self.last_status = format!("ExplorerKit surface sync failed: {error}").into();
             return;
         }
         if let Some(error) = take_last_error(&self.surface_state) {
-            self.last_status = format!("Servokit surface unavailable: {error}").into();
+            self.last_status = format!("ExplorerKit surface unavailable: {error}").into();
         }
         let (Some(runtime), Some(webview)) = (self.runtime.as_mut(), self.webview) else {
             return;
         };
         if let Err(error) = runtime.perform_updates(webview) {
-            self.last_status = format!("Servokit update failed: {error}").into();
+            self.last_status = format!("ExplorerKit update failed: {error}").into();
             return;
         }
         self.drain_events();
     }
 
-    fn sync_viewport(&mut self) -> Result<(), servokit::ServokitError> {
+    fn sync_viewport(&mut self) -> Result<(), explorerkit::ExplorerKitError> {
         let Some(viewport) = viewport(&self.surface_state) else {
             return Ok(());
         };
@@ -133,7 +136,7 @@ impl ServoGpuiExample {
                 self.last_status = label.into();
                 self.drain_events();
             }
-            Err(error) => self.last_status = format!("Servokit input failed: {error}").into(),
+            Err(error) => self.last_status = format!("ExplorerKit input failed: {error}").into(),
         }
     }
 
@@ -181,7 +184,7 @@ impl ServoGpuiExample {
                     runtime.resolve_navigation_request(webview, &navigation_id, true)
                 {
                     self.last_status =
-                        format!("Servokit navigation request {navigation_id} failed: {error}")
+                        format!("ExplorerKit navigation request {navigation_id} failed: {error}")
                             .into();
                 }
             }
@@ -189,7 +192,7 @@ impl ServoGpuiExample {
     }
 }
 
-impl Render for ServoGpuiExample {
+impl Render for ExplorerKitGpuiExample {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let surface_state = self.surface_state.clone();
         let page_state = if self.page_title.is_empty() {
@@ -215,7 +218,7 @@ impl Render for ServoGpuiExample {
     }
 }
 
-impl ServoGpuiExample {
+impl ExplorerKitGpuiExample {
     fn browser_slot(
         &self,
         cx: &mut Context<Self>,
@@ -292,11 +295,11 @@ fn header(current_url: SharedString, page_state: String) -> impl IntoElement {
         .flex_col()
         .p_4()
         .gap_2()
-        .child(div().text_xl().child("Servokit inside a GPUI layout"))
+        .child(div().text_xl().child("ExplorerKit inside a GPUI layout"))
         .child(
-            div()
-                .text_color(rgb(0x94a3b8))
-                .child("GPUI owns this window and layout; Servokit owns the native child surface."),
+            div().text_color(rgb(0x94a3b8)).child(
+                "GPUI owns this window and layout; ExplorerKit owns the native child surface.",
+            ),
         )
         .child(
             div()
@@ -320,7 +323,7 @@ fn main() {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 ..Default::default()
             },
-            |_, cx| cx.new(|cx| ServoGpuiExample::new(initial_url.clone(), cx)),
+            |_, cx| cx.new(|cx| ExplorerKitGpuiExample::new(initial_url.clone(), cx)),
         )
         .unwrap();
     });

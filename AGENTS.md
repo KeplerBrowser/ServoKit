@@ -1,10 +1,10 @@
-# ServoKit agent guide
+# ExplorerKit agent guide
 
-ServoKit embeds Servo in native apps, like CEF, with the platform's own web
+ExplorerKit embeds Servo in native apps, like CEF, with the platform's own web
 view as a compatibility layer where Servo isn't ready yet. Design APIs for
 Servo first. Rust owns browser and controller semantics on Servo-backed paths.
 Thin platform adapters own views, input, threads, and presentation. The React
-Native iOS adapter maps the shared Fabric `ServoView` through the Servo-free
+Native iOS adapter maps the shared Fabric `ExplorerView` through the Servo-free
 portable Rust controller to `WKWebView`, and owns its WebKit objects natively.
 
 The human docs are the source of truth. This file holds only the rules that
@@ -47,10 +47,10 @@ that area.
 - Do not turn UBRN, Nitro, TurboModules, handwritten JSI, popup policy, or
   distribution mechanics into the architecture unless the ticket explicitly
   asks for it.
-- Before implementing a public ServoKit method, prop, event, command, or
+- Before implementing a public ExplorerKit method, prop, event, command, or
   host-control surface, lock these in the approved tracker item: exact names,
-  provenance (upstream Servo, ServoKit-owned, or adapter-only), non-goals, and
-  acceptance evidence at the owning layer. Cite upstream names for Servo
+  provenance (upstream Servo, ExplorerKit-owned, or adapter-only), non-goals,
+  and acceptance evidence at the owning layer. Cite upstream names for Servo
   mappings. Adapter-only names must not imply Servo support, or app-owned
   tabs, windows, or popup presentation.
 - Investigate unresolved design questions before implementing. Keep the
@@ -124,6 +124,6 @@ point.
 | Folder | Guide |
 | --- | --- |
 | `crates/` | [crates/AGENTS.md](crates/AGENTS.md) |
-| `packages/react-native-servokit/` | [packages/react-native-servokit/AGENTS.md](packages/react-native-servokit/AGENTS.md) |
+| `packages/react-native-explorerkit/` | [packages/react-native-explorerkit/AGENTS.md](packages/react-native-explorerkit/AGENTS.md) |
 | `examples/` | [examples/AGENTS.md](examples/AGENTS.md) |
 | `docs/` | [docs/AGENTS.md](docs/AGENTS.md) |

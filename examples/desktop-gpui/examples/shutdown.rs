@@ -20,14 +20,14 @@ use appkit_surface::{
     new_surface_state, store_surface_state, viewport, GpuiServoSurface, SharedSurfaceState,
 };
 use cocoa::base::{id, nil};
-use objc::{msg_send, sel, sel_impl};
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use servokit::{
+use explorerkit::{
     events::{HostEvent, LoadStatusKind},
     runtime::Runtime,
     surface::{HostSurface, MemoryClipboard, SurfaceHost, SurfaceHostOptions},
     webview::WebViewHandle,
 };
+use objc::{msg_send, sel, sel_impl};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use zed_gpui::*;
 
 type BrowserRuntime = Runtime<SurfaceHost<GpuiServoSurface>>;

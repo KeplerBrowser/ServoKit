@@ -1,6 +1,6 @@
-use servokit::events::{HostEvent, ServokitEvent};
+use explorerkit::events::{ExplorerKitEvent, HostEvent};
 
-pub fn print(event: &ServokitEvent) {
+pub fn print(event: &ExplorerKitEvent) {
     match &event.event {
         HostEvent::LoadStatusChanged { status } => {
             println!("webview={} load={}", event.webview.raw(), status.as_str())

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Servokit Smoke Fixtures</title>
+    <title>ExplorerKit Smoke Fixtures</title>
     <link rel="stylesheet" href="assets/smoke.css" />
     <script>
       function updateViewportSignal() {
@@ -19,17 +19,17 @@
         size.textContent = "Viewport " + width + " x " + height;
         mode.textContent = "Breakpoint " + band;
         document.title =
-          "Servokit Smoke Fixtures - " + band + " " + width + "x" + height;
+          "ExplorerKit Smoke Fixtures - " + band + " " + width + "x" + height;
       }
 
       window.addEventListener("resize", updateViewportSignal);
       window.addEventListener("DOMContentLoaded", updateViewportSignal);
     </script>
   </head>
-  <body data-fixture="servokit-smoke-index">
+  <body data-fixture="explorerkit-smoke-index">
     <main>
       <header>
-        <p class="eyebrow">Servokit cross-host fixture</p>
+        <p class="eyebrow">ExplorerKit cross-host fixture</p>
         <h1 id="fixture-ready">Smoke fixtures ready</h1>
         <p>
           This platform-neutral page set exercises the cross-host smoke flow with
@@ -60,7 +60,7 @@
 
       <section class="card" aria-labelledby="pages-heading">
         <h2 id="pages-heading">Fixture pages</h2>
-        <nav class="fixture-nav" aria-label="Servokit smoke fixture pages">
+        <nav class="fixture-nav" aria-label="ExplorerKit smoke fixture pages">
           <a id="smoke-link-title" class="fixture-link" href="title-change.html">Title change</a>
           <a id="smoke-link-history" class="fixture-link" href="history-start.html">Links/history</a>
           <a id="smoke-link-reload" class="fixture-link" href="reload.html">Reload visibility</a>

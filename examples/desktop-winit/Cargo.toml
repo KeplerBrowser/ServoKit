@@ -11,8 +11,8 @@ path = "src/bin/profile-branch-proof.rs"
 
 [dependencies]
 servo = "=0.6.0"
-servokit = { path = "../../crates/servokit", features = ["servo"] }
-servokit-embedder = { path = "../../crates/servokit-embedder", features = ["servo"] }
+explorerkit = { path = "../../crates/explorerkit", features = ["servo"] }
+explorerkit-embedder = { path = "../../crates/explorerkit-embedder", features = ["servo"] }
 sha2 = "0.10"
 winit = "0.30"
 

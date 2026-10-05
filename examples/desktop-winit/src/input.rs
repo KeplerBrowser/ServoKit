@@ -1,8 +1,8 @@
-use servokit::input::{
+use explorerkit::input::{
     HostInputEvent, KeyboardInputEvent, KeyboardInputKey, KeyboardInputState, KeyboardNamedKey,
     PointerButton, PointerButtonAction, PointerInputEvent, PointerScrollMode,
 };
-use servokit::surface::SurfaceSize;
+use explorerkit::surface::SurfaceSize;
 use winit::{
     event::{ElementState, Ime, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent},
     keyboard::{Key, NamedKey},
@@ -24,7 +24,7 @@ pub fn clamp_cursor_point(point: CursorPoint, size: SurfaceSize) -> CursorPoint 
     )
 }
 
-pub fn to_servokit_event(
+pub fn to_explorerkit_event(
     event: &WindowEvent,
     cursor: &mut Option<CursorPoint>,
     viewport_size: SurfaceSize,
@@ -87,7 +87,7 @@ fn pointer_action(state: ElementState) -> PointerButtonAction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use servokit::input::PointerInputEvent;
+    use explorerkit::input::PointerInputEvent;
     use winit::event::{DeviceId, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 
     const VIEWPORT: SurfaceSize = SurfaceSize {
@@ -104,7 +104,7 @@ mod tests {
             button: MouseButton::Left,
         };
 
-        assert_eq!(to_servokit_event(&event, &mut cursor, VIEWPORT), None);
+        assert_eq!(to_explorerkit_event(&event, &mut cursor, VIEWPORT), None);
         assert_eq!(cursor, None);
     }
 
@@ -118,7 +118,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_servokit_event(&event, &mut cursor, VIEWPORT),
+            to_explorerkit_event(&event, &mut cursor, VIEWPORT),
             Some(HostInputEvent::Pointer(PointerInputEvent::wheel(
                 0.0,
                 1.0,
@@ -140,7 +140,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_servokit_event(&event, &mut cursor, VIEWPORT),
+            to_explorerkit_event(&event, &mut cursor, VIEWPORT),
             Some(HostInputEvent::Pointer(PointerInputEvent::button(
                 PointerButtonAction::Pressed,
                 PointerButton::Primary,
@@ -159,7 +159,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_servokit_event(&event, &mut cursor, VIEWPORT),
+            to_explorerkit_event(&event, &mut cursor, VIEWPORT),
             Some(HostInputEvent::Pointer(PointerInputEvent::left_viewport()))
         );
         assert_eq!(cursor, None);

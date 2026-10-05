@@ -17,11 +17,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use servo::{
-    ClipboardDelegate, EventLoopWaker, RenderingContext, SoftwareRenderingContext, StringRequest,
-    WebView,
-};
-use servokit::{
+use explorerkit::{
     runtime::{ensure_default_rustls_crypto_provider, Runtime},
     surface::{
         HostSurface, MemoryClipboard, NativeSurface, SurfaceDelegate, SurfaceError, SurfaceFrame,
@@ -30,7 +26,11 @@ use servokit::{
     webview::WebViewHandle,
     HostEvent,
 };
-use servokit_embedder::{PopupRequestPolicy, ServoRuntime, ServoWebViewInit};
+use explorerkit_embedder::{PopupRequestPolicy, ServoRuntime, ServoWebViewInit};
+use servo::{
+    ClipboardDelegate, EventLoopWaker, RenderingContext, SoftwareRenderingContext, StringRequest,
+    WebView,
+};
 use sha2::{Digest, Sha256};
 use winit::{
     application::ApplicationHandler,
@@ -41,15 +41,15 @@ use winit::{
     window::{Window, WindowId},
 };
 
-const COOKIE_NAME: &str = "servokit_profile";
+const COOKIE_NAME: &str = "explorerkit_profile";
 const COOKIE_VALUE: &str = "opaque-test-session";
 const CHILD_TIMEOUT: Duration = Duration::from_secs(60);
 const PROCESS_EXIT_TIMEOUT: Duration = Duration::from_secs(30);
 const SURFACE_ID: &str = "profile-branch-proof-window";
 const FIXTURE_HTML: &str = r#"<!doctype html>
 <meta charset="utf-8">
-<title>ServoKit profile branch proof</title>
-<body>ServoKit profile branch proof</body>
+<title>ExplorerKit profile branch proof</title>
+<body>ExplorerKit profile branch proof</body>
 <script>
 (async () => {
   const params = new URLSearchParams(location.search);
@@ -157,9 +157,9 @@ fn prove_in(root: &Path) -> ProofResult<()> {
         fs::create_dir_all(directory)?;
     }
 
-    println!("proof=servokit-cold-profile-branch");
+    println!("proof=explorerkit-cold-profile-branch");
     println!("platform={} arch={}", env::consts::OS, env::consts::ARCH);
-    println!("servokit_revision={}", git_revision()?);
+    println!("explorerkit_revision={}", git_revision()?);
     println!(
         "servo_dependency=0.6.0 source=registry+https://github.com/rust-lang/crates.io-index checksum=dd165177ea5703d413842fbfd06707b567ba09d37552187a0309b660b0fef8b8 lockfile=examples/desktop-winit/Cargo.lock"
     );
@@ -269,7 +269,7 @@ fn unique_proof_root() -> PathBuf {
         .unwrap_or_default()
         .as_nanos();
     env::temp_dir().join(format!(
-        "servokit-profile-branch-proof-{}-{nanos}",
+        "explorerkit-profile-branch-proof-{}-{nanos}",
         std::process::id()
     ))
 }
@@ -280,11 +280,11 @@ fn git_revision() -> ProofResult<String> {
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()?;
     if !output.status.success() {
-        return Err("failed to resolve the ServoKit Git revision".into());
+        return Err("failed to resolve the ExplorerKit Git revision".into());
     }
     let revision = String::from_utf8(output.stdout)?.trim().to_owned();
     if revision.is_empty() {
-        return Err("ServoKit Git revision was empty".into());
+        return Err("ExplorerKit Git revision was empty".into());
     }
     Ok(revision)
 }
@@ -664,7 +664,7 @@ fn handle_fixture_request(mut stream: TcpStream, sender: &mpsc::Sender<Report>) 
             if fields.get("phase").map(String::as_str) == Some("seed") {
                 headers.push((
                     "Set-Cookie",
-                    "servokit_profile=opaque-test-session; HttpOnly; Path=/; SameSite=Lax",
+                    "explorerkit_profile=opaque-test-session; HttpOnly; Path=/; SameSite=Lax",
                 ));
             }
             write_response(&mut stream, "200 OK", &headers, FIXTURE_HTML.as_bytes())
@@ -824,7 +824,7 @@ fn run_headless_child(args: ChildArgs) -> ProofResult<()> {
 }
 
 fn handle_headless_events(
-    webview: &mut servokit_embedder::ServoWebView,
+    webview: &mut explorerkit_embedder::ServoWebView,
     events: Vec<HostEvent>,
 ) -> ProofResult<()> {
     for event in events {
@@ -907,7 +907,7 @@ impl VisibleProofApp {
         let window = Rc::new(
             event_loop.create_window(
                 Window::default_attributes()
-                    .with_title("ServoKit local profile branch proof")
+                    .with_title("ExplorerKit local profile branch proof")
                     .with_inner_size(LogicalSize::new(960.0, 640.0)),
             )?,
         );

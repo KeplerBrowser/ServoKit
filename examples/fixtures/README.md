@@ -1,7 +1,7 @@
 # Test pages
 
-Static pages that every ServoKit example uses for manual checks. They use only
-HTML, CSS, and small inline scripts, so they work in any host: desktop,
+Static pages that every ExplorerKit example uses for manual checks. They use
+only HTML, CSS, and small inline scripts, so they work in any host: desktop,
 Android, and React Native.
 
 ## Serve them
@@ -36,7 +36,7 @@ A page that loads proves only that it loads. Support claims live in
 | Page | Tests | What you should see |
 | --- | --- | --- |
 | `smoke/index.html` | First load and resize | URL and load events arrive, the page shows **Smoke fixtures ready**, and the **Viewport reflow** card and title change as you resize the window. |
-| `smoke/title-change.html` | Title changes | The title changes from `Servokit Smoke - Title Pending` to `Servokit Smoke - Title Changed`. |
+| `smoke/title-change.html` | Title changes | The title changes from `ExplorerKit Smoke - Title Pending` to `ExplorerKit Smoke - Title Changed`. |
 | `smoke/history-start.html`, `smoke/history-next.html` | Links and history | **Go to history next** changes the URL. Back returns to the start page, and forward returns to the next page. |
 | `smoke/reload.html` | Reload | Reloading changes **Loaded at** and increases **Reload count** when storage works. |
 | `smoke/form.html` | Focus | Text, email, textarea, select, checkbox, and button take focus, and the page shows focus changes. |

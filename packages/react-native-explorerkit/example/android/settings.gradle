@@ -1,0 +1,13 @@
+pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
+plugins { id("com.facebook.react.settings") }
+extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
+rootProject.name = 'ServoKitExample'
+include ':app'
+
+def installedExplorerKitDir = new File(rootDir.parentFile, 'node_modules/react-native-explorerkit')
+def isInstalledConsumer = installedExplorerKitDir.isDirectory() &&
+  !java.nio.file.Files.isSymbolicLink(installedExplorerKitDir.toPath())
+gradle.ext.installedExplorerKitConsumer = isInstalledConsumer
+gradle.ext.explorerKitDir = isInstalledConsumer ? installedExplorerKitDir : rootDir.parentFile.parentFile
+
+includeBuild('../node_modules/@react-native/gradle-plugin')

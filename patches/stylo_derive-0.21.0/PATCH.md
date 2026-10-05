@@ -1,7 +1,7 @@
 # `stylo_derive` 0.21.0 patch
 
 This directory is a Cargo `[patch.crates-io]` replacement for `stylo_derive`
-0.21.0, used by the standalone GPUI example under ServoKit's crates.io `servo`
+0.21.0, used by the standalone GPUI example under ExplorerKit's crates.io `servo`
 `=0.6.0` baseline. It carries forward the existing 0.18.0 workaround onto the
 matching published source; the GPUI graph still reproduces the ambiguity
 without it.

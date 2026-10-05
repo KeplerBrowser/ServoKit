@@ -1,11 +1,11 @@
 [workspace]
 members = [
-    "servokit",
+    "explorerkit",
     "servokit-controller-ffi",
-    "servokit-embedder",
-    "servokit-host",
-    "servokit-host-android",
-    "servokit-host-desktop",
+    "explorerkit-embedder",
+    "explorerkit-host",
+    "explorerkit-host-android",
+    "explorerkit-host-desktop",
 ]
 resolver = "2"
 

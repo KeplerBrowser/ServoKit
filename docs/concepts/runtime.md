@@ -1,13 +1,13 @@
 # Runtime, views, and the engine
 
-This page explains how ServoKit runs Servo: one engine per process, a
+This page explains how ExplorerKit runs Servo: one engine per process, a
 `Runtime` that owns your web views, and the rules for threads, profiles,
 popups, and shutdown.
 
 ## The short version
 
-- Servo runs **once per process**, on **one UI thread**. ServoKit starts it the
-  first time you need it and keeps it alive.
+- Servo runs **once per process**, on **one UI thread**. ExplorerKit starts it
+  the first time you need it and keeps it alive.
 - A **`Runtime`** owns your web views and routes commands and events to the
   right one. Your app owns layout, selection, and presentation.
 - A **web view** (`WebViewHandle`) is one browsing context: a page, its
@@ -17,9 +17,9 @@ popups, and shutdown.
 ## One engine per process
 
 The first successful Servo start keeps one engine on a long-lived UI thread.
-Servo's handle cannot move between threads, so ServoKit never moves the engine
-and never restarts it after that thread exits. Web views and surfaces live
-shorter lives and come and go independently.
+Servo's handle cannot move between threads, so ExplorerKit never moves the
+engine and never restarts it after that thread exits. Web views and surfaces
+live shorter lives and come and go independently.
 
 The host keeps its engine connection even when no views exist. Closing views
 or dropping a host leaves the engine running for reuse. Only an explicit
@@ -27,7 +27,7 @@ or dropping a host leaves the engine running for reuse. Only an explicit
 [closing views and shutting down](surfaces.md#closing-views-and-shutting-down).
 
 Servo owns its own internals: IPC, networking, storage, and engine
-coordination. ServoKit does not reach into them.
+coordination. ExplorerKit does not reach into them.
 
 ## Runtime, sessions, and web views
 
@@ -56,14 +56,14 @@ let options = SurfaceHostOptions::new(waker, clipboard)
     .with_config_directory("/path/to/profile");
 ```
 
-Set it before Servo first starts. ServoKit passes it straight to Servo's
+Set it before Servo first starts. ExplorerKit passes it straight to Servo's
 `Opts::config_dir`, so Servo owns the files and their format. The directory is
 process-wide. Once the engine is running, it only accepts the same directory.
 To switch profiles, start a new process.
 
 ## Threads
 
-Call ServoKit from the thread that owns the engine, usually your UI thread.
+Call ExplorerKit from the thread that owns the engine, usually your UI thread.
 The private desktop C boundary checks this and rejects calls from other
 threads. On Android, the host runs updates on the UI thread from
 `Choreographer` frames. The one exception is `GpuFrameCompletion`, which you
@@ -95,7 +95,7 @@ asks the embedder through `WebViewDelegate::request_create_new`. A
   an event with the URL of the page that asked. Servo 0.6 doesn't expose the
   popup's target URL, so the event's `targetUrl` and `windowFeatures` are
   always null for now.
-- `ManagedChild`: ServoKit creates a child web view under the view that asked
+- `ManagedChild`: ExplorerKit creates a child web view under the view that asked
   (the root). Your app attaches a surface to the child with
   `attach_managed_child_surface`, and the child's events carry its ID. The
   child must keep a live handle while it exists.

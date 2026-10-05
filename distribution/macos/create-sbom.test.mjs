@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 test('SBOM includes only the reachable Cargo runtime graph', () => {
-  const directory = mkdtempSync(join(tmpdir(), 'servokit-sbom-'));
+  const directory = mkdtempSync(join(tmpdir(), 'explorerkit-sbom-'));
   try {
     const rootDirectory = join(directory, 'root');
     const dependencyDirectory = join(directory, 'dependency');
@@ -29,7 +29,7 @@ test('SBOM includes only the reachable Cargo runtime graph', () => {
       writeFileSync(join(packageDirectory, 'LICENSE'), 'license text\n');
     }
 
-    const rootId = 'path+file:///root#servokit-host-desktop@0.1.0';
+    const rootId = 'path+file:///root#explorerkit-host-desktop@0.1.0';
     const dependencyId = 'registry+https://example.invalid#runtime@1.0.0';
     const developmentId = 'registry+https://example.invalid#dev-only@1.0.0';
     const buildId = 'registry+https://example.invalid#build-only@1.0.0';
@@ -37,7 +37,7 @@ test('SBOM includes only the reachable Cargo runtime graph', () => {
       packages: [
         {
           id: rootId,
-          name: 'servokit-host-desktop',
+          name: 'explorerkit-host-desktop',
           version: '0.1.0',
           source: null,
           license: 'MIT',
@@ -98,8 +98,8 @@ test('SBOM includes only the reachable Cargo runtime graph', () => {
       },
     };
     const metadataPath = join(directory, 'metadata.json');
-    const binaryPath = join(directory, 'ServoKit');
-    const sbomPath = join(directory, 'ServoKit.spdx.json');
+    const binaryPath = join(directory, 'ExplorerKit');
+    const sbomPath = join(directory, 'ExplorerKit.spdx.json');
     const licensesPath = join(directory, 'licenses');
     const noticesPath = join(directory, 'THIRD-PARTY-NOTICES.md');
     writeFileSync(metadataPath, JSON.stringify(metadata));
@@ -123,8 +123,8 @@ test('SBOM includes only the reachable Cargo runtime graph', () => {
 
     const sbom = JSON.parse(readFileSync(sbomPath, 'utf8'));
     expect(sbom.packages.map((pkg) => pkg.name)).toEqual([
-      'ServoKit',
-      'servokit-host-desktop',
+      'ExplorerKit',
+      'explorerkit-host-desktop',
       'runtime',
     ]);
     expect(readFileSync(noticesPath, 'utf8')).not.toContain('dev-only');

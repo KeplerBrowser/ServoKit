@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Servokit Smoke - Navigation Policy</title>
+    <title>ExplorerKit Smoke - Navigation Policy</title>
     <link rel="stylesheet" href="assets/smoke.css" />
   </head>
-  <body data-fixture="servokit-smoke-policy">
+  <body data-fixture="explorerkit-smoke-policy">
     <main>
       <header>
         <p class="eyebrow">Navigation policy smoke fixture</p>
@@ -27,7 +27,7 @@
         <nav class="fixture-nav" aria-label="Navigation policy targets">
           <a id="policy-allowed-link" class="fixture-link success" href="history-start.html?from=policy-allowed">Allowed same-origin link</a>
           <a id="policy-denied-http-link" class="fixture-link danger" href="https://example.com/blocked-by-policy">Denied HTTP(S) link</a>
-          <a id="policy-denied-scheme-link" class="fixture-link danger" href="servokit-smoke://blocked-by-policy">Denied custom scheme</a>
+          <a id="policy-denied-scheme-link" class="fixture-link danger" href="explorerkit-smoke://blocked-by-policy">Denied custom scheme</a>
         </nav>
         <p>
           Expected host signal: the allowed link navigates and updates history;

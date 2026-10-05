@@ -6,7 +6,7 @@
 //
 //   cd "$(mktemp -d)"
 //   bun add opentype.js@1.3.4 @fontsource/inter@5.3.0
-//   bun /path/to/ServoKit/docs/assets/generate.mjs /path/to/ServoKit/docs/assets
+//   bun /path/to/ExplorerKit/docs/assets/generate.mjs /path/to/ExplorerKit/docs/assets
 //
 // Dependencies are loaded from the current directory, so this repository
 // needs no extra packages.
@@ -113,8 +113,8 @@ function svgDoc(W, H, title, desc, t, body) {
 
 function banner(t) {
   const W = 1280, H = 440, L = 84;
-  const word = text('ServoKit', { size: 88, weight: 800, x: L + 96, y: 154, ls: -0.035 });
-  const tag1 = text('A web engine in your app.', { size: 34, weight: 600, x: L, y: 224, ls: -0.015 });
+  const word = text('ExplorerKit', { size: 88, weight: 800, x: L + 96, y: 154, ls: -0.035 });
+  const tag1 = text('A new kind of web explorer.', { size: 34, weight: 600, x: L, y: 224, ls: -0.015 });
   const tag2 = text('Built on Servo.', { size: 34, weight: 600, x: L, y: 268, ls: -0.015 });
   const sub = text('One API for Rust, Android, iOS, and React Native.', { size: 19, x: L, y: 308 });
   const pillY = 338, pillH = 40, pillPad = 18, iconW = 22;
@@ -199,8 +199,8 @@ function banner(t) {
     ${desktop}
     ${phone}
     ${labels}`;
-  return svgDoc(W, H, 'ServoKit',
-    'ServoKit: a web engine in your app, built on Servo, with one API for Rust, Android, iOS, and React Native. Built entirely by AI agents.',
+  return svgDoc(W, H, 'ExplorerKit',
+    'ExplorerKit: a new kind of web explorer, built on Servo, with one API for Rust, Android, iOS, and React Native. Built entirely by AI agents.',
     t, body);
 }
 

@@ -1,46 +1,39 @@
 # react-native-servokit
 
-Experimental React Native Fabric view backed by Servo on Android and
-WKWebView/WebKit on iOS.
+A React Native web view backed by [Servo](https://servo.org) on Android and
+by WebKit on iOS, with one API on both. Part of
+[ServoKit](https://github.com/KeplerBrowser/ServoKit).
 
-## Installation
+> [!WARNING]
+> Experimental. The API and packaging may change. The package is not published
+> to npm yet.
+
+## Install
+
+The package is not on npm yet. Build the Android AAR in a ServoKit checkout
+(see [Get started](https://github.com/KeplerBrowser/ServoKit/blob/main/docs/getting-started.md#android-react-native-or-kotlin)),
+pack the package, and install the archive in your app:
 
 ```sh
-npm install react-native-servokit
-```
+# in the ServoKit checkout
+cd packages/react-native-servokit && npm pack
 
-React Native autolinking discovers the Android library and iOS pod. For iOS,
-install pods after adding the package:
-
-```sh
+# in your app
+npm install /path/to/react-native-servokit-0.1.0.tgz
 npx pod-install ios
 ```
 
-The New Architecture must be enabled. Consumer builds use the native artifacts
-already carried by the package; they do not run Cargo or download native code.
+The New Architecture must be on. Autolinking finds the Android library and the
+iOS pod. Your app's build uses the native binaries inside the package: it does
+not run Cargo or download anything.
 
-## Validated compatibility
-
-| Target | Experimentally validated baseline |
+| Target | Tested with |
 | --- | --- |
-| React Native | React Native 0.85 with the New Architecture enabled |
+| React Native | 0.85, New Architecture |
 | Android | minSdk 24, compileSdk 36, Java 17; `arm64-v8a` and `x86_64` |
-| iOS | React Native 0.85 / iOS 15.1 deployment baseline; device arm64 and simulator arm64/x86_64 |
+| iOS | iOS 15.1 or later; device arm64, simulator arm64 and x86_64 |
 
-The peer dependency ranges permit other React and React Native versions, but
-only the baseline above has been validated.
-
-## Package contents
-
-| Platform | Packaged native path | Engine and ownership |
-| --- | --- | --- |
-| Android | `android/libs/servokit-android-host-release.aar`, with `arm64-v8a` and `x86_64` native hosts | Servo-backed. Rust ServoKit owns browser/controller semantics; Kotlin owns the Fabric view and Android platform glue. |
-| iOS | `ios/ServoView.mm` and `ios/ServoKitController.xcframework`, autolinked through CocoaPods | WKWebView/WebKit-backed. The XCFramework contains only the Servo-free portable Rust controller; Objective-C++ owns WKWebView and native platform objects. |
-
-The API and native packaging remain experimental.
-
-Servo-on-iOS is deferred. macOS remains an experimental source-side path and is
-not packaged or supported by this npm package.
+The peer dependency ranges allow other versions, but only these are tested.
 
 ## Usage
 
@@ -48,64 +41,64 @@ not packaged or supported by this npm package.
 import { useRef } from 'react';
 import { ServoView, type ServoViewHandle } from 'react-native-servokit';
 
-function Browser() {
-  const servoRef = useRef<ServoViewHandle>(null);
+export function Browser() {
+  const servo = useRef<ServoViewHandle>(null);
 
   return (
     <ServoView
-      ref={servoRef}
+      ref={servo}
       style={{ flex: 1 }}
       url="https://servo.org"
       onShouldStartLoadWithRequest={async ({ url }) => !url.includes('blocked')}
-      onUrlChanged={(event) => console.log(event.nativeEvent.url)}
-      onPageTitleChanged={(event) => console.log(event.nativeEvent.title)}
-      onLoadStatusChanged={(event) =>
-        console.log(event.nativeEvent.status)
-      }
+      onUrlChanged={(e) => console.log(e.nativeEvent.url)}
+      onPageTitleChanged={(e) => console.log(e.nativeEvent.title)}
+      onLoadStatusChanged={(e) => console.log(e.nativeEvent.status)}
     />
   );
 }
 ```
 
-`ServoViewHandle` exposes:
+`ServoViewHandle` methods: `loadUrl(url)`, `reload()`, `goBack()`,
+`goForward()`, `focus()`, `blur()`, and `evaluateJavaScript(script)`, which
+returns a `Promise<string>` of tagged JSON such as
+`{"type":"string","value":"Example"}`.
 
-- `loadUrl(url: string)`
-- `reload()`
-- `goBack()`
-- `goForward()`
-- `focus()`
-- `blur()`
-- `evaluateJavaScript(script: string): Promise<string>`
+Navigation is allowed if `onShouldStartLoadWithRequest` is missing, fails, or
+takes longer than 5 seconds. Without `onJavaScriptDialog`, Android shows
+native dialogs, and iOS completes alerts and cancels `confirm` and `prompt`.
 
-Android evaluation follows Servo `WebView::evaluate_javascript`; iOS uses
-`WKWebView.evaluateJavaScript`. Both return the package's tagged JSON-string
-result shape, while failures retain engine-specific categories.
+## What's inside
 
-On both platforms, Rust owns command validation, request identity, pending
-semantics, fallback policy, and response validation. Android resolves those
-semantics through the Servo-backed host. On iOS, the portable Rust controller
-emits effects that Objective-C++ applies to WKWebView; Objective-C++ owns native
-delegate completions and timers, KVO/recycling, engine handles, effect
-execution, and main-thread scheduling.
+| Platform | Ships | Engine |
+| --- | --- | --- |
+| Android | `android/libs/servokit-android-host-release.aar` | Servo. Rust owns the browser logic; Kotlin owns the view and Android integration. |
+| iOS | `ios/ServoView.mm`, `ios/ServoKitController.xcframework` | WebKit. The XCFramework holds only the Servo-free Rust controller; Objective-C++ owns `WKWebView`. |
 
-Navigation policy maps to Servo `WebViewDelegate::request_navigation` on
-Android and `WKNavigationDelegate` on iOS. Dialog callbacks likewise preserve
-the shared React Native request shape while each engine uses its native
-completion path.
+Apple requires WebKit for most iOS apps, and Servo doesn't support iOS yet, so
+iOS uses WebKit. macOS is a prototype built from source and is not part of
+this package.
 
-See the
-[platform capability matrix](https://github.com/KeplerBrowser/ServoKit/blob/main/docs/host-control-capabilities.md)
-for event and control availability.
+## Learn more
 
-## Development validation
+- [Full API guide](https://github.com/KeplerBrowser/ServoKit/blob/main/docs/platforms/react-native.md):
+  every prop, event, and method, with platform differences.
+- [What works where](https://github.com/KeplerBrowser/ServoKit/blob/main/docs/reference/capabilities.md):
+  capability support on each platform.
+- [How ServoKit works](https://github.com/KeplerBrowser/ServoKit/blob/main/ARCHITECTURE.md).
 
-From this package directory:
+## Development
+
+From this folder, check that the packed package builds in a clean iOS app
+(device arm64, simulator arm64 and x86_64):
 
 ```sh
 node scripts/validate-packed-consumer.mjs --ios-only
 ```
 
-This packs the exact local tgz, installs it in a clean external React Native
-consumer, and proves Release builds for device arm64, simulator arm64, and
-simulator x86_64. It does not perform simulator runtime acceptance, publish to
-npm, or promote a release.
+This builds Release only. It does not run the app or publish anything. Other
+checks are in
+[Testing and validation](https://github.com/KeplerBrowser/ServoKit/blob/main/docs/reference/testing.md).
+
+## License
+
+MIT

@@ -17,7 +17,7 @@ evidence in the issue or PR and remove its machinery before merge. A durable
 artifact must protect the accepted guarantee at its owning layer and have an
 explicit rerun trigger.
 
-Use [readiness checks](../../../../docs/readiness-checks.md) for platform commands.
+Use [Testing and validation](../../../../docs/reference/testing.md) for platform commands.
 Choose evidence for the changed behavior:
 
 - Documentation: changed links and `git diff --check`.

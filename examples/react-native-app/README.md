@@ -1,52 +1,54 @@
-# react-native-servokit example
+# React Native example
 
-React Native example app for the local `react-native-servokit` package. Android
-tests the Servo-backed adapter against the monorepo copy of ServoKit and Servo;
-iOS tests the WKWebView/WebKit-backed baseline adapter for the same `ServoView`
-component.
+A small browser app built with `react-native-servokit`. On Android it renders
+with Servo. On iOS it renders with WebKit, through the same `<ServoView>`.
 
-## Run locally
+The browser UI lives in
+[`examples/react-native-example-app`](../react-native-example-app), and is
+shared with the macOS prototype. This folder holds the Android and iOS app
+projects.
 
-Install dependencies from the repository root:
+## Run it
+
+From the repository root:
 
 ```sh
 bun install
+bun run --cwd examples/react-native-app start   # Metro, in its own terminal
 ```
 
-Start Metro:
+**iOS** (no Rust needed):
 
 ```sh
-bun run --cwd examples/react-native-app start
-```
-
-Run the Android app:
-
-```sh
-bun run --cwd examples/react-native-app android
-```
-
-Run the iOS app after installing Ruby gems and pods:
-
-```sh
-cd examples/react-native-app && bundle install && cd ../..
+(cd examples/react-native-app && bundle install)
 bun run --cwd examples/react-native-app pods:ios
 bun run --cwd examples/react-native-app ios
 ```
 
-Build the Android app without launching it:
+**Android** needs the Servo host library first. See
+[Get started](../../docs/getting-started.md#android-react-native-or-kotlin)
+for the toolchain, then:
+
+```sh
+examples/react-native-app/android/gradlew \
+  -p examples/react-native-app/android \
+  :servokit-android-host:stageReactNativeServokitReleaseAar
+bun run --cwd examples/react-native-app android
+```
+
+To build the Android app without launching it:
 
 ```sh
 bun run --cwd examples/react-native-app build:android
 ```
 
-The app is intentionally a thin native host for the shared public browser shell.
-Enter a URL in the bottom address field or use the back, forward, home, and
-reload controls to exercise the embedded `ServoView`.
+## Use it
 
-## Native code
+Type a URL in the address bar at the bottom, or use the back, forward, home,
+and reload buttons.
 
-Open `examples/react-native-app/android` in Android Studio when you need IDE
-support for the Android app or included package sources. Open
-`examples/react-native-app/ios/ServoExample.xcodeproj` or the generated
-workspace after `pod install` when you need Xcode support for the iOS WKWebView
-baseline.
+## Open in an IDE
+
+- Android: open `examples/react-native-app/android` in Android Studio.
+- iOS: open the workspace in `examples/react-native-app/ios` that `pod install`
+  creates, or `ServoExample.xcodeproj`.

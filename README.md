@@ -1,160 +1,194 @@
 <p align="center">
-  <img src="./docs/assets/servokit-hero.svg" alt="ServoKit architecture hero" width="760">
-</p>
-
-<h1 align="center">ServoKit</h1>
-
-<p align="center">
-  <strong>A reusable Rust runtime and thin-adapter toolkit for embedding Servo.</strong>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+    <img alt="ServoKit: a web engine in your app, built on Servo." src="docs/assets/banner-light.svg" width="100%">
+  </picture>
 </p>
 
 <p align="center">
-  App-owned native UI · Rust-owned browser semantics · Servo-powered rendering
+  <a href="#status"><img alt="Status: experimental" src="https://img.shields.io/badge/status-experimental-f97316?style=flat-square"></a>
+  <a href="https://crates.io/crates/servo"><img alt="Servo 0.6" src="https://img.shields.io/badge/servo-0.6-0ea5e9?style=flat-square"></a>
+  <a href="#built-by-ai-agents"><img alt="Built by AI agents" src="https://img.shields.io/badge/built_by-AI_agents-8b5cf6?style=flat-square"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square"></a>
 </p>
 
 <p align="center">
-  <a href="#status-at-a-glance"><img alt="Status: experimental" src="https://img.shields.io/badge/status-experimental-f97316?style=flat-square"></a>
-  <a href="#what-is-servokit"><img alt="Product: Servo embedding toolkit" src="https://img.shields.io/badge/product-Servo%20embedding%20toolkit-0ea5e9?style=flat-square"></a>
-  <a href="#status-at-a-glance"><img alt="APIs: unstable" src="https://img.shields.io/badge/APIs-unstable-64748b?style=flat-square"></a>
-  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-0ea5e9?style=flat-square"></a>
+  <a href="docs/getting-started.md"><b>Get started</b></a> ·
+  <a href="docs/README.md"><b>Docs</b></a> ·
+  <a href="ARCHITECTURE.md"><b>How it works</b></a> ·
+  <a href="CONTRIBUTING.md"><b>Contribute</b></a>
 </p>
 
-<p align="center">
-  <a href="./docs/servokit.md">ServoKit docs</a> ·
-  <a href="./ARCHITECTURE.md">Architecture</a> ·
-  <a href="./docs/react-native-servokit.md">React Native adapter</a> ·
-  <a href="./CONTRIBUTING.md">Contributing</a> ·
-  <a href="./docs/readiness-checks.md">Readiness checks</a> ·
-  <a href="./examples">Examples</a>
-</p>
+**ServoKit puts [Servo](https://servo.org), the independent web engine built
+for embedding, inside your app. Where Servo isn't ready yet, a view can use
+the platform's own web view instead, behind the same API.**
 
-> [!IMPORTANT]
-> ServoKit and its APIs are experimental. No npm release exists yet; the current local package baseline includes Android and iOS, while Servo-on-iOS and publication remain deferred.
+You build the app: its windows, tabs, and buttons. ServoKit runs the engine,
+draws web pages into a view you own, and gives you one small API to control it
+from Rust, Kotlin, or React Native.
 
-## Status at a glance
+If you know [CEF](https://github.com/chromiumembedded/cef), it's the same
+idea, built on Servo. Servo can't render every website yet, so ServoKit also
+has a compatibility layer that runs a view on the system web view. Views move
+to Servo as it matures.
 
-| Area | Current stance |
-| --- | --- |
-| API stability | Experimental; APIs and packaging may change. |
-| Best current Servo-backed validation path | React Native Android proof build, with Android/native and desktop examples validating shared ServoKit layers. |
-| Distribution | No npm release yet. The exact local package carries prebuilt Android and iOS native dependencies; consumer builds run neither Cargo nor native downloads and do not reference this workspace. |
-| iOS | Packaged React Native `ServoView` backed by WKWebView/WebKit above a Servo-free portable Rust controller. CocoaPods autolinking and Release builds are proven for device arm64 and simulator arm64/x86_64. The current baseline also passed one attended ARM64 simulator run; each future candidate still needs its own manual runtime gate. Servo-on-iOS is deferred. |
-| React Native macOS | Experimental AppKit/private-C/Rust implementation; not a supported or distributed runtime contract. |
-| React Native Windows | Runtime adapter and distribution are deferred. |
-| Deferred support | No secure IPC bridge, preload/user-script system, or accessibility support is claimed yet. |
-| Servo runtime lifecycle | Native Rust supports independent live views under one engine owner and explicit final shutdown. See [Architecture](./ARCHITECTURE.md#servo-runtime-ownership). |
-| Popup/new-window | Lower-level Rust ServoKit supports root-scoped managed children. React Native Android remains default-deny and emits informational `onCreateNewWebViewRequested` intent only; iOS does not emit it. See [Architecture](./ARCHITECTURE.md#servo-runtime-ownership). |
+## Why ServoKit
 
-## What is ServoKit?
+- **Your app stays yours.** ServoKit never opens windows or adds browser
+  chrome. It draws into the window or view you give it.
+- **Servo first, with a way out.** Build for Servo, and run a view on the
+  system web view where Servo isn't ready yet, behind the same API.
+- **Browser logic is written once.** Navigation rules, dialogs, and other page
+  requests are handled in Rust, not rewritten per platform. This covers Servo
+  views and iOS; macOS system web views still use WebKit's defaults.
+- **Platform code stays thin.** Each platform adapter does only what the
+  platform requires: views, input, and threads.
+- **One API across platforms.** React Native apps get one `<ServoView>`. Rust
+  apps get one `Runtime`.
 
-Apps that want Servo-powered web content inside native UI should not need to
-rebuild controller, surface, and embedder-control glue for each host. ServoKit
-packages servoshell-like embedding patterns into reusable Rust crates and thin
-host adapters so native shells, React Native Android, Android/Kotlin examples,
-and desktop proofs can share a browser/runtime foundation while owning their
-own layout and chrome.
+## Where it runs
 
-The durable split follows ownership. Rust owns browser/controller semantics on
-Servo-backed paths and portable command, request, fallback, and response
-semantics on iOS. Host adapters own platform ergonomics, engine handles, and
-unavoidable native glue. Start with
-[`ARCHITECTURE.md`](./ARCHITECTURE.md) for the fast system model.
+| Platform | Engine today | Status |
+| --- | --- | --- |
+| macOS: Rust | Servo or the system web view, per view | 🧪 Experimental |
+| Android: Kotlin or React Native | Servo | 🧪 Experimental |
+| iOS: React Native | System web view (WebKit)¹ | 🧪 Experimental |
+| macOS: React Native | Servo | 🔬 Prototype, not supported |
+| Windows and Linux: Rust | Servo | 🚧 Should build; not verified yet |
 
-If CEF is your mental model, think of ServoKit as a much narrower, experimental
-Servo embedding layer: reusable engine/control/surface glue for repo-local
-proofs, not a Chromium-scale SDK or production distribution.
+¹ Apple requires WebKit for most iOS apps, and Servo doesn't support iOS
+yet. On iOS, ServoKit keeps the same `<ServoView>` API and the same Rust
+browser logic, and drives `WKWebView` underneath.
 
-## Who this is for
+On macOS, which should you use? Servo works best today for content you
+control. For arbitrary websites, the system web view is the safer choice for
+now.
 
-ServoKit is currently most useful for:
+See [what works where](docs/reference/capabilities.md) for the full feature list.
 
-- Servo and browser-engine contributors who want reusable embedding seams to
-  validate upstream Servo behavior.
-- Rust and native app-shell developers exploring app-owned UI with
-  Servo-powered web content.
-- Teams evaluating whether Servo can become an embeddable engine in their
-  longer-term architecture.
+## Quick look
 
-It is not for developers who need a drop-in production WebView, stable mobile
-SDK, published binary distribution, Servo-on-iOS support, or automatic
-alternatives to Apple's WebKit-backed iOS browser policy today.
+**React Native**
 
-## Try the current proof builds
+```tsx
+import { ServoView } from 'react-native-servokit';
 
-The shortest Servo-backed repo-local proof path is the React Native Android
-build. See [`docs/readiness-checks.md`](./docs/readiness-checks.md) for its
-prerequisites and validation boundaries, then run this from the repository
-root:
+export function Browser() {
+  return (
+    <ServoView
+      style={{ flex: 1 }}
+      url="https://servo.org"
+      onPageTitleChanged={(e) => console.log(e.nativeEvent.title)}
+      onShouldStartLoadWithRequest={({ url }) => !url.includes('blocked')}
+    />
+  );
+}
+```
+
+**Rust**
+
+```rust
+use servokit::{surface::SurfaceHost, HostEvent, HostSurface, Runtime};
+
+// `surfaces` gives ServoKit your window's native handle (see examples/desktop-winit).
+let mut runtime = Runtime::new(SurfaceHost::new(surfaces, options));
+let session = runtime.create_session();
+let view = runtime.create_webview(session)?;
+runtime.load_url(view, "https://servo.org")?;
+runtime.attach_surface_with_viewport(view, HostSurface::new("main"), viewport)?;
+
+// Call these from your event loop.
+runtime.perform_updates(view)?;
+for event in runtime.drain_events() {
+    if let HostEvent::PageTitleChanged { title } = event.event {
+        println!("title: {title:?}");
+    }
+}
+```
+
+## Try it
+
+The fastest path is the iOS simulator, because it needs no Rust toolchain:
 
 ```sh
 bun install
-bun run --cwd packages/react-native-servokit typecheck
-bun run --cwd packages/react-native-servokit prepare
-bun run --cwd examples/react-native-app build:android
+(cd examples/react-native-app && bundle install)
+bun run --cwd examples/react-native-app pods:ios
+bun run --cwd examples/react-native-app ios
 ```
 
-Expected result: TypeScript and package builds pass, then the React Native
-Android example assembles against the package-local AAR. That AAR contains
-`arm64-v8a` and `x86_64`; the app's normal React Native build configuration
-selects its target architecture. Device or emulator smoke is a separate manual
-step; when one is attached, use the commands and expected fixture behavior in
-[`docs/readiness-checks.md`](./docs/readiness-checks.md).
-
-From `packages/react-native-servokit`, the exact iOS package matrix is:
+To see Servo itself render, run the desktop example on a Mac
+(it compiles Servo, so the first build takes a while):
 
 ```sh
-node scripts/validate-packed-consumer.mjs --ios-only
+cargo run --locked --manifest-path examples/desktop-winit/Cargo.toml -- https://servo.org
 ```
 
-It packs the local package, installs that exact tgz in a clean external React
-Native consumer, and proves Release builds for device arm64, simulator arm64,
-and simulator x86_64. It does not perform the separate simulator runtime smoke.
-Servo-on-iOS remains deferred.
+Android and the other examples are covered in [Get started](docs/getting-started.md).
 
-## Architecture
+## Built by AI agents
 
-[`ARCHITECTURE.md`](./ARCHITECTURE.md) is the canonical system model.
-[`docs/runtime-and-module-map.md`](./docs/runtime-and-module-map.md) has the
-detailed runtime flow and module map.
+ServoKit is built agent-first. So far, AI coding agents have written, tested,
+reviewed, and merged every change, and people have steered: they choose what
+to build and approve each plan. Every commit so far was co-authored by an AI
+agent.
 
-## Examples and status
+A typical change goes like this:
 
-| Surface | Status | Purpose | Start here |
-| --- | --- | --- | --- |
-| React Native Android | Experimental | Fabric `ServoView` adapter backed by ServoKit's Rust runtime and shared Android host path | [`examples/react-native-app`](./examples/react-native-app), [`docs/react-native-servokit.md`](./docs/react-native-servokit.md) |
-| React Native iOS | Experimental local package | Shared `ServoView` maps portable Rust controller effects to WKWebView/WebKit; the exact package Release matrix and current attended runtime baseline pass, while Servo-on-iOS is deferred | [`docs/react-native-servokit.md`](./docs/react-native-servokit.md) |
-| React Native macOS | Experimental, not supported | Exercises the shared Fabric surface through AppKit and the private desktop C boundary into Rust ServoKit; no runtime or distribution contract is claimed | [`examples/react-native-macos-app`](./examples/react-native-macos-app), [`docs/react-native-servokit.md`](./docs/react-native-servokit.md) |
-| Native Android proof app | Experimental proof | Android `SurfaceView` host path without React Native; shared controller, events, and fallback UI seams | [`examples/android-native-example`](./examples/android-native-example) |
-| Kotlin Android browser | Experimental example | App-facing Kotlin browser chrome over the same shared Android host/control coordinator; not a stable Kotlin SDK or AAR | [`examples/android-kotlin-browser`](./examples/android-kotlin-browser) |
-| Desktop `winit` | Prototype | App-owned event loop/window, basic input, and Servo-backed rendering through the Rust facade | [`examples/desktop-winit`](./examples/desktop-winit), [`docs/desktop-winit.md`](./docs/desktop-winit.md) |
-| Desktop GPUI | Prototype | GPUI-owned layout slot over the `servokit` facade; not a production component crate | [`examples/desktop-gpui`](./examples/desktop-gpui) |
+1. A contributor opens an issue with a problem or an idea.
+2. Maintainers agree on the scope and on how to prove it works.
+3. A contributor asks an AI agent to build it, and the agent builds and
+   tests it.
+4. A second agent reviews it.
+5. The agent merges it once the checks pass.
 
-## React Native adapter naming
+This is the project's working style, not a requirement for contributors.
+Issues, ideas, and discussion are all welcome, and none of them need code.
+The rules the agents follow are public:
 
-The React Native adapter for ServoKit lives in
-[`packages/react-native-servokit`](./packages/react-native-servokit) and is imported as
-`react-native-servokit`.
+- [AGENTS.md](AGENTS.md): the rules every agent follows.
+- [.agents/skills/development](.agents/skills/development/SKILL.md): playbooks
+  for building, reviewing, and merging a change.
+- [CONTRIBUTING.md](CONTRIBUTING.md): how people steer the work.
 
-## Documentation
+## Docs
 
-Curated entry points. [`ARCHITECTURE.md`](./ARCHITECTURE.md) is the architecture
-front door.
-
-| Doc | Use it for |
+| Page | What you'll find |
 | --- | --- |
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Canonical architecture front door and fast system mental model |
-| [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Propose an outcome and steer agent-led development |
-| [`docs/servokit.md`](./docs/servokit.md) | Target ServoKit module responsibilities and design rules |
-| [`docs/react-native-servokit.md`](./docs/react-native-servokit.md) | React Native adapter API, Android Servo-backed status, iOS WKWebView path, deferred Servo-on-iOS work, and host boundary |
-| [`docs/readiness-checks.md`](./docs/readiness-checks.md) | Build and smoke-check matrix for repo-local proof surfaces |
-| [`docs/feature-coverage.md`](./docs/feature-coverage.md) | Current embedder-control coverage and deferred features |
-| [GitHub Wiki](https://github.com/KeplerBrowser/ServoKit/wiki) | Integration recipes and troubleshooting; repository guidance remains canonical |
+| [Get started](docs/getting-started.md) | Build and run an example app |
+| [How it works](ARCHITECTURE.md) | The big picture: who owns what, and the rules we keep |
+| [React Native](docs/platforms/react-native.md) | `<ServoView>` props, events, and methods |
+| [Android](docs/platforms/android.md) | Build the Android engine and use it from Kotlin |
+| [Desktop (Rust)](docs/platforms/desktop.md) | Embed Servo in a winit or GPUI app |
+| [What works where](docs/reference/capabilities.md) | Feature support on each platform |
 
-## Contributing
+Browse [all docs](docs/README.md). AI agents can start from [llms.txt](llms.txt).
 
-Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md): raise an RFC, discuss the
-outcome, and explicitly invoke an agent after acceptance.
+## Status
+
+ServoKit is an experiment. APIs change often, and nothing is published to npm
+or crates.io yet. Servo itself can't render every website yet, which is why the
+system web view is part of the design. These are not supported yet: messaging
+between web pages and native code, preload scripts, and accessibility.
+
+## Credits
+
+ServoKit is glue. The hard parts come from these projects:
+
+- [Servo](https://servo.org): the web engine.
+- [WRY](https://github.com/tauri-apps/wry): drives the system web view on
+  macOS.
+- [surfman](https://github.com/servo/surfman) and
+  [raw-window-handle](https://github.com/rust-windowing/raw-window-handle):
+  GPU surfaces and native window handles.
+- [React Native](https://reactnative.dev): the `<ServoView>` component.
+- [winit](https://github.com/rust-windowing/winit) and
+  [GPUI](https://www.gpui.rs): used by the desktop examples.
+
+ServoKit is an independent community project, not affiliated with the Servo
+project. Licenses are listed in
+[Dependencies](docs/reference/dependencies.md#licenses).
 
 ## License
 
-MIT
+ServoKit's own code is [MIT](LICENSE). Dependencies keep their own licenses.

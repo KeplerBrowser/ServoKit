@@ -1,62 +1,37 @@
-# ServoKit Kotlin Android browser example
+# Kotlin browser example
 
-This is an experimental Kotlin Android app-facing host example for ServoKit. It
-embeds Servo through the crate-owned repo-local `crates/servokit-host-android/android`
-Gradle module and does **not** load the React Native runtime.
+An Android app written in Kotlin, without React Native, that embeds Servo
+through ServoKit's shared Android layer.
 
-It is not a stable Kotlin SDK, public AAR, or distribution promise. The Android
-host module remains a crate-owned repo-local boundary while ServoKit's Android
-packaging story is still experimental.
+> [!NOTE]
+> This folder has no Kotlin code of its own. Its Gradle build compiles the
+> sources of [`android-native-example`](../android-native-example/README.md)
+> under a different app name and application ID
+> (`org.servo.servokit.androidkotlinbrowser`). Both folders produce the same
+> app. To change the app, edit `android-native-example`.
 
-## What this proves
+It is an example, not a Kotlin SDK or a published library.
 
-ServoKit's Android shape mirrors a facade/host-backend split:
+## What it shows
 
 ```text
-Kotlin Android browser example
-  -> shared Android ServoKit host/control coordinator
-      -> crates/servokit-host-android/android
-          -> servokit-host-android
-              -> servokit-embedder
-                  -> Servo
-
-react-native-servokit
-  -> Fabric ServoView + RN bridge ergonomics
-      -> shared Android ServoKit host/control coordinator
-          -> crates/servokit-host-android/android
-              -> servokit-host-android
-                  -> servokit-embedder
-                      -> Servo
+Kotlin app (examples/android-native-example sources)
+  → ServoViewBinding, ServoSurfaceLifecycleCoordinator, ServoHostEvent
+    (shared Kotlin layer in crates/servokit-host-android/android)
+  → servokit-host-android (Rust)
+  → servokit-embedder (Rust)
+  → Servo
 ```
 
-React Native owns Fabric props/events, ref commands, optional JavaScript
-callbacks, and app-specific bridge ergonomics. The default Android host/control
-path is shared below it: `ServoViewBinding`, `ServoSurfaceLifecycleCoordinator`,
-the typed `ServoHostEvent` bridge, and picker value helpers live in
-`crates/servokit-host-android/android` and are used by both the RN Android adapter and
-this Kotlin example.
-
-The app exposes browser chrome rather than a low-level fixture harness: a URL
-field, load/reload/back/forward/focus/blur controls, shortcut buttons for the
-packaged smoke fixtures, a Servo `SurfaceView`, and an event footer. The
-fixture shortcuts demonstrate the current Android control matrix: navigation
-policy, JavaScript dialogs, text IME, select controls, non-text pickers, file
-picker, permissions, and context menu fallback.
-
-The app currently reuses the repository's proof-only native Android view/source
-wrapper while the shared coordinator extraction deepens. That wrapper now routes
-browser, surface, and embedder-control commands through the shared
-`ServoViewBinding` and `ServoSurfaceLifecycleCoordinator`; follow-up work can
-move more Android fallback UI presentation out of the example layer if the
-project chooses to harden a Kotlin API.
+The React Native adapter uses the same shared Kotlin layer. Only the app on
+top differs.
 
 ## Build
 
-Prerequisites match the other Android examples:
-
-- Android SDK with NDK `27.1.12297006`
-- Rust target `aarch64-linux-android`
-- `cargo ndk`
+You need the Android setup from
+[Get started](../../docs/getting-started.md#android-react-native-or-kotlin):
+JDK 17, the Android SDK, NDK `28.2.13676358` and `27.1.12297006`, both Rust
+Android targets, and `cargo-ndk`.
 
 From the repository root:
 
@@ -66,13 +41,13 @@ examples/react-native-app/android/gradlew \
   :app:assembleDebug
 ```
 
-The build includes `:servokit-android-host`, which builds/packages the existing
-`servokit-host-android` native library for `arm64-v8a`. There are no React
-Native dependencies in this Gradle project.
+The build includes the `:servokit-android-host` module, which compiles the
+Rust library with `cargo ndk`. The app has no React Native dependencies and
+ships `arm64-v8a` only.
 
-## Run manually
+## Run
 
-Install and launch on an arm64 Android device or emulator:
+On an arm64 device or emulator:
 
 ```sh
 adb install -r examples/android-kotlin-browser/app/build/outputs/apk/debug/app-debug.apk
@@ -80,17 +55,5 @@ adb shell am start -n org.servo.servokit.androidkotlinbrowser/org.servo.servokit
 adb logcat -s ServokitNativeExample NativeServoView ExampleFixtureServer
 ```
 
-Expected smoke:
-
-- The activity shows ServoKit Android host browser chrome around a native
-  `SurfaceView`.
-- The default URL is `http://127.0.0.1:8481/smoke/index.html`, served from the
-  app's packaged copy of `examples/fixtures`.
-- The smoke shortcut row can load smoke/title/history/reload/form/error/
-  policy pages.
-- The embedder-control shortcut row can load dialog, IME/text input, select,
-  picker, file-input, permission, and context-menu fixtures.
-- Control prompts use Android UI and resolve through the shared ServoKit Android
-  host/control path, not through React Native JavaScript.
-
-If no device/emulator is attached, record manual smoke as not run.
+What to expect, and a step-by-step check of every prompt type, are in the
+[`android-native-example` README](../android-native-example/README.md#run).

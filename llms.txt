@@ -1,0 +1,47 @@
+# ServoKit
+
+> ServoKit embeds Servo, a web engine built for embedding, in native apps, like CEF. Where Servo isn't ready yet, a view can use the platform's own web view through a compatibility layer behind the same API; public APIs are designed for Servo first. Apps own windows, tabs, and layout; a Rust core owns browser logic (commands, events, page prompts) for Servo views and the iOS adapter; thin adapters connect Rust, Android/Kotlin, and React Native. Today: Servo or the system web view per view on macOS (Rust), Servo on Android, WKWebView on iOS. Experimental; nothing is published yet.
+
+Paths are relative to the repository root. Agents working in this repository must also follow AGENTS.md and the AGENTS.md file in the folder they change.
+
+## Start
+
+- [README](README.md): What ServoKit is, where it runs, and a quick look at the API
+- [Docs home](docs/README.md): Map of every documentation page
+- [Get started](docs/getting-started.md): Build and run the iOS, desktop, or Android examples
+- [How ServoKit works](ARCHITECTURE.md): Layers, principles, the engine and its compatibility layer, code paths, and glossary
+
+## Platforms
+
+- [React Native](docs/platforms/react-native.md): `<ServoView>` props, events, methods, navigation policy, dialogs, JavaScript evaluation, context menus
+- [Android](docs/platforms/android.md): Android host architecture, building the AAR, Kotlin API, IME, clipboard, back button
+- [Desktop (Rust)](docs/platforms/desktop.md): Embedding with the `servokit` crate, `winit` and GPUI examples, known limits
+
+## Concepts
+
+- [Runtime and views](docs/concepts/runtime.md): One engine per process, Runtime, sessions, web views, threads, profiles, popups
+- [Surfaces](docs/concepts/surfaces.md): Native and offscreen surfaces, GPU frames, attach and detach, several views, shutdown
+- [Commands, events, and page prompts](docs/concepts/controller.md): The JSON command envelope, prompt flow, fallbacks, transports, status codes
+
+## Reference
+
+- [What works where](docs/reference/capabilities.md): Single source of truth for capability support on Android, iOS, and native Rust
+- [Crates and packages](docs/reference/crates.md): Each crate's purpose, forbidden contents, and dependency rules
+- [macOS system web view](docs/reference/macos-system-webview.md): MacOsViewHost and the system JavaScript evaluation contract
+- [Testing and validation](docs/reference/testing.md): Quick checks, Servo-backed checks, and manual checks per platform
+- [Dependencies and the Servo version](docs/reference/dependencies.md): Servo 0.6.0 pin, Cargo roots, patches, update steps, upstream submodule
+
+## Agent rules
+
+- [AGENTS.md](AGENTS.md): Repository-wide rules for scope, public APIs, approval, delivery, and agent cadence
+- [crates/AGENTS.md](crates/AGENTS.md): Where Rust code belongs, dependency rules, FFI rules
+- [packages/react-native-servokit/AGENTS.md](packages/react-native-servokit/AGENTS.md): What the React Native adapter may and may not own
+- [examples/AGENTS.md](examples/AGENTS.md): Keeping examples thin, which app is which, test pages
+- [docs/AGENTS.md](docs/AGENTS.md): Writing style, one-fact-one-home table, link checks
+- [Development skill](.agents/skills/development/SKILL.md): Implementation, review, and pull request playbooks
+
+## Optional
+
+- [Contributing](CONTRIBUTING.md): RFC flow, acceptance, issue granularity, proof-tool retention
+- [React Native package README](packages/react-native-servokit/README.md): Install and usage for package consumers
+- [Test pages](examples/fixtures/README.md): Shared fixture pages and expected results

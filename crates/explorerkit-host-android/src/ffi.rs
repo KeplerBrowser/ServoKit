@@ -1451,6 +1451,82 @@ mod tests {
     }
 
     #[test]
+    fn validates_each_initial_url_before_retaining_the_last_accepted_navigation() {
+        for (requests, expected_url) in [
+            (
+                [
+                    (" example.com/a ", ServoStatus::Ok),
+                    ("https:///", ServoStatus::InvalidUrl),
+                ],
+                "https://example.com/a",
+            ),
+            (
+                [
+                    ("https:///", ServoStatus::InvalidUrl),
+                    ("example.com/b", ServoStatus::Ok),
+                ],
+                "https://example.com/b",
+            ),
+            (
+                [
+                    ("example.com/a", ServoStatus::Ok),
+                    ("example.com/b", ServoStatus::Ok),
+                ],
+                "https://example.com/b",
+            ),
+        ] {
+            let host = servo_host_new(0);
+            for (input, expected_status) in requests {
+                let input = cstring(input);
+                assert_eq!(
+                    unsafe { servo_host_load_url(host, input.as_ptr()) },
+                    expected_status
+                );
+            }
+
+            let handle = unsafe { &mut *host };
+            assert_eq!(handle.pending_url.as_deref(), Some(expected_url));
+            assert!(handle.current_url.is_none());
+            assert!(handle.android_backend.is_none());
+            assert!(handle.surface.is_none());
+            assert!(handle.native_window.is_none());
+            for (input, status) in requests {
+                if status == ServoStatus::InvalidUrl {
+                    assert!(matches!(
+                        handle.events.pop_front(),
+                        Some(HostEvent::Error { url: Some(url), code, .. })
+                            if url == input && code == ServoStatus::InvalidUrl as i32
+                    ));
+                }
+            }
+            assert!(handle.events.is_empty());
+
+            handle.set_android_backend_for_tests(Box::new(FakeAndroidBackend::default()));
+            handle.attach_android_surface_for_tests(
+                0xCAFEusize as NativeWindowHandle,
+                SurfaceSize::new(640, 480),
+                2.0,
+            );
+
+            assert!(handle.pending_url.is_none());
+            assert_eq!(handle.current_url.as_deref(), Some(expected_url));
+            assert_eq!(
+                handle.events.drain(..).collect::<Vec<_>>(),
+                vec![
+                    HostEvent::SurfaceAttached {
+                        size: SurfaceSize::new(640, 480)
+                    },
+                    HostEvent::UrlChanged {
+                        url: expected_url.to_owned()
+                    },
+                ]
+            );
+
+            unsafe { servo_host_free(host) };
+        }
+    }
+
+    #[test]
     fn defers_android_navigation_until_a_native_window_is_attached() {
         let mut handle = HostHandle::new();
         handle.set_android_backend_for_tests(Box::new(FakeAndroidBackend::default()));
@@ -1585,8 +1661,15 @@ mod tests {
         let mut handle = HostHandle::new();
         handle.set_android_backend_for_tests(Box::new(backend));
 
-        let request = NavigationRequest::new("example.com").unwrap();
-        handle.load_android_request_for_tests(request);
+        crate::commands::load_navigation_request_from_str(&mut handle, "example.com").unwrap();
+        assert_eq!(
+            crate::commands::load_navigation_request_from_str(&mut handle, "https:///"),
+            Err(ServoStatus::InvalidUrl)
+        );
+        assert!(matches!(
+            handle.events.pop_front(),
+            Some(HostEvent::Error { code: 1, .. })
+        ));
         handle.attach_android_surface_for_tests(
             0xCAFEusize as NativeWindowHandle,
             SurfaceSize::new(640, 480),

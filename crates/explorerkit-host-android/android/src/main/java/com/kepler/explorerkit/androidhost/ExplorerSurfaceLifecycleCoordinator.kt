@@ -5,9 +5,10 @@ import android.view.Surface
 /**
  * Proof-only Surface lifecycle coordinator shared by Android host adapters.
  *
- * It forwards retained navigation before attaching an available Android `Surface`. The app or
- * framework owns the actual `SurfaceView`, while Rust remains the browser lifecycle and engine
- * owner.
+ * Initial navigation reaches Rust immediately for validation and retention, until the first usable
+ * surface attach attempt or disposal. Later detached navigation is retained until reattachment,
+ * preserving the existing behavior after failed surface transitions. The app or framework owns the
+ * actual `SurfaceView`, while Rust remains the browser lifecycle and engine owner.
  */
 class ExplorerSurfaceLifecycleCoordinator(
   onSurfaceAttached: (Surface, Int, Int) -> Unit,
@@ -26,10 +27,16 @@ class ExplorerSurfaceLifecycleCoordinator(
 
   private var isSurfaceAvailable = false
   private var isSurfaceAttached = false
+  private var isInitialNavigationPhase = true
   private var pendingNavigationUrl: String? = null
   private var surface: Surface? = null
 
   fun loadUrl(url: String) {
+    if (isInitialNavigationPhase) {
+      requestNavigation(url)
+      return
+    }
+
     pendingNavigationUrl = url
     if (isSurfaceAttached) {
       flushPendingNavigation()
@@ -68,6 +75,7 @@ class ExplorerSurfaceLifecycleCoordinator(
   }
 
   fun onViewDisposed() {
+    isInitialNavigationPhase = false
     pendingNavigationUrl = null
     onSurfaceDestroyed()
   }
@@ -78,6 +86,7 @@ class ExplorerSurfaceLifecycleCoordinator(
       return
     }
 
+    isInitialNavigationPhase = false
     flushPendingNavigation()
     attachSurface(activeSurface, width, height)
     isSurfaceAttached = true

@@ -2,6 +2,7 @@ package com.kepler.explorerkit.androidhost
 
 import android.view.Surface
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class ExplorerSurfaceLifecycleCoordinatorTest {
@@ -158,6 +159,7 @@ class ExplorerSurfaceLifecycleCoordinatorTest {
     val coordinator = createCoordinator(calls)
 
     coordinator.loadUrl("https://example.com/")
+    assertEquals(listOf(SurfaceLifecycleCall.LoadUrl("https://example.com/")), calls)
     coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
 
     assertEquals(
@@ -171,17 +173,23 @@ class ExplorerSurfaceLifecycleCoordinatorTest {
   }
 
   @Test
-  fun flushesTheLatestInitialNavigationAfterLateSurfaceBinding() {
+  fun forwardsEveryInitialRequestBeforeSurfaceBinding() {
     val calls = mutableListOf<SurfaceLifecycleCall>()
     val coordinator = createCoordinator(calls)
 
     coordinator.loadUrl("https://example.com/first")
     coordinator.loadUrl("https://example.com/latest")
+    coordinator.loadUrl("https:///")
+    val requests = listOf(
+      SurfaceLifecycleCall.LoadUrl("https://example.com/first"),
+      SurfaceLifecycleCall.LoadUrl("https://example.com/latest"),
+      SurfaceLifecycleCall.LoadUrl("https:///")
+    )
+    assertEquals(requests, calls)
     coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
 
     assertEquals(
-      listOf(
-        SurfaceLifecycleCall.LoadUrl("https://example.com/latest"),
+      requests + listOf(
         SurfaceLifecycleCall.Attach(640, 480),
         SurfaceLifecycleCall.StartRendering
       ),
@@ -203,18 +211,25 @@ class ExplorerSurfaceLifecycleCoordinatorTest {
   }
 
   @Test
-  fun keepsPendingNavigationAcrossSurfaceRecreationBeforeFirstBind() {
+  fun keepsForwardingAcrossZeroSizedSurfaceRecreationBeforeFirstBind() {
     val calls = mutableListOf<SurfaceLifecycleCall>()
     val coordinator = createCoordinator(calls)
 
     coordinator.loadUrl("https://example.com/")
     coordinator.onSurfaceCreated(fakeSurface(), 0, 0)
+    coordinator.loadUrl("https://example.com/zero-sized")
     coordinator.onSurfaceDestroyed()
+    coordinator.loadUrl("https:///")
+    val requests = listOf(
+      SurfaceLifecycleCall.LoadUrl("https://example.com/"),
+      SurfaceLifecycleCall.LoadUrl("https://example.com/zero-sized"),
+      SurfaceLifecycleCall.LoadUrl("https:///")
+    )
+    assertEquals(requests, calls)
     coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
 
     assertEquals(
-      listOf(
-        SurfaceLifecycleCall.LoadUrl("https://example.com/"),
+      requests + listOf(
         SurfaceLifecycleCall.Attach(640, 480),
         SurfaceLifecycleCall.StartRendering
       ),
@@ -232,13 +247,18 @@ class ExplorerSurfaceLifecycleCoordinatorTest {
 
     coordinator.onSurfaceDestroyed()
     coordinator.loadUrl("https://example.com/")
+    coordinator.loadUrl("https:///")
+    assertEquals(
+      listOf(SurfaceLifecycleCall.Detach, SurfaceLifecycleCall.StopRendering),
+      calls
+    )
     coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
 
     assertEquals(
       listOf(
         SurfaceLifecycleCall.Detach,
         SurfaceLifecycleCall.StopRendering,
-        SurfaceLifecycleCall.LoadUrl("https://example.com/"),
+        SurfaceLifecycleCall.LoadUrl("https:///"),
         SurfaceLifecycleCall.Attach(640, 480),
         SurfaceLifecycleCall.StartRendering
       ),
@@ -269,10 +289,89 @@ class ExplorerSurfaceLifecycleCoordinatorTest {
     )
   }
 
+  @Test
+  fun keepsNavigationSubmittedInsideFirstAttachBufferedUntilRebind() {
+    val calls = mutableListOf<SurfaceLifecycleCall>()
+    lateinit var coordinator: ExplorerSurfaceLifecycleCoordinator
+    var attachCalls = 0
+    coordinator = createCoordinator(calls) {
+      if (++attachCalls == 1) {
+        coordinator.loadUrl("https://example.com/reentrant")
+        assertEquals(listOf(SurfaceLifecycleCall.Attach(640, 480)), calls)
+      }
+    }
+
+    coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
+    assertEquals(
+      listOf(SurfaceLifecycleCall.Attach(640, 480), SurfaceLifecycleCall.StartRendering),
+      calls
+    )
+    calls.clear()
+    coordinator.onSurfaceDestroyed()
+    coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
+
+    assertEquals(
+      listOf(
+        SurfaceLifecycleCall.Detach,
+        SurfaceLifecycleCall.StopRendering,
+        SurfaceLifecycleCall.LoadUrl("https://example.com/reentrant"),
+        SurfaceLifecycleCall.Attach(640, 480),
+        SurfaceLifecycleCall.StartRendering
+      ),
+      calls
+    )
+  }
+
+  @Test
+  fun keepsNavigationBufferedAfterFirstAttachThrows() {
+    val calls = mutableListOf<SurfaceLifecycleCall>()
+    var attachCalls = 0
+    val coordinator = createCoordinator(calls) {
+      if (++attachCalls == 1) {
+        throw IllegalStateException("attach failed")
+      }
+    }
+
+    assertThrows(IllegalStateException::class.java) {
+      coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
+    }
+    calls.clear()
+    coordinator.loadUrl("https://example.com/retry")
+    assertEquals(emptyList<SurfaceLifecycleCall>(), calls)
+    coordinator.onSurfaceDestroyed()
+    coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
+
+    assertEquals(
+      listOf(
+        SurfaceLifecycleCall.LoadUrl("https://example.com/retry"),
+        SurfaceLifecycleCall.Attach(640, 480),
+        SurfaceLifecycleCall.StartRendering
+      ),
+      calls
+    )
+  }
+
+  @Test
+  fun stopsInitialForwardingWhenDisposedBeforeAnyAttach() {
+    val calls = mutableListOf<SurfaceLifecycleCall>()
+    val coordinator = createCoordinator(calls)
+    coordinator.loadUrl("https://example.com/")
+    calls.clear()
+
+    coordinator.onViewDisposed()
+    coordinator.loadUrl("https://example.com/after-dispose")
+
+    assertEquals(emptyList<SurfaceLifecycleCall>(), calls)
+  }
+
   private fun createCoordinator(
-    calls: MutableList<SurfaceLifecycleCall>
+    calls: MutableList<SurfaceLifecycleCall>,
+    onAttach: () -> Unit = {}
   ) = ExplorerSurfaceLifecycleCoordinator(
-    onSurfaceAttached = { _, width, height -> calls += SurfaceLifecycleCall.Attach(width, height) },
+    onSurfaceAttached = { _, width, height ->
+      calls += SurfaceLifecycleCall.Attach(width, height)
+      onAttach()
+    },
     onSurfaceResized = { width, height -> calls += SurfaceLifecycleCall.Resize(width, height) },
     onSurfaceDetached = { calls += SurfaceLifecycleCall.Detach },
     onLoadUrl = { url -> calls += SurfaceLifecycleCall.LoadUrl(url) },

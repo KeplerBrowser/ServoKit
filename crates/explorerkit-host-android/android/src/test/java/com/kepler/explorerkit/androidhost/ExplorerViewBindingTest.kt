@@ -30,6 +30,62 @@ class ExplorerViewBindingTest {
   }
 
   @Test
+  fun returnsInitialNavigationErrorsBeforeAnySurfaceCall() {
+    val error = ExplorerHostEvent.Error("https:///", 1, "invalid url: empty host")
+    val host = FakeExplorerHost(loadStatus = 1, loadEvents = listOf(error))
+    val events = mutableListOf<ExplorerHostEvent>()
+    val coordinator = createSurfaceCoordinator(ExplorerViewBinding(host), events)
+
+    coordinator.loadUrl("https:///")
+
+    assertEquals(listOf(error), events)
+    assertEquals(listOf("https:///"), host.loadedUrls)
+    assertEquals(0, host.attachCalls)
+    assertEquals(0, host.performUpdatesCalls)
+  }
+
+  @Test
+  fun keepsNavigationBufferedAfterADetachErrorUntilRebind() {
+    val error = ExplorerHostEvent.Error(null, 4, "surface detach failed")
+    val host = FakeExplorerHost(detachEvents = listOf(error))
+    val events = mutableListOf<ExplorerHostEvent>()
+    val coordinator = createSurfaceCoordinator(ExplorerViewBinding(host), events)
+    coordinator.loadUrl("https://example.com/initial")
+    coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
+
+    coordinator.onSurfaceDestroyed()
+    coordinator.loadUrl("https://example.com/detached")
+    coordinator.loadUrl("https:///")
+
+    assertEquals(listOf(error), events)
+    assertEquals(listOf("https://example.com/initial"), host.loadedUrls)
+    assertEquals(1, host.detachCalls)
+
+    coordinator.onSurfaceCreated(fakeSurface(), 640, 480)
+
+    assertEquals(listOf("https://example.com/initial", "https:///"), host.loadedUrls)
+    assertEquals(2, host.attachCalls)
+  }
+
+  @Test
+  fun doesNotForwardNavigationAfterDisposalBeforeFirstAttach() {
+    val host = FakeExplorerHost()
+    val binding = ExplorerViewBinding(host)
+    val events = mutableListOf<ExplorerHostEvent>()
+    val coordinator = createSurfaceCoordinator(binding, events)
+    coordinator.loadUrl("https://example.com/initial")
+
+    coordinator.onViewDisposed()
+    binding.dispose()
+    coordinator.loadUrl("https://example.com/after-dispose")
+
+    assertEquals(listOf("https://example.com/initial"), host.loadedUrls)
+    assertEquals(emptyList<ExplorerHostEvent>(), events)
+    assertEquals(1, host.destroyCalls)
+    assertEquals(0, host.attachCalls)
+  }
+
+  @Test
   fun returnsNativeSurfaceAttachEvents() {
     val events: List<ExplorerHostEvent> = listOf(ExplorerHostEvent.SurfaceAttached(640, 480))
     val host = FakeExplorerHost(attachEvents = events)
@@ -493,6 +549,20 @@ private fun assertPlainEvents(expected: List<ExplorerHostEvent>, actual: List<Ex
   assertEquals(expected.javaClass, actual.javaClass)
 }
 
+private fun createSurfaceCoordinator(
+  binding: ExplorerViewBinding,
+  events: MutableList<ExplorerHostEvent>
+) = ExplorerSurfaceLifecycleCoordinator(
+  onSurfaceAttached = { surface, width, height ->
+    events += binding.attachSurface(surface, width, height, 2f)
+  },
+  onSurfaceResized = { width, height -> events += binding.resizeSurface(width, height, 2f) },
+  onSurfaceDetached = { events += binding.detachSurface() },
+  onLoadUrl = { events += binding.loadUrl(it) },
+  onRenderingStarted = {},
+  onRenderingStopped = {}
+)
+
 private fun fakeSurface(): Surface {
   val unsafeClass = Class.forName("sun.misc.Unsafe")
   val field = unsafeClass.getDeclaredField("theUnsafe")
@@ -527,6 +597,7 @@ private class FakeExplorerHost(
   private val resolvePermissionEvents: List<ExplorerHostEvent> = emptyList(),
   private val resolveNavigationRequestEvents: List<ExplorerHostEvent> = emptyList()
 ) : ExplorerHost {
+  val loadedUrls = mutableListOf<String>()
   var destroyCalls = 0
     private set
   var attachCalls = 0
@@ -590,6 +661,7 @@ private class FakeExplorerHost(
   override fun controllerHandle(): String? = controllerHandle
 
   override fun loadUrl(input: String): Int {
+    loadedUrls += input
     pendingEvents = loadEvents
     return loadStatus
   }

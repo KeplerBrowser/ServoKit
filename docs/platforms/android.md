@@ -106,7 +106,7 @@ The Gradle module at `crates/explorerkit-host-android/android` provides:
 | Class | Role |
 | --- | --- |
 | `ExplorerViewBinding` | One browser instance. Commands (`loadUrl`, `reload`, `goBack`, `goForward`, `focus`, `blur`), surface calls (`attachSurface`, `resizeSurface`, `detachSurface`), input (`dispatchTouchEvent`, `dispatchImeComposition`, `dispatchKeyboardKey`, `dismissInputMethod`, `triggerContextMenu`), prompt answers (`resolveSimpleDialog`, `resolveNavigationRequest`, `resolveSelectElement`, `resolveFilePicker`, `dismissFilePicker`, `resolvePermission`, `resolveContextMenu`, `dismissContextMenu`), `performUpdates()`, and `dispose()`. Most calls return the events produced since the last call. `sendControllerCommand(json)` sends a [command envelope](../concepts/controller.md#the-command-envelope) and returns a status code. |
-| `ExplorerSurfaceLifecycleCoordinator` | Tracks the `SurfaceView` lifecycle, ignores zero-size surfaces, and holds a URL until a surface exists. |
+| `ExplorerSurfaceLifecycleCoordinator` | Tracks the `SurfaceView` lifecycle, ignores zero-size surfaces, and forwards initial URLs to Rust for validation. After the first attach attempt, it buffers detached navigation until reattachment. |
 | `ExplorerHostEvent` | Typed Kotlin events, such as `UrlChanged`, `NavigationRequested`, or `SelectElementRequested`. |
 | `ExplorerInputPickerValues` | Parses and formats values for date, time, color, month, and week pickers. |
 | `JniServoHost` | The JNI wrapper. Loads the native library. |
@@ -121,6 +121,19 @@ builds the same code under a different name. Both build the Rust library from
 source as part of their Gradle build.
 
 ## Android behavior
+
+### Initial navigation
+
+Before the first usable surface-attach attempt, the coordinator sends each URL
+to Rust immediately. Rust validates it and retains the latest valid URL until
+the surface is ready. A valid URL followed by an invalid URL therefore keeps
+the valid page pending. Error events can arrive before a surface attaches, so
+install your event handler before requesting the initial page.
+
+Zero-size surfaces do not end this initial behavior. After the first usable
+attach attempt, detached navigation retains its existing buffering: only the
+latest raw URL is forwarded when the surface reattaches. This later buffering
+does not yet provide the same protection against an invalid replacement URL.
 
 ### Prompts and native UI
 
